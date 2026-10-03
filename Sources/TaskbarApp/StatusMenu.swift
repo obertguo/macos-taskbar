@@ -8,15 +8,19 @@ public final class StatusMenu {
     private let statusItem: NSStatusItem
     private var currentStyle: ThemeStyle
     private var isNudgerEnabled: Bool
+    private var isDockHidden: Bool
     
     public var onThemeChanged: ((ThemeStyle) -> Void)?
     public var onLauncherTriggered: (() -> Void)?
     public var onNudgerToggled: ((Bool) -> Void)?
+    public var onHideDockToggled: ((Bool) -> Void)?
+    public var onRestoreDockRequested: (() -> Void)?
     public var onQuitRequested: (() -> Void)?
     
-    public init(currentStyle: ThemeStyle, isNudgerEnabled: Bool = true) {
+    public init(currentStyle: ThemeStyle, isNudgerEnabled: Bool = true, isDockHidden: Bool = true) {
         self.currentStyle = currentStyle
         self.isNudgerEnabled = isNudgerEnabled
+        self.isDockHidden = isDockHidden
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         setupMenu()
@@ -29,6 +33,11 @@ public final class StatusMenu {
     
     public func updateNudgerState(_ enabled: Bool) {
         self.isNudgerEnabled = enabled
+        setupMenu()
+    }
+    
+    public func updateDockHiddenState(_ hidden: Bool) {
+        self.isDockHidden = hidden
         setupMenu()
     }
     
@@ -75,6 +84,18 @@ public final class StatusMenu {
         
         menu.addItem(NSMenuItem.separator())
         
+        // macOS System Dock controls
+        let hideDockItem = NSMenuItem(title: "Hide macOS System Dock", action: #selector(handleToggleHideDock), keyEquivalent: "")
+        hideDockItem.target = self
+        hideDockItem.state = isDockHidden ? .on : .off
+        menu.addItem(hideDockItem)
+        
+        let restoreDockItem = NSMenuItem(title: "Restore System Dock Now", action: #selector(handleRestoreDock), keyEquivalent: "")
+        restoreDockItem.target = self
+        menu.addItem(restoreDockItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
         // Quit
         let quitItem = NSMenuItem(title: "Quit \(BuildConfiguration.appName)", action: #selector(handleQuit), keyEquivalent: "q")
         quitItem.target = self
@@ -99,6 +120,23 @@ public final class StatusMenu {
         isNudgerEnabled.toggle()
         setupMenu()
         onNudgerToggled?(isNudgerEnabled)
+    }
+    
+    @objc private func handleToggleHideHideDock() {
+        // Alias
+        handleToggleHideDock()
+    }
+    
+    @objc private func handleToggleHideDock() {
+        isDockHidden.toggle()
+        setupMenu()
+        onHideDockToggled?(isDockHidden)
+    }
+    
+    @objc private func handleRestoreDock() {
+        isDockHidden = false
+        setupMenu()
+        onRestoreDockRequested?()
     }
     
     @objc private func handleQuit() {

@@ -25,6 +25,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             AccessibilityPermission.promptIfNecessary()
         }
         
+        // Hide macOS System Dock if enabled in settings
+        if settings.hideSystemDock {
+            DockController.shared.hideDock()
+        }
+        
         // Initialize multi-screen manager
         let screenManager = ScreenManager(settings: settings, store: store)
         self.screenManager = screenManager
@@ -45,7 +50,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         self.appTracker = appTracker
         
         // Initialize menu bar status item
-        let statusMenu = StatusMenu(currentStyle: settings.themeStyle, isNudgerEnabled: settings.enableAXNudger)
+        let statusMenu = StatusMenu(
+            currentStyle: settings.themeStyle,
+            isNudgerEnabled: settings.enableAXNudger,
+            isDockHidden: settings.hideSystemDock
+        )
         statusMenu.onThemeChanged = { [weak self] newStyle in
             guard let self = self else { return }
             self.settings.themeStyle = newStyle
@@ -61,6 +70,22 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.appTracker?.scheduleReconcile(delay: 0.05)
             }
         }
+        statusMenu.onHideDockToggled = { [weak self] hide in
+            guard let self = self else { return }
+            self.settings.hideSystemDock = hide
+            self.settings.save()
+            if hide {
+                DockController.shared.hideDock()
+            } else {
+                DockController.shared.restoreDock()
+            }
+        }
+        statusMenu.onRestoreDockRequested = { [weak self] in
+            guard let self = self else { return }
+            self.settings.hideSystemDock = false
+            self.settings.save()
+            DockController.shared.restoreDock()
+        }
         statusMenu.onLauncherTriggered = { [weak self] in
             guard let self = self else { return }
             Launcher.launch(self.settings.launcherAction)
@@ -70,10 +95,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         self.statusMenu = statusMenu
         
-        print("[\(BuildConfiguration.appName)] Started successfully on \(NSScreen.screens.count) screen(s). Theme: \(settings.themeStyle.displayName). Nudger: \(settings.enableAXNudger ? "Enabled" : "Disabled"). Tracking active.")
+        print("[\(BuildConfiguration.appName)] Started successfully on \(NSScreen.screens.count) screen(s). Theme: \(settings.themeStyle.displayName). Dock: \(settings.hideSystemDock ? "Hidden" : "Visible"). Tracking active.")
     }
     
     public func applicationWillTerminate(_ notification: Notification) {
+        // Guaranteed restoration of native macOS Dock on quit
+        DockController.restoreDockSync()
         screenManager?.closeAll()
         print("[\(BuildConfiguration.appName)] Terminated cleanly.")
     }
