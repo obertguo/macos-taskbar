@@ -90,4 +90,41 @@ final class WindowStoreTests: XCTestCase {
         XCTAssertEqual(store.totalWindowCount, 1)
         XCTAssertEqual(store.windows(forScreenID: 1, screens: screens).first?.key, w2.key)
     }
+    
+    func testFullScreenTransitionTracking() {
+        let store = WindowStore()
+        let key = WindowKey(id: 401, pid: 400)
+        
+        // Window initially enters full-screen
+        let fsWindow = WindowInfo(
+            key: key,
+            pid: 400,
+            appName: "Browser",
+            bundleID: "com.browser",
+            title: "Web Page",
+            frame: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            isFullScreen: true
+        )
+        store.addOrUpdateWindow(fsWindow)
+        
+        let storedFS = store.windows(forScreenID: 1, screens: screens).first
+        XCTAssertNotNil(storedFS)
+        XCTAssertTrue(storedFS?.isFullScreen == true)
+        
+        // Window exits full-screen back to normal window
+        let normalWindow = WindowInfo(
+            key: key,
+            pid: 400,
+            appName: "Browser",
+            bundleID: "com.browser",
+            title: "Web Page",
+            frame: CGRect(x: 100, y: 100, width: 1200, height: 800),
+            isFullScreen: false
+        )
+        store.addOrUpdateWindow(normalWindow)
+        
+        let storedNormal = store.windows(forScreenID: 1, screens: screens).first
+        XCTAssertNotNil(storedNormal)
+        XCTAssertFalse(storedNormal?.isFullScreen == true, "WindowStore must update isFullScreen to false when window exits full-screen mode")
+    }
 }

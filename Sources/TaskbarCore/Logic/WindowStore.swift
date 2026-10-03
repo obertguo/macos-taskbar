@@ -22,6 +22,7 @@ public final class WindowStore: @unchecked Sendable {
             existing.isMinimized = info.isMinimized
             existing.isAppHidden = info.isAppHidden
             existing.isMain = info.isMain
+            existing.isFullScreen = info.isFullScreen
             windows[info.key] = existing
         } else {
             openOrderCounter += 1

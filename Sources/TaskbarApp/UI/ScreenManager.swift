@@ -103,14 +103,7 @@ public final class ScreenManager {
         for (displayID, panel) in panels {
             let screenWindows = store.windows(forScreenID: UInt32(displayID), screens: descriptors)
             
-            // Hide taskbar panel if an active native full-screen window occupies this display
-            let hasActiveFullScreen = screenWindows.contains { win in
-                win.isFullScreen && !win.isMinimized && !win.isAppHidden && (win.pid == store.frontmostPID || win.isMain)
-            }
-            
-            if hasActiveFullScreen {
-                panel.orderOut(nil)
-            } else if !panel.isVisible {
+            if !panel.isVisible {
                 panel.orderFrontRegardless()
             }
             
