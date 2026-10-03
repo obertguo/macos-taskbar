@@ -31,8 +31,8 @@ public final class TaskbarPanel: NSPanel {
         self.contentView = taskbarView
         self.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.dockWindow)))
         
-        // Move across regular user desktop spaces, but strictly exclude native full-screen presentation spaces
-        self.collectionBehavior = [.moveToActiveSpace, .stationary, .ignoresCycle, .fullScreenNone]
+        // Participate in all regular desktop spaces, but exclude from native full-screen presentation
+        self.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenNone]
         self.isFloatingPanel = true
         self.hidesOnDeactivate = false
         self.isMovable = false

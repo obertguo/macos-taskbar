@@ -22,6 +22,13 @@ public final class ScreenManager {
             object: nil
         )
         
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleActiveSpaceChanged),
+            name: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil
+        )
+        
         refreshPanels()
     }
     
@@ -62,6 +69,38 @@ public final class ScreenManager {
         refreshPanels()
     }
     
+    @objc private func handleActiveSpaceChanged() {
+        updateWindows()
+    }
+    
+    /// Determines whether the active space on a physical display is currently showing a native full-screen app.
+    private func isScreenInFullScreen(screen: NSScreen) -> Bool {
+        let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
+        let screenBounds = displayID != 0 ? CGDisplayBounds(displayID) : screen.frame
+        
+        let onScreenWindows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+        for w in onScreenWindows {
+            let layer = w[kCGWindowLayer as String] as? Int ?? -1
+            guard layer == 0 else { continue } // Normal application layer
+            guard let boundsDict = w[kCGWindowBounds as String] as? [String: CGFloat] else { continue }
+            
+            let x = boundsDict["X"] ?? 0
+            let y = boundsDict["Y"] ?? 0
+            let width = boundsDict["Width"] ?? 0
+            let height = boundsDict["Height"] ?? 0
+            let winFrame = CGRect(x: x, y: y, width: width, height: height)
+            
+            // Native full-screen windows cover the entire physical screen display bounds
+            if abs(winFrame.minX - screenBounds.minX) <= 2.0 &&
+               abs(winFrame.minY - screenBounds.minY) <= 2.0 &&
+               abs(winFrame.width - screenBounds.width) <= 2.0 &&
+               abs(winFrame.height - screenBounds.height) <= 2.0 {
+                return true
+            }
+        }
+        return false
+    }
+    
     public func refreshPanels() {
         let screens = NSScreen.screens
         var activeDisplayIDs = Set<CGDirectDisplayID>()
@@ -100,11 +139,24 @@ public final class ScreenManager {
     
     public func updateWindows() {
         let descriptors = screenDescriptors()
+        let screens = NSScreen.screens
+        
         for (displayID, panel) in panels {
-            let screenWindows = store.windows(forScreenID: UInt32(displayID), screens: descriptors)
+            guard let screen = screens.first(where: {
+                ((($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0) == displayID)
+            }) else { continue }
             
-            if !panel.isVisible {
-                panel.orderFrontRegardless()
+            let screenWindows = store.windows(forScreenID: UInt32(displayID), screens: descriptors)
+            let isFullScreen = isScreenInFullScreen(screen: screen)
+            
+            if isFullScreen {
+                if panel.isVisible {
+                    panel.orderOut(nil)
+                }
+            } else {
+                if !panel.isVisible {
+                    panel.orderFrontRegardless()
+                }
             }
             
             panel.taskbarView.updateWindows(
