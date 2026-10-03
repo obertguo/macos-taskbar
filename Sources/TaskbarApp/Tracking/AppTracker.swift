@@ -158,6 +158,7 @@ public final class AppTracker {
                     let frame = win.frame ?? .zero
                     let isMin = win.isMinimized
                     let isMain = win.isMain
+                    let isFullScreen = win.isFullScreen
                     
                     if WindowFilter.shouldInclude(
                         role: role,
@@ -179,7 +180,8 @@ public final class AppTracker {
                             frame: frame,
                             isMinimized: isMin,
                             isAppHidden: isHidden,
-                            isMain: isMain
+                            isMain: isMain,
+                            isFullScreen: isFullScreen
                         )
                         appWindows.append(info)
                         

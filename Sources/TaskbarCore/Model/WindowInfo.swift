@@ -13,6 +13,7 @@ public struct WindowInfo: Equatable, Sendable, Identifiable {
     public var isMinimized: Bool
     public var isAppHidden: Bool
     public var isMain: Bool
+    public var isFullScreen: Bool
     public var openOrder: UInt64
     
     public var id: WindowKey { key }
@@ -32,6 +33,7 @@ public struct WindowInfo: Equatable, Sendable, Identifiable {
         isMinimized: Bool = false,
         isAppHidden: Bool = false,
         isMain: Bool = false,
+        isFullScreen: Bool = false,
         openOrder: UInt64 = 0
     ) {
         self.key = key
@@ -43,6 +45,7 @@ public struct WindowInfo: Equatable, Sendable, Identifiable {
         self.isMinimized = isMinimized
         self.isAppHidden = isAppHidden
         self.isMain = isMain
+        self.isFullScreen = isFullScreen
         self.openOrder = openOrder
     }
 }
