@@ -183,6 +183,11 @@ public final class AppTracker {
                         )
                         appWindows.append(info)
                         
+                        // Check if maximized window needs work area clamping
+                        if !isMin && !isHidden {
+                            WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: win, pid: pid, isResize: false)
+                        }
+                        
                         // Fallback focused window detection (if appElement.focusedWindow returned nil, e.g. in Chrome)
                         if pid == frontmostPID && currentFocusedKey == nil && isMain {
                             currentFocusedKey = key

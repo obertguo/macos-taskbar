@@ -29,13 +29,17 @@ public final class ScreenManager {
         NSScreen.screens.map { screen in
             let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
             let isPrimary = (screen == NSScreen.screens.first)
-            return ScreenDescriptor(id: UInt32(displayID), frame: screen.frame, isPrimary: isPrimary)
+            let frame = displayID != 0 ? CGDisplayBounds(displayID) : screen.frame
+            return ScreenDescriptor(id: UInt32(displayID), frame: frame, isPrimary: isPrimary)
         }
     }
     
     public func updateSettings(_ newSettings: Settings) {
         self.settings = newSettings
         self.currentTheme = ThemeDefinition.forStyle(newSettings.themeStyle)
+        
+        WorkAreaEnforcer.shared.barHeight = CGFloat(newSettings.barHeight)
+        WorkAreaEnforcer.shared.isEnabled = newSettings.enableAXNudger
         
         for panel in panels.values {
             panel.applyTheme(currentTheme)
@@ -90,6 +94,7 @@ public final class ScreenManager {
             }
         }
         
+        WorkAreaEnforcer.shared.updateScreens(screenDescriptors())
         updateWindows()
     }
     

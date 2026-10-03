@@ -40,6 +40,25 @@ extension AXUIElement {
         return val?.boolValue ?? false
     }
     
+    public var isFullScreen: Bool {
+        let val: NSNumber? = attribute("AXFullScreen" as CFString)
+        return val?.boolValue ?? false
+    }
+    
+    public var isSizeSettable: Bool {
+        var settable: DarwinBoolean = false
+        let result = AXUIElementIsAttributeSettable(self, kAXSizeAttribute as CFString, &settable)
+        return result == .success && settable.boolValue
+    }
+    
+    @discardableResult
+    public func setSize(_ size: CGSize) -> Bool {
+        var newSize = size
+        guard let val = AXValueCreate(.cgSize, &newSize) else { return false }
+        let result = AXUIElementSetAttributeValue(self, kAXSizeAttribute as CFString, val)
+        return result == .success
+    }
+    
     public var minimizeButton: AXUIElement? {
         var value: AnyObject?
         let result = AXUIElementCopyAttributeValue(self, kAXMinimizeButtonAttribute as CFString, &value)

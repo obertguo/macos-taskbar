@@ -7,13 +7,16 @@ import TaskbarCore
 public final class StatusMenu {
     private let statusItem: NSStatusItem
     private var currentStyle: ThemeStyle
+    private var isNudgerEnabled: Bool
     
     public var onThemeChanged: ((ThemeStyle) -> Void)?
     public var onLauncherTriggered: (() -> Void)?
+    public var onNudgerToggled: ((Bool) -> Void)?
     public var onQuitRequested: (() -> Void)?
     
-    public init(currentStyle: ThemeStyle) {
+    public init(currentStyle: ThemeStyle, isNudgerEnabled: Bool = true) {
         self.currentStyle = currentStyle
+        self.isNudgerEnabled = isNudgerEnabled
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         setupMenu()
@@ -21,6 +24,11 @@ public final class StatusMenu {
     
     public func updateStyle(_ style: ThemeStyle) {
         self.currentStyle = style
+        setupMenu()
+    }
+    
+    public func updateNudgerState(_ enabled: Bool) {
+        self.isNudgerEnabled = enabled
         setupMenu()
     }
     
@@ -59,6 +67,12 @@ public final class StatusMenu {
         startItem.target = self
         menu.addItem(startItem)
         
+        // WorkArea Nudger Toggle
+        let nudgerItem = NSMenuItem(title: "Nudge Maximized Windows", action: #selector(handleToggleNudger), keyEquivalent: "")
+        nudgerItem.target = self
+        nudgerItem.state = isNudgerEnabled ? .on : .off
+        menu.addItem(nudgerItem)
+        
         menu.addItem(NSMenuItem.separator())
         
         // Quit
@@ -79,6 +93,12 @@ public final class StatusMenu {
     
     @objc private func handleOpenLauncher() {
         onLauncherTriggered?()
+    }
+    
+    @objc private func handleToggleNudger() {
+        isNudgerEnabled.toggle()
+        setupMenu()
+        onNudgerToggled?(isNudgerEnabled)
     }
     
     @objc private func handleQuit() {

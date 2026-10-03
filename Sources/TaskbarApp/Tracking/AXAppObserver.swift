@@ -11,7 +11,7 @@ private func axObserverCallback(
 ) {
     guard let refcon = refcon else { return }
     let appObserver = Unmanaged<AXAppObserver>.fromOpaque(refcon).takeUnretainedValue()
-    appObserver.handleNotification(notification as String)
+    appObserver.handleNotification(notification as String, element: element)
 }
 
 public final class AXAppObserver: @unchecked Sendable {
@@ -79,7 +79,14 @@ public final class AXAppObserver: @unchecked Sendable {
         }
     }
     
-    fileprivate func handleNotification(_ name: String) {
+    fileprivate func handleNotification(_ name: String, element: AXUIElement) {
+        if name == (kAXWindowResizedNotification as String) {
+            WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: element, pid: pid, isResize: true)
+        } else if name == (kAXWindowMovedNotification as String) {
+            WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: element, pid: pid, isResize: false)
+        } else if name == (kAXUIElementDestroyedNotification as String) {
+            WorkAreaEnforcer.shared.removeWindow(winID: element.windowID)
+        }
         onEvent?()
     }
     
