@@ -6,12 +6,18 @@ import TaskbarCore
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settings: Settings!
+    private var store: WindowStore!
     private var screenManager: ScreenManager?
+    private var appTracker: AppTracker?
     private var statusMenu: StatusMenu?
     
     public func applicationDidFinishLaunching(_ notification: Notification) {
         // Load persistent or default settings
         self.settings = Settings.load()
+        
+        // Initialize canonical window store
+        let store = WindowStore()
+        self.store = store
         
         // Check Accessibility permission on startup
         if !AccessibilityPermission.isGranted() {
@@ -20,8 +26,16 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         // Initialize multi-screen manager
-        let screenManager = ScreenManager(settings: settings)
+        let screenManager = ScreenManager(settings: settings, store: store)
         self.screenManager = screenManager
+        
+        // Initialize AppTracker for live window tracking
+        let appTracker = AppTracker(store: store)
+        appTracker.onWindowsChanged = { [weak self] in
+            guard let self = self else { return }
+            self.screenManager?.updateWindows()
+        }
+        self.appTracker = appTracker
         
         // Initialize menu bar status item
         let statusMenu = StatusMenu(currentStyle: settings.themeStyle)
@@ -40,7 +54,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         self.statusMenu = statusMenu
         
-        print("[\(BuildConfiguration.appName)] Started successfully on \(NSScreen.screens.count) screen(s). Theme: \(settings.themeStyle.displayName).")
+        print("[\(BuildConfiguration.appName)] Started successfully on \(NSScreen.screens.count) screen(s). Theme: \(settings.themeStyle.displayName). Tracking active.")
     }
     
     public func applicationWillTerminate(_ notification: Notification) {

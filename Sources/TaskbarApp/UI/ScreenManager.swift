@@ -8,9 +8,11 @@ public final class ScreenManager {
     private var panels: [CGDirectDisplayID: TaskbarPanel] = [:]
     private var settings: Settings
     private var currentTheme: ThemeDefinition
+    public let store: WindowStore
     
-    public init(settings: Settings) {
+    public init(settings: Settings, store: WindowStore) {
         self.settings = settings
+        self.store = store
         self.currentTheme = ThemeDefinition.forStyle(settings.themeStyle)
         
         NotificationCenter.default.addObserver(
@@ -21,6 +23,14 @@ public final class ScreenManager {
         )
         
         refreshPanels()
+    }
+    
+    public func screenDescriptors() -> [ScreenDescriptor] {
+        NSScreen.screens.map { screen in
+            let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
+            let isPrimary = (screen == NSScreen.screens.first)
+            return ScreenDescriptor(id: UInt32(displayID), frame: screen.frame, isPrimary: isPrimary)
+        }
     }
     
     public func updateSettings(_ newSettings: Settings) {
@@ -78,6 +88,18 @@ public final class ScreenManager {
                 panel.close()
                 panels.removeValue(forKey: displayID)
             }
+        }
+    }
+    
+    public func updateWindows() {
+        let descriptors = screenDescriptors()
+        for (displayID, _) in panels {
+            let screenWindows = store.windows(forScreenID: UInt32(displayID), screens: descriptors)
+            #if DEBUG
+            if !screenWindows.isEmpty {
+                print("[\(BuildConfiguration.appName)] Screen \(displayID) tracking \(screenWindows.count) window(s): \(screenWindows.map { $0.displayTitle })")
+            }
+            #endif
         }
     }
     
