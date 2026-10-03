@@ -16,6 +16,9 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
     // Per-window debounce generation counters: [windowID: generation]
     private var generationCounters: [UInt64: UInt64] = [:]
     
+    // Tracks whether a resize was part of the current debounce burst
+    private var windowWasResizedInDebounce: [UInt64: Bool] = [:]
+    
     // Recursion guard: tracks target height, consecutive attempts, and timestamps
     private struct NudgeRecord {
         var targetHeight: CGFloat
@@ -64,6 +67,9 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
         let nextGen = (generationCounters[winID] ?? 0) &+ 1
         generationCounters[winID] = nextGen
         generation = nextGen
+        if isResize {
+            windowWasResizedInDebounce[winID] = true
+        }
         lock.unlock()
         
         // 150ms settle debounce: allows window manager animations (e.g. titlebar double-click zoom)
@@ -71,9 +77,11 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
         DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + 0.15) { [element] in
             AXThread.shared.async {
                 let enforcer = WorkAreaEnforcer.shared
-                let currentGen = enforcer.lock.withLock { enforcer.generationCounters[winID] }
+                let (currentGen, wasResized) = enforcer.lock.withLock {
+                    (enforcer.generationCounters[winID], enforcer.windowWasResizedInDebounce.removeValue(forKey: winID) ?? false)
+                }
                 guard currentGen == generation else { return }
-                enforcer.evaluateAndClamp(element: element, pid: pid, winID: winID, isResize: isResize)
+                enforcer.evaluateAndClamp(element: element, pid: pid, winID: winID, isResize: wasResized || isResize)
             }
         }
     }
@@ -178,6 +186,7 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
     public func removeWindow(winID: UInt64) {
         lock.withLock {
             generationCounters.removeValue(forKey: winID)
+            windowWasResizedInDebounce.removeValue(forKey: winID)
             nudgeRecords.removeValue(forKey: winID)
         }
     }

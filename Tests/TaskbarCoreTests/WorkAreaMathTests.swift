@@ -103,6 +103,10 @@ final class WorkAreaMathTests: XCTestCase {
         let halfTiled = CGRect(x: 720, y: 25, width: 720, height: 875)
         XCTAssertTrue(WorkAreaMath.isVerticallyMaximized(halfTiled, screenFrame: screen))
         
+        // MacBook notch display test (menu bar ~52pt, window ends at 875pt overlapping taskbar by 5pt)
+        let notchWindow = CGRect(x: 0, y: 52, width: 1440, height: 823) // maxY: 875
+        XCTAssertTrue(WorkAreaMath.isVerticallyMaximized(notchWindow, screenFrame: screen, taskbarHeight: 30))
+        
         let smallCenter = CGRect(x: 200, y: 200, width: 500, height: 400)
         XCTAssertFalse(WorkAreaMath.isVerticallyMaximized(smallCenter, screenFrame: screen))
         

@@ -11,12 +11,24 @@ public enum WorkAreaMath {
     public static let overlapThreshold: CGFloat = 2.0
     
     /// Checks whether a window is considered vertically maximized or screen-filling (e.g. zoomed or split-tiled).
-    public static func isVerticallyMaximized(_ windowFrame: CGRect, screenFrame: CGRect) -> Bool {
-        // Window top starts near the screen top (accounting for menu bar / notch ~25-45pt)
-        let nearTop = windowFrame.minY <= screenFrame.minY + 45.0
-        // Window bottom reaches or exceeds the screen bottom
-        let nearBottom = windowFrame.maxY >= screenFrame.maxY - 10.0
-        return nearTop && nearBottom
+    public static func isVerticallyMaximized(
+        _ windowFrame: CGRect,
+        screenFrame: CGRect,
+        taskbarHeight: CGFloat = 30.0
+    ) -> Bool {
+        guard screenFrame.height > 0 else { return false }
+        
+        // Window top starts in the upper portion of the screen (generous tolerance for notch, menu bar, and titlebar padding)
+        let nearTop = windowFrame.minY <= screenFrame.minY + max(120.0, screenFrame.height * 0.2)
+        
+        // Window bottom extends into the taskbar reserved region
+        let taskbarTopY = screenFrame.maxY - taskbarHeight
+        let extendsIntoTaskbar = windowFrame.maxY > taskbarTopY + overlapThreshold
+        
+        // Window occupies a significant portion of screen height (at least 45% of the screen)
+        let isTall = windowFrame.height >= screenFrame.height * 0.45
+        
+        return nearTop && extendsIntoTaskbar && isTall
     }
     
     /// Calculates the clamped frame for a window given the screen bounds and taskbar height.
@@ -37,7 +49,7 @@ public enum WorkAreaMath {
         guard taskbarHeight > 0 else { return nil }
         
         if !allowNonMaximized {
-            guard isVerticallyMaximized(windowFrame, screenFrame: screenFrame) else {
+            guard isVerticallyMaximized(windowFrame, screenFrame: screenFrame, taskbarHeight: taskbarHeight) else {
                 return nil
             }
         }
