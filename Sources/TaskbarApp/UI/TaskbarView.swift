@@ -14,6 +14,7 @@ public final class TaskbarView: NSView {
     
     private let visualEffectView = NSVisualEffectView()
     public let startButton: StartButton
+    public let overflowButton: OverflowButton
     private var taskButtons: [TaskButton] = []
     
     private var currentWindows: [WindowInfo] = []
@@ -24,6 +25,7 @@ public final class TaskbarView: NSView {
         self.theme = theme
         self.launcherAction = launcherAction
         self.startButton = StartButton(theme: theme)
+        self.overflowButton = OverflowButton(theme: theme)
         super.init(frame: .zero)
         
         setupViews()
@@ -49,6 +51,12 @@ public final class TaskbarView: NSView {
             Launcher.launch(self.launcherAction)
         }
         addSubview(startButton)
+        
+        overflowButton.isHidden = true
+        overflowButton.onClick = { [weak self] in
+            self?.showOverflowMenu()
+        }
+        addSubview(overflowButton)
     }
     
     public override func resizeSubviews(withOldSize oldSize: NSSize) {
@@ -145,15 +153,39 @@ public final class TaskbarView: NSView {
         startButton.frame = NSRect(x: 3.0, y: padY, width: startBtnW, height: btnH)
         
         let startX = startButton.frame.maxX + 4.0
-        let availableW = max(0.0, bounds.width - startX - 4.0)
+        let totalAvailableW = max(0.0, bounds.width - startX - 4.0)
         
-        let layout = ButtonLayout.computeLayout(
-            availableWidth: Double(availableW),
+        // Initial layout calculation
+        var layout = ButtonLayout.computeLayout(
+            availableWidth: Double(totalAvailableW),
             itemCount: taskButtons.count,
             maxButtonWidth: 160.0,
             minButtonWidth: 28.0,
             spacing: 2.0
         )
+        
+        let overflowBtnW: CGFloat = 26.0
+        if layout.hasOverflow {
+            // Reserve space for the overflow chevron button on the right edge
+            let netAvailableW = max(0.0, totalAvailableW - overflowBtnW - 2.0)
+            layout = ButtonLayout.computeLayout(
+                availableWidth: Double(netAvailableW),
+                itemCount: taskButtons.count,
+                maxButtonWidth: 160.0,
+                minButtonWidth: 28.0,
+                spacing: 2.0
+            )
+            
+            overflowButton.isHidden = false
+            overflowButton.frame = NSRect(
+                x: bounds.width - overflowBtnW - 3.0,
+                y: padY,
+                width: overflowBtnW,
+                height: btnH
+            )
+        } else {
+            overflowButton.isHidden = true
+        }
         
         var currentX = startX
         for (index, btn) in taskButtons.enumerated() {
@@ -173,8 +205,42 @@ public final class TaskbarView: NSView {
         }
     }
     
+    private func showOverflowMenu() {
+        let menu = NSMenu(title: "Overflow Windows")
+        menu.autoenablesItems = false
+        
+        let overflowingButtons = taskButtons.filter { $0.isHidden }
+        guard !overflowingButtons.isEmpty else { return }
+        
+        for btn in overflowingButtons {
+            let win = btn.windowInfo
+            let item = NSMenuItem(
+                title: win.displayTitle,
+                action: #selector(handleOverflowItemClicked(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = btn
+            item.image = IconCache.shared.icon(for: win.bundleID, pid: win.pid)
+            
+            let isActive = !win.isMinimized && !win.isAppHidden && (win.key == focusedKey && win.pid == frontmostPID)
+            item.state = isActive ? .on : .off
+            
+            menu.addItem(item)
+        }
+        
+        let menuOrigin = NSPoint(x: 0, y: bounds.height + 2.0)
+        menu.popUp(positioning: nil, at: menuOrigin, in: overflowButton)
+    }
+    
+    @objc private func handleOverflowItemClicked(_ sender: NSMenuItem) {
+        guard let btn = sender.representedObject as? TaskButton else { return }
+        btn.onClick?()
+    }
+    
     private func applyTheme() {
         startButton.theme = theme
+        overflowButton.theme = theme
         visualEffectView.isHidden = !theme.useTranslucency
         
         for btn in taskButtons {
