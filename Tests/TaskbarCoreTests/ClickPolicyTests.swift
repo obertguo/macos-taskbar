@@ -43,6 +43,25 @@ final class ClickPolicyTests: XCTestCase {
         XCTAssertEqual(action, .minimize)
     }
     
+    func testClickFrontmostAppWithNilFocusedKey() {
+        // In Chrome/Discord, focusedKey may be nil even when frontmost
+        let win = WindowInfo(
+            key: testKey,
+            pid: 10,
+            appName: "Google Chrome",
+            bundleID: "com.google.Chrome",
+            title: "Google",
+            frame: CGRect(x: 0, y: 0, width: 800, height: 600),
+            isMain: true
+        )
+        let action = ClickPolicy.leftClickAction(
+            for: win,
+            focusedKey: nil,
+            isFrontmostApp: true
+        )
+        XCTAssertEqual(action, .minimize, "Clicking frontmost window when focusedKey is nil should minimize")
+    }
+    
     func testClickMinimizedWindow() {
         var win = WindowInfo(
             key: testKey,

@@ -12,6 +12,7 @@ public struct WindowInfo: Equatable, Sendable, Identifiable {
     public var frame: CGRect
     public var isMinimized: Bool
     public var isAppHidden: Bool
+    public var isMain: Bool
     public var openOrder: UInt64
     
     public var id: WindowKey { key }
@@ -30,6 +31,7 @@ public struct WindowInfo: Equatable, Sendable, Identifiable {
         frame: CGRect,
         isMinimized: Bool = false,
         isAppHidden: Bool = false,
+        isMain: Bool = false,
         openOrder: UInt64 = 0
     ) {
         self.key = key
@@ -40,6 +42,7 @@ public struct WindowInfo: Equatable, Sendable, Identifiable {
         self.frame = frame
         self.isMinimized = isMinimized
         self.isAppHidden = isAppHidden
+        self.isMain = isMain
         self.openOrder = openOrder
     }
 }

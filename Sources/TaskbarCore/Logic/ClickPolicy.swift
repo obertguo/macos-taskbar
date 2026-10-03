@@ -19,8 +19,14 @@ public enum ClickPolicy {
             return .restoreAndFocus
         }
         
-        if isFrontmostApp && focusedKey == window.key {
-            return .minimize
+        // If the owning application is frontmost, clicking the window minimizes it if:
+        // 1. It matches the focused window key, OR
+        // 2. It is marked as the app's main window (kAXMainAttribute), OR
+        // 3. No specific focused key was resolved (Chromium/Electron apps often report nil for focusedWindow)
+        if isFrontmostApp {
+            if focusedKey == window.key || window.isMain || focusedKey == nil {
+                return .minimize
+            }
         }
         
         return .focus

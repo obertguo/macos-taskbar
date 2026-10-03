@@ -17,6 +17,20 @@ final class WindowFilterTests: XCTestCase {
         XCTAssertTrue(accepted)
     }
     
+    func testAcceptMinimizedWindowWithZeroSize() {
+        // When Finder or Settings minimizes, Cocoa sets frame to 0x0
+        let zeroFrame = CGRect.zero
+        let accepted = WindowFilter.shouldInclude(
+            role: "AXWindow",
+            subrole: "AXStandardWindow",
+            frame: zeroFrame,
+            bundleID: "com.apple.finder",
+            isAppRegular: true,
+            isMinimized: true
+        )
+        XCTAssertTrue(accepted, "Minimized windows must never be rejected even if their frame is 0x0")
+    }
+    
     func testRejectDialogsAndSheets() {
         let frame = CGRect(x: 100, y: 100, width: 400, height: 300)
         XCTAssertFalse(WindowFilter.shouldInclude(
@@ -36,14 +50,15 @@ final class WindowFilterTests: XCTestCase {
         ))
     }
     
-    func testRejectTinyZeroSizedWindows() {
+    func testRejectTinyZeroSizedNonMinimizedWindows() {
         let frame = CGRect(x: 0, y: 0, width: 10, height: 10)
         XCTAssertFalse(WindowFilter.shouldInclude(
             role: "AXWindow",
             subrole: "AXStandardWindow",
             frame: frame,
             bundleID: "com.apple.Safari",
-            isAppRegular: true
+            isAppRegular: true,
+            isMinimized: false
         ))
     }
     

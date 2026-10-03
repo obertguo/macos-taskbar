@@ -82,7 +82,9 @@ public final class TaskbarView: NSView {
         }
         
         for win in windows {
-            let isFocused = (win.key == focusedKey && win.pid == frontmostPID)
+            // A minimized or hidden window can never be drawn as focused
+            let isFocused = !win.isMinimized && !win.isAppHidden && (win.key == focusedKey && win.pid == frontmostPID)
+            
             if let existing = existingMap[win.key] {
                 existing.windowInfo = win
                 existing.isFocusedWindow = isFocused
@@ -95,20 +97,34 @@ public final class TaskbarView: NSView {
                     theme: theme
                 )
                 
-                btn.onClick = { [weak self] in
-                    guard let self = self else { return }
+                btn.onClick = { [weak self, weak btn] in
+                    guard let self = self, let btn = btn else { return }
                     let action = ClickPolicy.leftClickAction(
-                        for: win,
+                        for: btn.windowInfo,
                         focusedKey: self.focusedKey,
-                        isFrontmostApp: (self.frontmostPID == win.pid)
+                        isFrontmostApp: (self.frontmostPID == btn.windowInfo.pid)
                     )
-                    WindowActions.performAction(action, for: win.key)
+                    WindowActions.performAction(action, for: btn.windowInfo.key)
+                    
+                    // Optimistic visual update
+                    switch action {
+                    case .minimize:
+                        btn.windowInfo.isMinimized = true
+                        btn.isFocusedWindow = false
+                    case .restoreAndFocus:
+                        btn.windowInfo.isMinimized = false
+                        btn.isFocusedWindow = true
+                    case .focus:
+                        btn.isFocusedWindow = true
+                    }
                 }
-                btn.onClose = {
-                    WindowActions.closeWindow(win.key)
+                btn.onClose = { [weak btn] in
+                    guard let btn = btn else { return }
+                    WindowActions.closeWindow(btn.windowInfo.key)
                 }
-                btn.onQuit = {
-                    WindowActions.quitApplication(pid: win.pid)
+                btn.onQuit = { [weak btn] in
+                    guard let btn = btn else { return }
+                    WindowActions.quitApplication(pid: btn.windowInfo.pid)
                 }
                 
                 addSubview(btn)

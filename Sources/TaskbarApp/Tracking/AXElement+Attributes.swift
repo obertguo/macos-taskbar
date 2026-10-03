@@ -35,6 +35,20 @@ extension AXUIElement {
         return val?.boolValue ?? false
     }
     
+    public var isMain: Bool {
+        let val: NSNumber? = attribute(kAXMainAttribute as CFString)
+        return val?.boolValue ?? false
+    }
+    
+    public var minimizeButton: AXUIElement? {
+        var value: AnyObject?
+        let result = AXUIElementCopyAttributeValue(self, kAXMinimizeButtonAttribute as CFString, &value)
+        guard result == .success, let unwrapped = value else {
+            return nil
+        }
+        return (unwrapped as! AXUIElement)
+    }
+    
     public var frame: CGRect? {
         var posValue: AnyObject?
         var sizeValue: AnyObject?

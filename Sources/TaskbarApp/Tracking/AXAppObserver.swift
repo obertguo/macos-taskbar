@@ -21,12 +21,20 @@ public final class AXAppObserver: @unchecked Sendable {
     private var runLoopSource: CFRunLoopSource?
     public var onEvent: (() -> Void)?
     
-    private let observedNotifications: [CFString] = [
+    private var observedWindows: Set<UInt64> = []
+    
+    // Application-level notifications (supported on appElement)
+    private let appNotifications: [CFString] = [
         kAXWindowCreatedNotification as CFString,
         kAXFocusedWindowChangedNotification as CFString,
-        kAXTitleChangedNotification as CFString,
+        kAXMainWindowChangedNotification as CFString
+    ]
+    
+    // Window-level notifications (must be attached to AXWindow elements)
+    private let windowNotifications: [CFString] = [
         kAXWindowMiniaturizedNotification as CFString,
         kAXWindowDeminiaturizedNotification as CFString,
+        kAXTitleChangedNotification as CFString,
         kAXWindowMovedNotification as CFString,
         kAXWindowResizedNotification as CFString,
         kAXUIElementDestroyedNotification as CFString
@@ -47,8 +55,8 @@ public final class AXAppObserver: @unchecked Sendable {
         }
         self.observer = observer
         
-        // Add notifications to the app element
-        for notif in observedNotifications {
+        // Add application-level notifications to appElement
+        for notif in appNotifications {
             AXObserverAddNotification(observer, appElement, notif, selfPointer)
         }
         
@@ -56,6 +64,19 @@ public final class AXAppObserver: @unchecked Sendable {
         let source = AXObserverGetRunLoopSource(observer)
         self.runLoopSource = source
         CFRunLoopAddSource(AXThread.shared.runLoop, source, .commonModes)
+    }
+    
+    /// Attaches window-level notifications to an individual window element.
+    public func observeWindow(_ winElement: AXUIElement) {
+        guard let observer = observer else { return }
+        let winID = winElement.windowID
+        guard !observedWindows.contains(winID) else { return }
+        observedWindows.insert(winID)
+        
+        let selfPointer = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
+        for notif in windowNotifications {
+            AXObserverAddNotification(observer, winElement, notif, selfPointer)
+        }
     }
     
     fileprivate func handleNotification(_ name: String) {
@@ -67,6 +88,7 @@ public final class AXAppObserver: @unchecked Sendable {
             CFRunLoopRemoveSource(AXThread.shared.runLoop, source, .commonModes)
             runLoopSource = nil
         }
+        observedWindows.removeAll()
         observer = nil
     }
     

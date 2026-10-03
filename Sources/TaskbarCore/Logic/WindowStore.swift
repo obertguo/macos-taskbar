@@ -15,15 +15,29 @@ public final class WindowStore: @unchecked Sendable {
     public func addOrUpdateWindow(_ info: WindowInfo) {
         if var existing = windows[info.key] {
             existing.title = info.title
-            existing.frame = info.frame
+            // If window is minimized and reported frame is zero/offscreen, preserve last-known non-zero frame
+            if info.frame.width > 10 && info.frame.height > 10 {
+                existing.frame = info.frame
+            }
             existing.isMinimized = info.isMinimized
             existing.isAppHidden = info.isAppHidden
+            existing.isMain = info.isMain
             windows[info.key] = existing
         } else {
             openOrderCounter += 1
             var newWindow = info
             newWindow.openOrder = openOrderCounter
             windows[info.key] = newWindow
+        }
+    }
+    
+    public func setMinimized(key: WindowKey, isMinimized: Bool) {
+        if var win = windows[key] {
+            win.isMinimized = isMinimized
+            windows[key] = win
+            if isMinimized && focusedWindowKey == key {
+                focusedWindowKey = nil
+            }
         }
     }
     
@@ -82,5 +96,9 @@ public final class WindowStore: @unchecked Sendable {
     /// Total count of tracked windows across all screens.
     public var totalWindowCount: Int {
         windows.count
+    }
+    
+    public func window(forKey key: WindowKey) -> WindowInfo? {
+        windows[key]
     }
 }

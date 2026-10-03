@@ -28,7 +28,6 @@ public enum WindowActions {
     public static func focusWindow(_ key: WindowKey) {
         AXThread.shared.async {
             guard let winElement = findWindowElement(for: key) else {
-                // If window element lookup fails, fallback to activating the running application
                 NSRunningApplication(processIdentifier: key.pid)?.activate()
                 return
             }
@@ -43,7 +42,7 @@ public enum WindowActions {
             let appElement = AXUIElementCreateApplication(key.pid)
             AXUIElementSetAttributeValue(appElement, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
             
-            // 4. Also activate via NSRunningApplication for cooperative activation compliance
+            // 4. Activate via NSRunningApplication
             DispatchQueue.main.async {
                 NSRunningApplication(processIdentifier: key.pid)?.activate()
             }
@@ -53,7 +52,16 @@ public enum WindowActions {
     public static func minimizeWindow(_ key: WindowKey) {
         AXThread.shared.async {
             guard let winElement = findWindowElement(for: key) else { return }
-            AXUIElementSetAttributeValue(winElement, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
+            
+            // 1. Try direct attribute set
+            let setResult = AXUIElementSetAttributeValue(winElement, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
+            
+            // 2. If direct set failed or ignored (common in Chromium/Discord), press the minimize button
+            if setResult != .success || !winElement.isMinimized {
+                if let minButton = winElement.minimizeButton {
+                    AXUIElementPerformAction(minButton, kAXPressAction as CFString)
+                }
+            }
         }
     }
     
@@ -65,18 +73,23 @@ public enum WindowActions {
             }
             
             guard let winElement = findWindowElement(for: key) else {
-                NSRunningApplication(processIdentifier: key.pid)?.activate()
+                DispatchQueue.main.async {
+                    NSRunningApplication(processIdentifier: key.pid)?.activate()
+                }
                 return
             }
             
-            // Deminiaturize window
+            // 1. Deminiaturize window
             AXUIElementSetAttributeValue(winElement, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
             
-            // Raise and focus
+            // 2. Raise and focus
             AXUIElementPerformAction(winElement, kAXRaiseAction as CFString)
+            AXUIElementSetAttributeValue(winElement, kAXMainAttribute as CFString, kCFBooleanTrue)
+            
             let appElement = AXUIElementCreateApplication(key.pid)
             AXUIElementSetAttributeValue(appElement, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
             
+            // 3. Activate app
             DispatchQueue.main.async {
                 NSRunningApplication(processIdentifier: key.pid)?.activate()
             }

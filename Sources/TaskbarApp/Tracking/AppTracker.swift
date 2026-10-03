@@ -98,7 +98,6 @@ public final class AppTracker {
     }
     
     @objc private func handleActiveSpaceChanged(_ notification: Notification) {
-        // macOS sometimes takes ~100-150ms to settle windows after a space change animation
         scheduleReconcile(delay: 0.05)
         scheduleReconcile(delay: 0.15)
     }
@@ -125,8 +124,8 @@ public final class AppTracker {
         let runningApps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
         let frontmostApp = NSWorkspace.shared.frontmostApplication
         let frontmostPID = frontmostApp?.processIdentifier
+        let activeObservers = self.observers
         
-        // Execute heavy AX queries on background AXThread
         AXThread.shared.async { [weak self, store = self.store] in
             var updatedWindows: [pid_t: [WindowInfo]] = [:]
             var currentFocusedKey: WindowKey? = nil
@@ -136,6 +135,7 @@ public final class AppTracker {
                 let bundleID = app.bundleIdentifier ?? ""
                 let appName = app.localizedName ?? "App"
                 let isHidden = app.isHidden
+                let observer = activeObservers[pid]
                 
                 let appElement = AXUIElementCreateApplication(pid)
                 appElement.setTimeout(0.3)
@@ -150,19 +150,24 @@ public final class AppTracker {
                 for win in windowElements {
                     win.setTimeout(0.3)
                     
+                    // Attach per-window AX notifications
+                    observer?.observeWindow(win)
+                    
                     guard let role = win.role else { continue }
                     let subrole = win.subrole
                     let frame = win.frame ?? .zero
+                    let isMin = win.isMinimized
+                    let isMain = win.isMain
                     
                     if WindowFilter.shouldInclude(
                         role: role,
                         subrole: subrole,
                         frame: frame,
                         bundleID: bundleID,
-                        isAppRegular: true
+                        isAppRegular: true,
+                        isMinimized: isMin
                     ) {
                         let title = win.title ?? appName
-                        let isMin = win.isMinimized
                         let key = WindowKey(id: win.windowID, pid: pid)
                         
                         let info = WindowInfo(
@@ -173,16 +178,21 @@ public final class AppTracker {
                             title: title,
                             frame: frame,
                             isMinimized: isMin,
-                            isAppHidden: isHidden
+                            isAppHidden: isHidden,
+                            isMain: isMain
                         )
                         appWindows.append(info)
+                        
+                        // Fallback focused window detection (if appElement.focusedWindow returned nil, e.g. in Chrome)
+                        if pid == frontmostPID && currentFocusedKey == nil && isMain {
+                            currentFocusedKey = key
+                        }
                     }
                 }
                 
                 updatedWindows[pid] = appWindows
             }
             
-            // Dispatch updates back to main actor
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 

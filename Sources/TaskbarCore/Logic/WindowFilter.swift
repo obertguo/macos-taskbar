@@ -29,7 +29,8 @@ public enum WindowFilter {
         subrole: String?,
         frame: CGRect,
         bundleID: String,
-        isAppRegular: Bool
+        isAppRegular: Bool,
+        isMinimized: Bool = false
     ) -> Bool {
         // 1. Must belong to a regular GUI application
         guard isAppRegular else { return false }
@@ -47,7 +48,12 @@ public enum WindowFilter {
             return false
         }
         
-        // 5. Must have visible non-zero dimensions (filters out invisible tracking windows)
+        // 5. Minimized windows are preserved regardless of frame size (docked windows shrink to 0x0)
+        if isMinimized {
+            return true
+        }
+        
+        // 6. Must have visible non-zero dimensions (filters out invisible tracking windows)
         guard frame.width >= 50.0 && frame.height >= 50.0 else {
             return false
         }
