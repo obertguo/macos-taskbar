@@ -10,14 +10,15 @@ public final class TaskbarView: NSView {
         }
     }
     
-    public var launcherAction: LauncherAction {
-        didSet {
-            // Updated launcher preference
-        }
-    }
+    public var launcherAction: LauncherAction
     
     private let visualEffectView = NSVisualEffectView()
     public let startButton: StartButton
+    private var taskButtons: [TaskButton] = []
+    
+    private var currentWindows: [WindowInfo] = []
+    private var focusedKey: WindowKey?
+    private var frontmostPID: pid_t?
     
     public init(theme: ThemeDefinition, launcherAction: LauncherAction) {
         self.theme = theme
@@ -36,7 +37,6 @@ public final class TaskbarView: NSView {
     private func setupViews() {
         wantsLayer = true
         
-        // Setup visual effect view for Modern Hybrid mode
         visualEffectView.blendingMode = .behindWindow
         visualEffectView.material = .underWindowBackground
         visualEffectView.state = .active
@@ -44,7 +44,6 @@ public final class TaskbarView: NSView {
         visualEffectView.frame = bounds
         addSubview(visualEffectView)
         
-        // Setup StartButton
         startButton.onClick = { [weak self] in
             guard let self = self else { return }
             Launcher.launch(self.launcherAction)
@@ -62,18 +61,110 @@ public final class TaskbarView: NSView {
         layoutComponents()
     }
     
+    public func updateWindows(windows: [WindowInfo], focusedKey: WindowKey?, frontmostPID: pid_t?) {
+        self.currentWindows = windows
+        self.focusedKey = focusedKey
+        self.frontmostPID = frontmostPID
+        
+        var existingMap: [WindowKey: TaskButton] = [:]
+        for btn in taskButtons {
+            existingMap[btn.windowInfo.key] = btn
+        }
+        
+        var newButtons: [TaskButton] = []
+        let currentKeys = Set(windows.map { $0.key })
+        
+        // Remove buttons for closed windows
+        for (key, btn) in existingMap {
+            if !currentKeys.contains(key) {
+                btn.removeFromSuperview()
+            }
+        }
+        
+        for win in windows {
+            let isFocused = (win.key == focusedKey && win.pid == frontmostPID)
+            if let existing = existingMap[win.key] {
+                existing.windowInfo = win
+                existing.isFocusedWindow = isFocused
+                newButtons.append(existing)
+            } else {
+                let btn = TaskButton(
+                    windowInfo: win,
+                    isFocused: isFocused,
+                    showTitle: true,
+                    theme: theme
+                )
+                
+                btn.onClick = { [weak self] in
+                    guard let self = self else { return }
+                    let action = ClickPolicy.leftClickAction(
+                        for: win,
+                        focusedKey: self.focusedKey,
+                        isFrontmostApp: (self.frontmostPID == win.pid)
+                    )
+                    WindowActions.performAction(action, for: win.key)
+                }
+                btn.onClose = {
+                    WindowActions.closeWindow(win.key)
+                }
+                btn.onQuit = {
+                    WindowActions.quitApplication(pid: win.pid)
+                }
+                
+                addSubview(btn)
+                newButtons.append(btn)
+            }
+        }
+        
+        self.taskButtons = newButtons
+        layoutComponents()
+    }
+    
     private func layoutComponents() {
         visualEffectView.frame = bounds
         
         let padY: CGFloat = 2.0
         let btnH = max(18.0, bounds.height - (padY * 2))
-        let btnW: CGFloat = (theme.style == .retroClassic) ? 56.0 : 62.0
-        startButton.frame = NSRect(x: 3.0, y: padY, width: btnW, height: btnH)
+        let startBtnW: CGFloat = (theme.style == .retroClassic) ? 56.0 : 62.0
+        startButton.frame = NSRect(x: 3.0, y: padY, width: startBtnW, height: btnH)
+        
+        let startX = startButton.frame.maxX + 4.0
+        let availableW = max(0.0, bounds.width - startX - 4.0)
+        
+        let layout = ButtonLayout.computeLayout(
+            availableWidth: Double(availableW),
+            itemCount: taskButtons.count,
+            maxButtonWidth: 160.0,
+            minButtonWidth: 28.0,
+            spacing: 2.0
+        )
+        
+        var currentX = startX
+        for (index, btn) in taskButtons.enumerated() {
+            if index < layout.visibleCount {
+                btn.isHidden = false
+                btn.frame = NSRect(
+                    x: currentX,
+                    y: padY,
+                    width: CGFloat(layout.buttonWidth),
+                    height: btnH
+                )
+                btn.showTitle = layout.showTitle
+                currentX += CGFloat(layout.buttonWidth) + 2.0
+            } else {
+                btn.isHidden = true
+            }
+        }
     }
     
     private func applyTheme() {
         startButton.theme = theme
         visualEffectView.isHidden = !theme.useTranslucency
+        
+        for btn in taskButtons {
+            btn.theme = theme
+        }
+        
         layoutComponents()
         needsDisplay = true
     }
@@ -83,11 +174,9 @@ public final class TaskbarView: NSView {
         
         switch theme.style {
         case .retroClassic:
-            // Solid classic gray
             NSColor(rgba: theme.backgroundColor).setFill()
             bounds.fill()
             
-            // Top 1px white highlight line
             if let topBorder = theme.topBorderColor {
                 NSColor(rgba: topBorder).setStroke()
                 let path = NSBezierPath()
@@ -98,7 +187,6 @@ public final class TaskbarView: NSView {
             }
             
         case .modernHybrid:
-            // Top subtle 1px border over the translucent material
             if let topBorder = theme.topBorderColor {
                 NSColor(rgba: topBorder).setStroke()
                 let path = NSBezierPath()

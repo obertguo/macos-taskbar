@@ -89,17 +89,19 @@ public final class ScreenManager {
                 panels.removeValue(forKey: displayID)
             }
         }
+        
+        updateWindows()
     }
     
     public func updateWindows() {
         let descriptors = screenDescriptors()
-        for (displayID, _) in panels {
+        for (displayID, panel) in panels {
             let screenWindows = store.windows(forScreenID: UInt32(displayID), screens: descriptors)
-            #if DEBUG
-            if !screenWindows.isEmpty {
-                print("[\(BuildConfiguration.appName)] Screen \(displayID) tracking \(screenWindows.count) window(s): \(screenWindows.map { $0.displayTitle })")
-            }
-            #endif
+            panel.taskbarView.updateWindows(
+                windows: screenWindows,
+                focusedKey: store.focusedWindowKey,
+                frontmostPID: store.frontmostPID
+            )
         }
     }
     
