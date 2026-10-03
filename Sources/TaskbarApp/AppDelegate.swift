@@ -13,6 +13,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // Load persistent or default settings
         self.settings = Settings.load()
         
+        // Check Accessibility permission on startup
+        if !AccessibilityPermission.isGranted() {
+            print("[\(BuildConfiguration.appName)] Accessibility permission not granted yet. Prompting user...")
+            AccessibilityPermission.promptIfNecessary()
+        }
+        
         // Initialize multi-screen manager
         let screenManager = ScreenManager(settings: settings)
         self.screenManager = screenManager

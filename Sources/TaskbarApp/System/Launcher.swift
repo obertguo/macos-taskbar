@@ -1,6 +1,7 @@
 // Sources/TaskbarApp/System/Launcher.swift
 
 import AppKit
+import ApplicationServices
 import TaskbarCore
 
 @MainActor
@@ -8,34 +9,19 @@ public enum Launcher {
     public static func launch(_ action: LauncherAction) {
         switch action {
         case .spotlight:
-            // Try activating Spotlight directly or fall back to AppleScript command
-            let spotlightURL = URL(fileURLWithPath: "/System/Library/CoreServices/Spotlight.app")
-            if FileManager.default.fileExists(atPath: spotlightURL.path) {
-                let config = NSWorkspace.OpenConfiguration()
-                config.activates = true
-                NSWorkspace.shared.openApplication(at: spotlightURL, configuration: config, completionHandler: nil)
-            } else {
-                // Fallback: trigger Spotlight keyboard event via AppleScript
-                let script = "tell application \"System Events\" to key code 49 using command down"
-                if let appleScript = NSAppleScript(source: script) {
-                    var error: NSDictionary?
-                    appleScript.executeAndReturnError(&error)
-                }
-            }
+            triggerSpotlight()
             
         case .raycast:
             if let url = URL(string: "raycast://"), NSWorkspace.shared.open(url) {
                 return
             }
-            // Fall back to opening Raycast app bundle if URL scheme failed
             let raycastURL = URL(fileURLWithPath: "/Applications/Raycast.app")
             if FileManager.default.fileExists(atPath: raycastURL.path) {
                 let config = NSWorkspace.OpenConfiguration()
                 config.activates = true
                 NSWorkspace.shared.openApplication(at: raycastURL, configuration: config, completionHandler: nil)
             } else {
-                // Fall back to Spotlight if Raycast isn't installed
-                launch(.spotlight)
+                triggerSpotlight()
             }
             
         case .customPath(let path):
@@ -45,8 +31,42 @@ public enum Launcher {
                 config.activates = true
                 NSWorkspace.shared.openApplication(at: appURL, configuration: config, completionHandler: nil)
             } else {
-                launch(.spotlight)
+                triggerSpotlight()
             }
+        }
+    }
+    
+    private static func triggerSpotlight() {
+        // Ensure Accessibility permission is granted, otherwise prompt user
+        if !AccessibilityPermission.isGranted() {
+            print("[Launcher] Accessibility permission required to trigger Spotlight keystroke. Prompting...")
+            AccessibilityPermission.promptIfNecessary()
+            AccessibilityPermission.openSystemSettings()
+            return
+        }
+        
+        let source = CGEventSource(stateID: .hidSystemState)
+        let cmdKey: CGKeyCode = 0x37  // Command
+        let spaceKey: CGKeyCode = 0x31 // Space
+        
+        // 1. Post Command Down
+        let cmdDown = CGEvent(keyboardEventSource: source, virtualKey: cmdKey, keyDown: true)
+        cmdDown?.flags = .maskCommand
+        cmdDown?.post(tap: .cghidEventTap)
+        
+        // 2. Post Space Down with Command flag
+        let spaceDown = CGEvent(keyboardEventSource: source, virtualKey: spaceKey, keyDown: true)
+        spaceDown?.flags = .maskCommand
+        spaceDown?.post(tap: .cghidEventTap)
+        
+        // 3. Post Space Up and Command Up after a brief hardware pulse
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            let spaceUp = CGEvent(keyboardEventSource: source, virtualKey: spaceKey, keyDown: false)
+            spaceUp?.flags = .maskCommand
+            spaceUp?.post(tap: .cghidEventTap)
+            
+            let cmdUp = CGEvent(keyboardEventSource: source, virtualKey: cmdKey, keyDown: false)
+            cmdUp?.post(tap: .cghidEventTap)
         }
     }
 }
