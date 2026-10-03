@@ -16,12 +16,13 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
     // Per-window debounce generation counters: [windowID: generation]
     private var generationCounters: [UInt64: UInt64] = [:]
     
-    // Recursion guard: tracks the last attempted target height and timestamp
-    private struct LastNudge {
-        let height: CGFloat
-        let timestamp: Date
+    // Recursion guard: tracks target height, consecutive attempts, and timestamps
+    private struct NudgeRecord {
+        var targetHeight: CGFloat
+        var attempts: Int
+        var lastTimestamp: Date
     }
-    private var lastNudges: [UInt64: LastNudge] = [:]
+    private var nudgeRecords: [UInt64: NudgeRecord] = [:]
     
     public var isEnabled: Bool {
         get { lock.withLock { _isEnabled } }
@@ -65,8 +66,9 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
         generation = nextGen
         lock.unlock()
         
-        // 100ms settle debounce: allows smooth dragging/resizing without fighting user input
-        DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + 0.1) { [element] in
+        // 150ms settle debounce: allows window manager animations (e.g. titlebar double-click zoom)
+        // and mouse drag operations to coalesce before evaluating clamping
+        DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + 0.15) { [element] in
             AXThread.shared.async {
                 let enforcer = WorkAreaEnforcer.shared
                 let currentGen = enforcer.lock.withLock { enforcer.generationCounters[winID] }
@@ -117,30 +119,66 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
             return
         }
         
-        // Recursion guard: check if we already attempted this exact height recently
-        if let prev = lock.withLock({ lastNudges[winID] }) {
-            let isSameHeight = abs(prev.height - clampedFrame.height) < 1.0
-            let isRecent = Date().timeIntervalSince(prev.timestamp) < 0.5
-            if isSameHeight && isRecent {
-                return
+        // Recursion guard: allow up to 2 attempts within 600ms to recover from
+        // OS zoom animations that revert the frame upon completion.
+        let shouldProceed: Bool = lock.withLock {
+            if var record = nudgeRecords[winID] {
+                let isSameTarget = abs(record.targetHeight - clampedFrame.height) < 1.0
+                let isRecent = Date().timeIntervalSince(record.lastTimestamp) < 0.6
+                
+                if isSameTarget && isRecent {
+                    if record.attempts >= 2 {
+                        // Max attempts reached; break infinite feedback loop
+                        return false
+                    }
+                    record.attempts += 1
+                    record.lastTimestamp = Date()
+                    nudgeRecords[winID] = record
+                    return true
+                }
             }
+            nudgeRecords[winID] = NudgeRecord(
+                targetHeight: clampedFrame.height,
+                attempts: 1,
+                lastTimestamp: Date()
+            )
+            return true
         }
         
-        // Check if size attribute is settable
+        guard shouldProceed else { return }
         guard element.isSizeSettable else { return }
         
-        lock.withLock {
-            lastNudges[winID] = LastNudge(height: clampedFrame.height, timestamp: Date())
-        }
-        
         _ = element.setSize(clampedFrame.size)
+        
+        // Follow-up settle verification (250ms):
+        // AppKit's native zoom animation can take ~200ms to complete. If AppKit's completion
+        // handler overwrites the frame with its full un-nudged bounds, this verification pass
+        // ensures the window settles cleanly at the taskbar boundary.
+        DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + 0.25) { [element] in
+            AXThread.shared.async {
+                let enforcer = WorkAreaEnforcer.shared
+                guard enforcer.isEnabled else { return }
+                guard !element.isMinimized, !element.isFullScreen else { return }
+                guard let finalFrame = element.frame else { return }
+                
+                let (activeScreens, barH) = enforcer.lock.withLock { (enforcer._screens, enforcer._barHeight) }
+                if let reClamped = WorkAreaMath.clampedFrameForWindow(
+                    finalFrame,
+                    across: activeScreens,
+                    taskbarHeight: barH,
+                    allowNonMaximized: false
+                ) {
+                    _ = element.setSize(reClamped.size)
+                }
+            }
+        }
     }
     
     /// Cleans up state when a window is closed/destroyed.
     public func removeWindow(winID: UInt64) {
         lock.withLock {
             generationCounters.removeValue(forKey: winID)
-            lastNudges.removeValue(forKey: winID)
+            nudgeRecords.removeValue(forKey: winID)
         }
     }
 }
