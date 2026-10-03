@@ -11,18 +11,23 @@ Located at the repository root in `config/build.env`. Sourced by `scripts/build-
 | Variable | Default Value | Description |
 |---|---|---|
 | `APP_NAME` | `"Taskbar"` | Name of the assembled `.app` bundle and display name. |
-| `BUNDLE_ID` | `"com.obertguo.taskbar"` | Reverse-DNS bundle identifier. |
+| `BUNDLE_ID` | `"com.local.taskbar"` | Reverse-DNS bundle identifier. |
 | `APP_VERSION` | `"0.1.0"` | User-facing semantic version string (`CFBundleShortVersionString`). |
 | `BUILD_NUMBER` | `"1"` | Build iteration string (`CFBundleVersion`). |
 | `MIN_MACOS_VERSION`| `"14.0"` | Minimum supported macOS version. |
-| `INSTALL_DIR` | `"$HOME/Applications"` | Destination path when running `./scripts/build-app.sh --install`. |
+| `INSTALL_DIR` | `"~/Applications"` | Destination path when running `./scripts/build-app.sh --install`. |
 | `SIGN_IDENTITY` | `"auto"` | Code-signing identity. Set to `"auto"`, a certificate common name, or `"-"` for ad-hoc. |
+
+### Build Configuration Code-Generation (`scripts/generate-config.sh`)
+Values in `config/build.env` are automatically validated and synchronized into:
+- `Sources/TaskbarCore/Config/BuildConfiguration.swift` (typed Swift struct)
+- `Resources/Info.plist` (app bundle metadata)
 
 ---
 
 ## 2. Runtime User Preferences (`Sources/TaskbarCore/Config/Settings.swift`)
 
-Runtime settings are managed through `Settings.swift` and persisted in `UserDefaults` under the domain `com.obertguo.taskbar`.
+Runtime settings are managed through `Settings.swift` and persisted in `UserDefaults` under the domain `com.local.taskbar` (or `BuildConfiguration.bundleID`).
 
 | Setting | Type | Default Value | Description |
 |---|---|---|---|

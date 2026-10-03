@@ -5,18 +5,20 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# Source build configuration
+# Fail fast if configuration file is missing
 CONFIG_FILE="${PROJECT_ROOT}/config/build.env"
-if [[ -f "${CONFIG_FILE}" ]]; then
-    # shellcheck source=/dev/null
-    source "${CONFIG_FILE}"
-else
-    APP_NAME="Taskbar"
-    BUNDLE_ID="com.obertguo.taskbar"
-    APP_VERSION="0.1.0"
-    INSTALL_DIR="$HOME/Applications"
-    SIGN_IDENTITY="auto"
+if [[ ! -f "${CONFIG_FILE}" ]]; then
+    echo "Error: Required configuration file '${CONFIG_FILE}' is missing!" >&2
+    echo "Please provide config/build.env before running build-app.sh." >&2
+    exit 1
 fi
+
+# Synchronize BuildConfiguration.swift and Info.plist from build.env
+"${SCRIPT_DIR}/generate-config.sh"
+
+# Sourcing build configuration
+# shellcheck source=/dev/null
+source "${CONFIG_FILE}"
 
 INSTALL_FLAG=false
 BUILD_CONFIG="release"
@@ -106,14 +108,15 @@ codesign --force --options runtime --sign "${RESOLVED_IDENTITY}" "${APP_BUNDLE}"
 echo "==> Build complete: ${APP_BUNDLE}"
 
 if [[ "${INSTALL_FLAG}" == true ]]; then
-    echo "==> Installing to ${INSTALL_DIR}..."
-    mkdir -p "${INSTALL_DIR}"
+    TARGET_DIR="${INSTALL_DIR/#\~/$HOME}"
+    echo "==> Installing to ${TARGET_DIR}..."
+    mkdir -p "${TARGET_DIR}"
     
     # Terminate running instance if any
     pkill -x "${APP_NAME}App" 2>/dev/null || true
     sleep 0.2
 
-    rm -rf "${INSTALL_DIR}/${APP_NAME}.app"
-    cp -R "${APP_BUNDLE}" "${INSTALL_DIR}/${APP_NAME}.app"
-    echo "==> Installed successfully to ${INSTALL_DIR}/${APP_NAME}.app"
+    rm -rf "${TARGET_DIR}/${APP_NAME}.app"
+    cp -R "${APP_BUNDLE}" "${TARGET_DIR}/${APP_NAME}.app"
+    echo "==> Installed successfully to ${TARGET_DIR}/${APP_NAME}.app"
 fi

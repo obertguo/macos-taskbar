@@ -6,7 +6,7 @@ import TaskbarCore
 @MainActor
 final class MinimalAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        print("[\(TaskbarCoreInfo.name)] v\(TaskbarCoreInfo.version) initialized successfully.")
+        print("[\(BuildConfiguration.appName)] v\(BuildConfiguration.appVersion) (\(BuildConfiguration.bundleID)) initialized successfully.")
     }
 }
 

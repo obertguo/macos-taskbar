@@ -165,15 +165,15 @@ mac-dock-gemini/
 A single file defining project metadata:
 ```bash
 APP_NAME="Taskbar"
-BUNDLE_ID="com.obertguo.taskbar"
+BUNDLE_ID="com.local.taskbar"
 APP_VERSION="0.1.0"
 MIN_MACOS_VERSION="14.0"
-INSTALL_DIR="$HOME/Applications"
+INSTALL_DIR="~/Applications"
 SIGN_IDENTITY="Apple Development" # Or empty for local self-signed auto-detection
 ```
 
 ### 2. Runtime User Preferences (`Sources/TaskbarCore/Config/Settings.swift`)
-Saved to `UserDefaults` (domain: `com.obertguo.taskbar`):
+Saved to `UserDefaults` (domain: `com.local.taskbar`):
 - `themeStyle`: `.modernHybrid` (default) or `.retroClassic`
 - `barHeight`: `30.0` pt
 - `maxButtonWidth`: `160.0` pt
