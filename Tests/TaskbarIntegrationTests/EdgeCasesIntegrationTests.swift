@@ -172,19 +172,25 @@ struct EdgeCasesIntegrationTests {
         WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: win, pid: pid, isResize: true)
         WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: win, pid: pid, isResize: false)
         
-        // Allow Pass 1 and Pass 2 animation settle passes to execute
-        try await Task.sleep(nanoseconds: 600_000_000)
+        // Allow all 3 animation settle passes (150ms, 400ms, 650ms) to execute
+        var clampedFrame: CGRect?
+        let taskbarTopY = screenBounds.maxY - barHeight
+        for _ in 0..<15 {
+            if let frame = win.frame, frame.maxY <= taskbarTopY + WorkAreaMath.overlapThreshold {
+                clampedFrame = frame
+                break
+            }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
         
-        // Window should settle clamped at or above taskbarTop without requiring app switch or defocus
-        guard let clampedFrame = win.frame else {
+        guard let finalFrame = clampedFrame ?? win.frame else {
             Issue.record("Failed to read window frame after nudger settle")
             return
         }
         
-        let taskbarTopY = screenBounds.maxY - barHeight
         #expect(
-            clampedFrame.maxY <= taskbarTopY + WorkAreaMath.overlapThreshold,
-            "Window bottom (\(clampedFrame.maxY)) must not overlap taskbar top (\(taskbarTopY))"
+            finalFrame.maxY <= taskbarTopY + WorkAreaMath.overlapThreshold,
+            "Window bottom (\(finalFrame.maxY)) must not overlap taskbar top (\(taskbarTopY))"
         )
     }
 }
