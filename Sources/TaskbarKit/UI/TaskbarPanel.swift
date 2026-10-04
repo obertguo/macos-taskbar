@@ -15,7 +15,9 @@ public final class TaskbarPanel: NSPanel {
         minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth,
         maxButtonWidth: Double = TaskbarConstants.Layout.defaultMaxButtonWidth,
         buttonSpacing: Double = TaskbarConstants.Layout.defaultButtonSpacing,
-        titleVisibilityThreshold: Double = TaskbarConstants.Layout.defaultTitleVisibilityThreshold
+        titleVisibilityThreshold: Double = TaskbarConstants.Layout.defaultTitleVisibilityThreshold,
+        pinnedApps: [PinnedApp] = [],
+        store: WindowStore? = nil
     ) {
         // Resolve display ID
         let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
@@ -34,7 +36,9 @@ public final class TaskbarPanel: NSPanel {
             minButtonWidth: minButtonWidth,
             maxButtonWidth: maxButtonWidth,
             buttonSpacing: buttonSpacing,
-            titleVisibilityThreshold: titleVisibilityThreshold
+            titleVisibilityThreshold: titleVisibilityThreshold,
+            pinnedApps: pinnedApps,
+            store: store
         )
         
         super.init(
@@ -93,5 +97,9 @@ public final class TaskbarPanel: NSPanel {
         taskbarView.maxButtonWidth = maxWidth
         taskbarView.buttonSpacing = spacing
         taskbarView.titleVisibilityThreshold = titleThreshold
+    }
+    
+    public func updatePinnedApps(_ apps: [PinnedApp], runningBundleIDs: Set<String>? = nil) {
+        taskbarView.updatePinnedApps(apps, runningBundleIDs: runningBundleIDs)
     }
 }

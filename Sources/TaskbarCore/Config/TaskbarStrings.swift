@@ -41,6 +41,11 @@ public enum TaskbarStrings {
         /// Menu item to unpin an application from the taskbar quick launch area.
         public static let unpinFromTaskbar = "Unpin from Taskbar"
         
+        /// Menu item to launch or activate an application.
+        public static func openApp(_ appName: String) -> String {
+            "Open \(appName)"
+        }
+        
         /// Menu item to terminate the application owning the window.
         public static func quitApp(_ appName: String) -> String {
             "Quit \(appName)"

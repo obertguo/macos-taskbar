@@ -44,6 +44,12 @@ public enum TaskbarConstants {
         /// Margin in points between the Start button and the first task button.
         public static let startButtonTrailingMargin: CGFloat = 4.0
         
+        /// Spacing in points between adjacent pinned application buttons.
+        public static let pinnedButtonSpacing: CGFloat = 2.0
+        
+        /// Margin in points between the pinned applications section and running task buttons.
+        public static let pinnedSectionTrailingMargin: CGFloat = 6.0
+        
         /// Margin in points reserved on the right screen edge when overflow is inactive.
         public static let taskbarTrailingMargin: CGFloat = 4.0
         
@@ -249,3 +255,9 @@ public enum TaskbarConstants {
         public static let raycastAppPath = "/Applications/Raycast.app"
     }
 }
+
+extension Notification.Name {
+    /// Broadcast when pinned applications are added, removed, or reordered.
+    public static let taskbarPinnedAppsDidChange = Notification.Name("com.taskbar.pinnedAppsDidChange")
+}
+

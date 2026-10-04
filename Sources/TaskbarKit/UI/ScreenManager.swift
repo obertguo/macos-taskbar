@@ -62,6 +62,7 @@ public final class ScreenManager {
                 spacing: newSettings.buttonSpacing,
                 titleThreshold: newSettings.titleVisibilityThreshold
             )
+            panel.updatePinnedApps(newSettings.pinnedApps)
         }
         
         refreshPanels()
@@ -123,6 +124,41 @@ public final class ScreenManager {
         updateTheme(themeId: ThemeDefinition.forStyle(style).id)
     }
     
+    public func pinApp(bundleIdentifier: String, displayName: String, customPath: String? = nil) {
+        guard settings.pinApp(bundleIdentifier: bundleIdentifier, displayName: displayName, customPath: customPath) else { return }
+        settings.save()
+        refreshPinnedAppsAcrossPanels()
+        NotificationCenter.default.post(name: .taskbarPinnedAppsDidChange, object: nil)
+    }
+    
+    public func unpinApp(bundleIdentifier: String) {
+        guard settings.unpinApp(bundleIdentifier: bundleIdentifier) else { return }
+        settings.save()
+        refreshPinnedAppsAcrossPanels()
+        NotificationCenter.default.post(name: .taskbarPinnedAppsDidChange, object: nil)
+    }
+    
+    public func refreshPinnedAppsAcrossPanels() {
+        let runningBundleIDs = Set(store.allWindows.map { $0.bundleID })
+        for panel in panels.values {
+            panel.updatePinnedApps(settings.pinnedApps, runningBundleIDs: runningBundleIDs)
+        }
+    }
+    
+    public var allPanels: [TaskbarPanel] {
+        Array(panels.values)
+    }
+    
+    private func configurePanelCallbacks(_ panel: TaskbarPanel) {
+        panel.taskbarView.store = store
+        panel.taskbarView.onPinRequested = { [weak self] bundleID, appName in
+            self?.pinApp(bundleIdentifier: bundleID, displayName: appName)
+        }
+        panel.taskbarView.onUnpinRequested = { [weak self] bundleID in
+            self?.unpinApp(bundleIdentifier: bundleID)
+        }
+    }
+    
     @objc private func handleScreenParametersChanged() {
         refreshPanels()
     }
@@ -163,6 +199,7 @@ public final class ScreenManager {
     public func refreshPanels() {
         let screens = NSScreen.screens
         var activeDisplayIDs = Set<CGDirectDisplayID>()
+        let runningBundleIDs = Set(store.allWindows.map { $0.bundleID })
         
         for screen in screens {
             let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
@@ -171,6 +208,7 @@ public final class ScreenManager {
             let height = CGFloat(settings.barHeight)
             if let existingPanel = panels[displayID] {
                 existingPanel.updateLayout(for: screen, height: height)
+                existingPanel.updatePinnedApps(settings.pinnedApps, runningBundleIDs: runningBundleIDs)
                 existingPanel.orderFrontRegardless()
             } else {
                 let panel = TaskbarPanel(
@@ -181,8 +219,11 @@ public final class ScreenManager {
                     minButtonWidth: settings.minButtonWidth,
                     maxButtonWidth: settings.maxButtonWidth,
                     buttonSpacing: settings.buttonSpacing,
-                    titleVisibilityThreshold: settings.titleVisibilityThreshold
+                    titleVisibilityThreshold: settings.titleVisibilityThreshold,
+                    pinnedApps: settings.pinnedApps,
+                    store: store
                 )
+                configurePanelCallbacks(panel)
                 panels[displayID] = panel
                 panel.orderFrontRegardless()
             }
@@ -203,6 +244,7 @@ public final class ScreenManager {
     public func updateWindows() {
         let descriptors = screenDescriptors()
         let screens = NSScreen.screens
+        let runningBundleIDs = Set(store.allWindows.map { $0.bundleID })
         
         for (displayID, panel) in panels {
             guard let screen = screens.first(where: {
@@ -222,6 +264,10 @@ public final class ScreenManager {
                 }
             }
             
+            panel.taskbarView.updatePinnedApps(
+                settings.pinnedApps,
+                runningBundleIDs: runningBundleIDs
+            )
             panel.taskbarView.updateWindows(
                 windows: screenWindows,
                 focusedKey: store.focusedWindowKey,

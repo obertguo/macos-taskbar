@@ -113,4 +113,58 @@ public enum WindowActions {
             NSRunningApplication(processIdentifier: pid)?.terminate()
         }
     }
+    
+    public static func quitApplication(bundleIdentifier: String) {
+        DispatchQueue.main.async {
+            let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
+            for app in runningApps {
+                app.terminate()
+            }
+        }
+    }
+    
+    public static func launchOrActivateApp(
+        bundleIdentifier: String,
+        customPath: String? = nil,
+        store: WindowStore? = nil
+    ) {
+        let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).filter { !$0.isTerminated }
+        if let runningApp = runningApps.first {
+            DispatchQueue.main.async {
+                runningApp.unhide()
+            }
+            
+            if let store = store {
+                let appWindows = store.allWindows.filter { $0.bundleID == bundleIdentifier && $0.pid == runningApp.processIdentifier }
+                if let targetWindow = appWindows.first {
+                    if targetWindow.isMinimized {
+                        restoreAndFocusWindow(targetWindow.key)
+                    } else {
+                        focusWindow(targetWindow.key)
+                    }
+                    return
+                }
+            }
+            
+            DispatchQueue.main.async {
+                runningApp.activate()
+            }
+        } else {
+            var targetURL: URL?
+            if let customPath = customPath, !customPath.isEmpty, FileManager.default.fileExists(atPath: customPath) {
+                targetURL = URL(fileURLWithPath: customPath)
+            } else {
+                targetURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier)
+            }
+            
+            guard let url = targetURL else {
+                TaskbarLogger.ui.error("Cannot resolve launch URL for app: \(bundleIdentifier)")
+                return
+            }
+            
+            let config = NSWorkspace.OpenConfiguration()
+            config.activates = true
+            NSWorkspace.shared.openApplication(at: url, configuration: config, completionHandler: nil)
+        }
+    }
 }

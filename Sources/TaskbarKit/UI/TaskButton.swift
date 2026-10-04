@@ -35,9 +35,11 @@ public final class TaskButton: NSView {
         }
     }
     
+    public var isPinned: Bool = false
     public var onClick: (() -> Void)?
     public var onClose: (() -> Void)?
     public var onQuit: (() -> Void)?
+    public var onTogglePin: (() -> Void)?
     
     private var isHovered = false {
         didSet { if oldValue != isHovered { needsDisplay = true } }
@@ -116,6 +118,14 @@ public final class TaskButton: NSView {
         
         menu.addItem(NSMenuItem.separator())
         
+        // Pin / Unpin from Taskbar
+        let pinTitle = isPinned ? TaskbarStrings.ContextMenu.unpinFromTaskbar : TaskbarStrings.ContextMenu.pinToTaskbar
+        let pinItem = NSMenuItem(title: pinTitle, action: #selector(handleMenuTogglePin), keyEquivalent: "")
+        pinItem.target = self
+        menu.addItem(pinItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
         // Close Window
         let closeItem = NSMenuItem(title: TaskbarStrings.ContextMenu.closeWindow, action: #selector(handleMenuClose), keyEquivalent: "w")
         closeItem.target = self
@@ -127,6 +137,10 @@ public final class TaskButton: NSView {
         menu.addItem(quitItem)
         
         return menu
+    }
+    
+    @objc private func handleMenuTogglePin() {
+        onTogglePin?()
     }
     
     @objc private func handleMenuMinimizeOrRestore() {

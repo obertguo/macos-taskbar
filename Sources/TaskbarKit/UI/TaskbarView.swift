@@ -18,6 +18,14 @@ public final class TaskbarView: NSView {
     private var taskButtons: [TaskButton] = []
     private var buttonMap: [WindowKey: TaskButton] = [:]
     
+    private var pinnedButtons: [PinnedButton] = []
+    private var pinnedButtonMap: [String: PinnedButton] = [:]
+    public private(set) var currentPinnedApps: [PinnedApp] = []
+    
+    public var onPinRequested: ((_ bundleID: String, _ appName: String) -> Void)?
+    public var onUnpinRequested: ((_ bundleID: String) -> Void)?
+    public weak var store: WindowStore?
+    
     private var currentWindows: [WindowInfo] = []
     private var focusedKey: WindowKey?
     private var frontmostPID: pid_t?
@@ -49,7 +57,9 @@ public final class TaskbarView: NSView {
         minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth,
         maxButtonWidth: Double = TaskbarConstants.Layout.defaultMaxButtonWidth,
         buttonSpacing: Double = TaskbarConstants.Layout.defaultButtonSpacing,
-        titleVisibilityThreshold: Double = TaskbarConstants.Layout.defaultTitleVisibilityThreshold
+        titleVisibilityThreshold: Double = TaskbarConstants.Layout.defaultTitleVisibilityThreshold,
+        pinnedApps: [PinnedApp] = [],
+        store: WindowStore? = nil
     ) {
         self.theme = theme
         self.launcherAction = launcherAction
@@ -57,12 +67,16 @@ public final class TaskbarView: NSView {
         self.maxButtonWidth = maxButtonWidth
         self.buttonSpacing = buttonSpacing
         self.titleVisibilityThreshold = titleVisibilityThreshold
+        self.store = store
         self.startButton = StartButton(theme: theme)
         self.overflowButton = OverflowButton(theme: theme)
         super.init(frame: .zero)
         
         setupViews()
         applyTheme()
+        if !pinnedApps.isEmpty {
+            updatePinnedApps(pinnedApps)
+        }
     }
     
     required init?(coder: NSCoder) {
@@ -107,6 +121,14 @@ public final class TaskbarView: NSView {
         self.focusedKey = focusedKey
         self.frontmostPID = frontmostPID
         
+        let runningIDs = Set(windows.map { $0.bundleID })
+        let pinnedIDs = Set(currentPinnedApps.map { $0.bundleIdentifier })
+        
+        // Update isRunning for pinned buttons
+        for btn in pinnedButtons {
+            btn.isRunning = isAppRunning(bundleIdentifier: btn.pinnedApp.bundleIdentifier, runningBundleIDs: runningIDs)
+        }
+        
         let currentKeys = Set(windows.map { $0.key })
         
         // 1. Remove buttons for closed windows
@@ -121,10 +143,12 @@ public final class TaskbarView: NSView {
         var orderedButtons: [TaskButton] = []
         for win in windows {
             let isFocused = !win.isMinimized && !win.isAppHidden && (win.key == focusedKey && win.pid == frontmostPID)
+            let isPinned = pinnedIDs.contains(win.bundleID)
             
             if let existing = buttonMap[win.key] {
                 existing.windowInfo = win
                 existing.isFocusedWindow = isFocused
+                existing.isPinned = isPinned
                 existing.theme = theme
                 orderedButtons.append(existing)
             } else {
@@ -134,6 +158,15 @@ public final class TaskbarView: NSView {
                     showTitle: true,
                     theme: theme
                 )
+                btn.isPinned = isPinned
+                btn.onTogglePin = { [weak self, weak btn] in
+                    guard let self = self, let btn = btn else { return }
+                    if btn.isPinned {
+                        self.onUnpinRequested?(btn.windowInfo.bundleID)
+                    } else {
+                        self.onPinRequested?(btn.windowInfo.bundleID, btn.windowInfo.appName)
+                    }
+                }
                 
                 btn.onClick = { [weak self, weak btn] in
                     guard let self = self, let btn = btn else { return }
@@ -175,6 +208,82 @@ public final class TaskbarView: NSView {
         layoutComponents()
     }
     
+    public func updatePinnedApps(_ apps: [PinnedApp], runningBundleIDs: Set<String>? = nil) {
+        self.currentPinnedApps = apps
+        let runningIDs = runningBundleIDs ?? Set(currentWindows.map { $0.bundleID })
+        let newIDs = Set(apps.map { $0.bundleIdentifier })
+        
+        // 1. Remove buttons for unpinned apps
+        for (bundleID, btn) in pinnedButtonMap {
+            if !newIDs.contains(bundleID) {
+                btn.removeFromSuperview()
+                pinnedButtonMap.removeValue(forKey: bundleID)
+            }
+        }
+        
+        // 2. Recycle existing or instantiate new pinned buttons
+        var orderedButtons: [PinnedButton] = []
+        for app in apps {
+            let running = isAppRunning(bundleIdentifier: app.bundleIdentifier, runningBundleIDs: runningIDs)
+            if let existing = pinnedButtonMap[app.bundleIdentifier] {
+                existing.pinnedApp = app
+                existing.isRunning = running
+                existing.theme = theme
+                orderedButtons.append(existing)
+            } else {
+                let btn = PinnedButton(
+                    pinnedApp: app,
+                    isRunning: running,
+                    theme: theme
+                )
+                btn.onClick = { [weak self, weak btn] in
+                    guard let self = self, let btn = btn else { return }
+                    WindowActions.launchOrActivateApp(
+                        bundleIdentifier: btn.pinnedApp.bundleIdentifier,
+                        customPath: btn.pinnedApp.customPath,
+                        store: self.store
+                    )
+                }
+                btn.onUnpin = { [weak self, weak btn] in
+                    guard let self = self, let btn = btn else { return }
+                    self.onUnpinRequested?(btn.pinnedApp.bundleIdentifier)
+                }
+                btn.onQuit = { [weak btn] in
+                    guard let btn = btn else { return }
+                    WindowActions.quitApplication(bundleIdentifier: btn.pinnedApp.bundleIdentifier)
+                }
+                addSubview(btn)
+                pinnedButtonMap[app.bundleIdentifier] = btn
+                orderedButtons.append(btn)
+            }
+        }
+        
+        self.pinnedButtons = orderedButtons
+        
+        // Refresh isPinned on existing task buttons
+        for btn in taskButtons {
+            btn.isPinned = newIDs.contains(btn.windowInfo.bundleID)
+        }
+        
+        layoutComponents()
+    }
+    
+    private func isAppRunning(bundleIdentifier: String, runningBundleIDs: Set<String>) -> Bool {
+        if runningBundleIDs.contains(bundleIdentifier) { return true }
+        let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
+        return runningApps.contains { !$0.isTerminated }
+    }
+    
+    /// Returns the active PinnedButton for a given bundle identifier.
+    public func pinnedButton(forBundleID bundleID: String) -> PinnedButton? {
+        pinnedButtonMap[bundleID]
+    }
+    
+    /// Returns all active PinnedButtons.
+    public var allPinnedButtons: [PinnedButton] {
+        pinnedButtons
+    }
+    
     /// Returns the active TaskButton associated with a WindowKey.
     public func button(forKey key: WindowKey) -> TaskButton? {
         buttonMap[key]
@@ -198,7 +307,24 @@ public final class TaskbarView: NSView {
             height: btnH
         )
         
-        let startX = startButton.frame.maxX + TaskbarConstants.Layout.startButtonTrailingMargin
+        var currentX = startButton.frame.maxX + TaskbarConstants.Layout.startButtonTrailingMargin
+        
+        // Layout Pinned Buttons
+        for btn in pinnedButtons {
+            btn.frame = NSRect(
+                x: currentX,
+                y: padY,
+                width: btnH,
+                height: btnH
+            )
+            currentX += btnH + TaskbarConstants.Layout.pinnedButtonSpacing
+        }
+        
+        if !pinnedButtons.isEmpty {
+            currentX += (TaskbarConstants.Layout.pinnedSectionTrailingMargin - TaskbarConstants.Layout.pinnedButtonSpacing)
+        }
+        
+        let startX = currentX
         let totalAvailableW = max(0.0, bounds.width - startX - TaskbarConstants.Layout.taskbarTrailingMargin)
         
         // Initial layout calculation
@@ -235,18 +361,18 @@ public final class TaskbarView: NSView {
             overflowButton.isHidden = true
         }
         
-        var currentX = startX
+        var taskBtnX = startX
         for (index, btn) in taskButtons.enumerated() {
             if index < layout.visibleCount {
                 btn.isHidden = false
                 btn.frame = NSRect(
-                    x: currentX,
+                    x: taskBtnX,
                     y: padY,
                     width: CGFloat(layout.buttonWidth),
                     height: btnH
                 )
                 btn.showTitle = layout.showTitle
-                currentX += CGFloat(layout.buttonWidth) + CGFloat(buttonSpacing)
+                taskBtnX += CGFloat(layout.buttonWidth) + CGFloat(buttonSpacing)
             } else {
                 btn.isHidden = true
             }
@@ -295,6 +421,10 @@ public final class TaskbarView: NSView {
         startButton.theme = theme
         overflowButton.theme = theme
         visualEffectView.isHidden = !theme.useTranslucency
+        
+        for btn in pinnedButtons {
+            btn.theme = theme
+        }
         
         for btn in buttonMap.values {
             btn.theme = theme
