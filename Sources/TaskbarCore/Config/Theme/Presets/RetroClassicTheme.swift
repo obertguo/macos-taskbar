@@ -5,12 +5,12 @@ import Foundation
 public enum RetroClassicTheme {
     public static let id = "retro-classic"
     
-    // Named Palette Colors (Windows 95/98 Classic)
-    public static let gray = RGBAColor(red: 192.0 / 255.0, green: 192.0 / 255.0, blue: 192.0 / 255.0)
-    public static let lightGray = RGBAColor(red: 220.0 / 255.0, green: 220.0 / 255.0, blue: 220.0 / 255.0)
-    public static let shadow = RGBAColor(red: 128.0 / 255.0, green: 128.0 / 255.0, blue: 128.0 / 255.0)
-    public static let darkShadow = RGBAColor(red: 64.0 / 255.0, green: 64.0 / 255.0, blue: 64.0 / 255.0)
-    public static let navy = RGBAColor(red: 0.0, green: 0.0, blue: 128.0 / 255.0)
+    // Local Palette Colors (Windows 95/98 Classic)
+    private static let gray = RGBAColor(red: 192.0 / 255.0, green: 192.0 / 255.0, blue: 192.0 / 255.0)
+    private static let lightGray = RGBAColor(red: 220.0 / 255.0, green: 220.0 / 255.0, blue: 220.0 / 255.0)
+    private static let shadow = RGBAColor(red: 128.0 / 255.0, green: 128.0 / 255.0, blue: 128.0 / 255.0)
+    private static let darkShadow = RGBAColor(red: 64.0 / 255.0, green: 64.0 / 255.0, blue: 64.0 / 255.0)
+    private static let navy = RGBAColor(red: 0.0, green: 0.0, blue: 128.0 / 255.0)
     
     public static let definition = ThemeDefinition(
         id: id,

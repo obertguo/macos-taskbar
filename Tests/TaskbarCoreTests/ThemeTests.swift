@@ -22,7 +22,9 @@ final class ThemeTests: XCTestCase {
         XCTAssertFalse(theme.useTranslucency)
         XCTAssertTrue(theme.is3DBeveled)
         XCTAssertEqual(theme.buttonCornerRadius, 0.0)
-        XCTAssertEqual(theme.backgroundColor, RetroClassicTheme.gray)
+        XCTAssertEqual(theme.backgroundColor.red, 192.0 / 255.0, accuracy: 0.001)
+        XCTAssertEqual(theme.backgroundColor.green, 192.0 / 255.0, accuracy: 0.001)
+        XCTAssertEqual(theme.backgroundColor.blue, 192.0 / 255.0, accuracy: 0.001)
         XCTAssertEqual(theme.fontSize, 13.0)
         XCTAssertEqual(theme.iconSize, 20.0)
     }

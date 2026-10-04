@@ -19,8 +19,8 @@ public enum BevelDrawing {
     public static func drawRaisedBevel(
         in rect: NSRect,
         highlight: NSColor = .white,
-        shadow: NSColor = NSColor(rgba: RetroClassicTheme.shadow),
-        darkShadow: NSColor = NSColor(rgba: RetroClassicTheme.darkShadow)
+        shadow: NSColor = NSColor(white: 128.0 / 255.0, alpha: 1.0),
+        darkShadow: NSColor = NSColor(white: 64.0 / 255.0, alpha: 1.0)
     ) {
         let x = rect.minX
         let y = rect.minY
@@ -58,8 +58,8 @@ public enum BevelDrawing {
     /// Draws a classic 3D sunken border (pressed button / active window state)
     public static func drawSunkenBevel(
         in rect: NSRect,
-        darkShadow: NSColor = NSColor(rgba: RetroClassicTheme.darkShadow),
-        shadow: NSColor = NSColor(rgba: RetroClassicTheme.shadow),
+        darkShadow: NSColor = NSColor(white: 64.0 / 255.0, alpha: 1.0),
+        shadow: NSColor = NSColor(white: 128.0 / 255.0, alpha: 1.0),
         highlight: NSColor = .white
     ) {
         let x = rect.minX
