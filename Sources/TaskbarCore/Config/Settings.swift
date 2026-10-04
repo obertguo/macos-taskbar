@@ -21,7 +21,27 @@ public enum LauncherAction: Codable, Sendable, Equatable {
 }
 
 public struct Settings: Codable, Sendable, Equatable {
-    public var themeStyle: ThemeStyle
+    public var activeThemeId: String
+    
+    public var themeStyle: ThemeStyle {
+        get {
+            if activeThemeId == ThemeDefinition.retroClassic.id {
+                return .retroClassic
+            }
+            return .modernHybrid
+        }
+        set {
+            switch newValue {
+            case .modernHybrid: activeThemeId = ThemeDefinition.modernHybrid.id
+            case .retroClassic: activeThemeId = ThemeDefinition.retroClassic.id
+            }
+        }
+    }
+    
+    public var currentTheme: ThemeDefinition {
+        ThemeRegistry.shared.theme(for: activeThemeId)
+    }
+    
     public var barHeight: Double
     public var maxButtonWidth: Double
     public var minButtonWidth: Double
@@ -35,7 +55,7 @@ public struct Settings: Codable, Sendable, Equatable {
     public var dockHideDelay: Double
     
     public static let `default` = Settings(
-        themeStyle: .modernHybrid,
+        activeThemeId: ThemeDefinition.modernHybrid.id,
         barHeight: TaskbarConstants.Layout.defaultBarHeight,
         maxButtonWidth: TaskbarConstants.Layout.defaultMaxButtonWidth,
         minButtonWidth: TaskbarConstants.Layout.defaultMinButtonWidth,
@@ -50,7 +70,7 @@ public struct Settings: Codable, Sendable, Equatable {
     )
     
     public init(
-        themeStyle: ThemeStyle = .modernHybrid,
+        activeThemeId: String = ThemeDefinition.modernHybrid.id,
         barHeight: Double = TaskbarConstants.Layout.defaultBarHeight,
         maxButtonWidth: Double = TaskbarConstants.Layout.defaultMaxButtonWidth,
         minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth,
@@ -63,7 +83,7 @@ public struct Settings: Codable, Sendable, Equatable {
         hideSystemDock: Bool = true,
         dockHideDelay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds
     ) {
-        self.themeStyle = themeStyle
+        self.activeThemeId = activeThemeId
         self.barHeight = barHeight
         self.maxButtonWidth = maxButtonWidth
         self.minButtonWidth = minButtonWidth
@@ -77,15 +97,51 @@ public struct Settings: Codable, Sendable, Equatable {
         self.dockHideDelay = dockHideDelay
     }
     
+    public init(
+        themeStyle: ThemeStyle,
+        barHeight: Double = TaskbarConstants.Layout.defaultBarHeight,
+        maxButtonWidth: Double = TaskbarConstants.Layout.defaultMaxButtonWidth,
+        minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth,
+        buttonSpacing: Double = TaskbarConstants.Layout.defaultButtonSpacing,
+        titleVisibilityThreshold: Double = TaskbarConstants.Layout.defaultTitleVisibilityThreshold,
+        fontSize: Double = TaskbarConstants.Layout.defaultFontSize,
+        iconSize: Double = TaskbarConstants.Layout.defaultIconSize,
+        launcherAction: LauncherAction = .spotlight,
+        enableAXNudger: Bool = true,
+        hideSystemDock: Bool = true,
+        dockHideDelay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds
+    ) {
+        self.init(
+            activeThemeId: (themeStyle == .retroClassic) ? ThemeDefinition.retroClassic.id : ThemeDefinition.modernHybrid.id,
+            barHeight: barHeight,
+            maxButtonWidth: maxButtonWidth,
+            minButtonWidth: minButtonWidth,
+            buttonSpacing: buttonSpacing,
+            titleVisibilityThreshold: titleVisibilityThreshold,
+            fontSize: fontSize,
+            iconSize: iconSize,
+            launcherAction: launcherAction,
+            enableAXNudger: enableAXNudger,
+            hideSystemDock: hideSystemDock,
+            dockHideDelay: dockHideDelay
+        )
+    }
+    
     private enum CodingKeys: String, CodingKey {
-        case themeStyle, barHeight, maxButtonWidth, minButtonWidth
+        case activeThemeId, themeStyle, barHeight, maxButtonWidth, minButtonWidth
         case buttonSpacing, titleVisibilityThreshold, fontSize, iconSize
         case launcherAction, enableAXNudger, hideSystemDock, dockHideDelay
     }
     
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.themeStyle = try container.decodeIfPresent(ThemeStyle.self, forKey: .themeStyle) ?? .modernHybrid
+        if let themeId = try container.decodeIfPresent(String.self, forKey: .activeThemeId) {
+            self.activeThemeId = themeId
+        } else if let style = try container.decodeIfPresent(ThemeStyle.self, forKey: .themeStyle) {
+            self.activeThemeId = (style == .retroClassic) ? ThemeDefinition.retroClassic.id : ThemeDefinition.modernHybrid.id
+        } else {
+            self.activeThemeId = ThemeDefinition.modernHybrid.id
+        }
         self.barHeight = try container.decodeIfPresent(Double.self, forKey: .barHeight) ?? TaskbarConstants.Layout.defaultBarHeight
         self.maxButtonWidth = try container.decodeIfPresent(Double.self, forKey: .maxButtonWidth) ?? TaskbarConstants.Layout.defaultMaxButtonWidth
         self.minButtonWidth = try container.decodeIfPresent(Double.self, forKey: .minButtonWidth) ?? TaskbarConstants.Layout.defaultMinButtonWidth
@@ -97,6 +153,23 @@ public struct Settings: Codable, Sendable, Equatable {
         self.enableAXNudger = try container.decodeIfPresent(Bool.self, forKey: .enableAXNudger) ?? true
         self.hideSystemDock = try container.decodeIfPresent(Bool.self, forKey: .hideSystemDock) ?? true
         self.dockHideDelay = try container.decodeIfPresent(Double.self, forKey: .dockHideDelay) ?? TaskbarConstants.Dock.defaultAutohideDelaySeconds
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(activeThemeId, forKey: .activeThemeId)
+        try container.encode(themeStyle, forKey: .themeStyle)
+        try container.encode(barHeight, forKey: .barHeight)
+        try container.encode(maxButtonWidth, forKey: .maxButtonWidth)
+        try container.encode(minButtonWidth, forKey: .minButtonWidth)
+        try container.encode(buttonSpacing, forKey: .buttonSpacing)
+        try container.encode(titleVisibilityThreshold, forKey: .titleVisibilityThreshold)
+        try container.encode(fontSize, forKey: .fontSize)
+        try container.encode(iconSize, forKey: .iconSize)
+        try container.encode(launcherAction, forKey: .launcherAction)
+        try container.encode(enableAXNudger, forKey: .enableAXNudger)
+        try container.encode(hideSystemDock, forKey: .hideSystemDock)
+        try container.encode(dockHideDelay, forKey: .dockHideDelay)
     }
     
     private static let userDefaultsKey = "com.taskbar.settings"

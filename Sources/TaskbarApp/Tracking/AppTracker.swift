@@ -215,4 +215,19 @@ public final class AppTracker {
             }
         }
     }
+    
+    public func stopTracking() {
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        
+        for observer in observers.values {
+            observer.invalidate()
+        }
+        observers.removeAll()
+        pendingDebounceWorkItem?.cancel()
+        pendingDebounceWorkItem = nil
+    }
+    
+    deinit {
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+    }
 }

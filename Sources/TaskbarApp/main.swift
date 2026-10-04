@@ -20,7 +20,7 @@ func installSignalHandlers() {
         signal(sig, SIG_IGN) // Ignore default kernel termination so DispatchSource handles it
         let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
         source.setEventHandler {
-            print("\n[\(BuildConfiguration.appName)] Received termination signal (\(sig)). Restoring system Dock...")
+            TaskbarLogger.lifecycle.info("Received termination signal (\(sig)). Restoring system Dock...")
             DockController.restoreDockSync()
             exit(0)
         }

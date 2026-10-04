@@ -7,6 +7,7 @@ import TaskbarCore
 public final class StatusMenu {
     private let statusItem: NSStatusItem
     private var currentStyle: ThemeStyle
+    private var currentThemeId: String
     private var minButtonWidth: Double
     private var barHeight: Double
     private var fontSize: Double
@@ -16,6 +17,7 @@ public final class StatusMenu {
     private var dockDelay: Double
     
     public var onThemeChanged: ((ThemeStyle) -> Void)?
+    public var onThemeIdChanged: ((String) -> Void)?
     public var onMinButtonWidthChanged: ((Double) -> Void)?
     public var onBarHeightChanged: ((Double) -> Void)?
     public var onFontSizeChanged: ((Double) -> Void)?
@@ -28,7 +30,8 @@ public final class StatusMenu {
     public var onQuitRequested: (() -> Void)?
     
     public init(
-        currentStyle: ThemeStyle,
+        currentStyle: ThemeStyle = .modernHybrid,
+        currentThemeId: String? = nil,
         minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth,
         barHeight: Double = TaskbarConstants.Layout.defaultBarHeight,
         fontSize: Double = TaskbarConstants.Layout.defaultFontSize,
@@ -38,6 +41,7 @@ public final class StatusMenu {
         dockDelay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds
     ) {
         self.currentStyle = currentStyle
+        self.currentThemeId = currentThemeId ?? ((currentStyle == .retroClassic) ? ThemeDefinition.retroClassic.id : ThemeDefinition.modernHybrid.id)
         self.minButtonWidth = minButtonWidth
         self.barHeight = barHeight
         self.fontSize = fontSize
@@ -52,6 +56,13 @@ public final class StatusMenu {
     
     public func updateStyle(_ style: ThemeStyle) {
         self.currentStyle = style
+        self.currentThemeId = (style == .retroClassic) ? ThemeDefinition.retroClassic.id : ThemeDefinition.modernHybrid.id
+        setupMenu()
+    }
+    
+    public func updateThemeId(_ themeId: String) {
+        self.currentThemeId = themeId
+        self.currentStyle = (themeId == ThemeDefinition.retroClassic.id) ? .retroClassic : .modernHybrid
         setupMenu()
     }
     
@@ -115,11 +126,11 @@ public final class StatusMenu {
         
         // Theme Menu
         let themeSubmenu = NSMenu(title: TaskbarStrings.StatusMenu.themeMenu)
-        for style in ThemeStyle.allCases {
-            let item = NSMenuItem(title: style.displayName, action: #selector(handleThemeSelection(_:)), keyEquivalent: "")
+        for theme in ThemeRegistry.shared.allThemes {
+            let item = NSMenuItem(title: theme.displayName, action: #selector(handleThemeSelection(_:)), keyEquivalent: "")
             item.target = self
-            item.representedObject = style
-            item.state = (style == currentStyle) ? .on : .off
+            item.representedObject = theme.id
+            item.state = (theme.id == currentThemeId) ? .on : .off
             themeSubmenu.addItem(item)
         }
         let themeParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.themeMenu, action: nil, keyEquivalent: "")
@@ -247,9 +258,18 @@ public final class StatusMenu {
     }
     
     @objc private func handleThemeSelection(_ sender: NSMenuItem) {
-        if let style = sender.representedObject as? ThemeStyle {
-            currentStyle = style
+        if let themeId = sender.representedObject as? String {
+            self.currentThemeId = themeId
+            let style = (themeId == ThemeDefinition.retroClassic.id) ? ThemeStyle.retroClassic : ThemeStyle.modernHybrid
+            self.currentStyle = style
             setupMenu()
+            onThemeIdChanged?(themeId)
+            onThemeChanged?(style)
+        } else if let style = sender.representedObject as? ThemeStyle {
+            self.currentStyle = style
+            self.currentThemeId = (style == .retroClassic) ? ThemeDefinition.retroClassic.id : ThemeDefinition.modernHybrid.id
+            setupMenu()
+            onThemeIdChanged?(currentThemeId)
             onThemeChanged?(style)
         }
     }

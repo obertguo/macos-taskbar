@@ -13,8 +13,7 @@ public final class ScreenManager {
     public init(settings: Settings, store: WindowStore) {
         self.settings = settings
         self.store = store
-        self.currentTheme = ThemeDefinition.forStyle(
-            settings.themeStyle,
+        self.currentTheme = ThemeRegistry.shared.theme(for: settings.activeThemeId).withCustomMetrics(
             fontSize: settings.fontSize,
             iconSize: settings.iconSize
         )
@@ -47,8 +46,7 @@ public final class ScreenManager {
     
     public func updateSettings(_ newSettings: Settings) {
         self.settings = newSettings
-        self.currentTheme = ThemeDefinition.forStyle(
-            newSettings.themeStyle,
+        self.currentTheme = ThemeRegistry.shared.theme(for: newSettings.activeThemeId).withCustomMetrics(
             fontSize: newSettings.fontSize,
             iconSize: newSettings.iconSize
         )
@@ -88,8 +86,7 @@ public final class ScreenManager {
     public func updateFontSize(_ fontSize: Double) {
         settings.fontSize = fontSize
         settings.save()
-        currentTheme = ThemeDefinition.forStyle(
-            settings.themeStyle,
+        currentTheme = currentTheme.withCustomMetrics(
             fontSize: fontSize,
             iconSize: settings.iconSize
         )
@@ -101,8 +98,7 @@ public final class ScreenManager {
     public func updateIconSize(_ iconSize: Double) {
         settings.iconSize = iconSize
         settings.save()
-        currentTheme = ThemeDefinition.forStyle(
-            settings.themeStyle,
+        currentTheme = currentTheme.withCustomMetrics(
             fontSize: settings.fontSize,
             iconSize: iconSize
         )
@@ -111,18 +107,20 @@ public final class ScreenManager {
         }
     }
     
-    public func updateThemeStyle(_ style: ThemeStyle) {
-        settings.themeStyle = style
+    public func updateTheme(themeId: String) {
+        settings.activeThemeId = themeId
         settings.save()
-        currentTheme = ThemeDefinition.forStyle(
-            style,
+        currentTheme = ThemeRegistry.shared.theme(for: themeId).withCustomMetrics(
             fontSize: settings.fontSize,
             iconSize: settings.iconSize
         )
-        
         for panel in panels.values {
             panel.applyTheme(currentTheme)
         }
+    }
+    
+    public func updateThemeStyle(_ style: ThemeStyle) {
+        updateTheme(themeId: (style == .retroClassic) ? ThemeDefinition.retroClassic.id : ThemeDefinition.modernHybrid.id)
     }
     
     @objc private func handleScreenParametersChanged() {
@@ -237,5 +235,16 @@ public final class ScreenManager {
             panel.close()
         }
         panels.removeAll()
+    }
+    
+    public func stop() {
+        NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        closeAll()
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 }

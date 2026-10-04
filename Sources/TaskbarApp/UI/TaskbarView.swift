@@ -16,6 +16,7 @@ public final class TaskbarView: NSView {
     public let startButton: StartButton
     public let overflowButton: OverflowButton
     private var taskButtons: [TaskButton] = []
+    private var buttonMap: [WindowKey: TaskButton] = [:]
     
     private var currentWindows: [WindowInfo] = []
     private var focusedKey: WindowKey?
@@ -106,29 +107,26 @@ public final class TaskbarView: NSView {
         self.focusedKey = focusedKey
         self.frontmostPID = frontmostPID
         
-        var existingMap: [WindowKey: TaskButton] = [:]
-        for btn in taskButtons {
-            existingMap[btn.windowInfo.key] = btn
-        }
-        
-        var newButtons: [TaskButton] = []
         let currentKeys = Set(windows.map { $0.key })
         
-        // Remove buttons for closed windows
-        for (key, btn) in existingMap {
+        // 1. Remove buttons for closed windows
+        for (key, btn) in buttonMap {
             if !currentKeys.contains(key) {
                 btn.removeFromSuperview()
+                buttonMap.removeValue(forKey: key)
             }
         }
         
+        // 2. Re-use existing buttons or instantiate new ones
+        var orderedButtons: [TaskButton] = []
         for win in windows {
-            // A minimized or hidden window can never be drawn as focused
             let isFocused = !win.isMinimized && !win.isAppHidden && (win.key == focusedKey && win.pid == frontmostPID)
             
-            if let existing = existingMap[win.key] {
+            if let existing = buttonMap[win.key] {
                 existing.windowInfo = win
                 existing.isFocusedWindow = isFocused
-                newButtons.append(existing)
+                existing.theme = theme
+                orderedButtons.append(existing)
             } else {
                 let btn = TaskButton(
                     windowInfo: win,
@@ -168,11 +166,12 @@ public final class TaskbarView: NSView {
                 }
                 
                 addSubview(btn)
-                newButtons.append(btn)
+                buttonMap[win.key] = btn
+                orderedButtons.append(btn)
             }
         }
         
-        self.taskButtons = newButtons
+        self.taskButtons = orderedButtons
         layoutComponents()
     }
     
@@ -287,7 +286,7 @@ public final class TaskbarView: NSView {
         overflowButton.theme = theme
         visualEffectView.isHidden = !theme.useTranslucency
         
-        for btn in taskButtons {
+        for btn in buttonMap.values {
             btn.theme = theme
         }
         
@@ -298,29 +297,18 @@ public final class TaskbarView: NSView {
     public override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         
-        switch theme.style {
-        case .retroClassic:
+        if !theme.useTranslucency || theme.backgroundColor.alpha > 0.0 {
             NSColor(rgba: theme.backgroundColor).setFill()
             bounds.fill()
-            
-            if let topBorder = theme.topBorderColor {
-                NSColor(rgba: topBorder).setStroke()
-                let path = NSBezierPath()
-                path.move(to: NSPoint(x: bounds.minX, y: bounds.maxY - 0.5))
-                path.line(to: NSPoint(x: bounds.maxX, y: bounds.maxY - 0.5))
-                path.lineWidth = 1.0
-                path.stroke()
-            }
-            
-        case .modernHybrid:
-            if let topBorder = theme.topBorderColor {
-                NSColor(rgba: topBorder).setStroke()
-                let path = NSBezierPath()
-                path.move(to: NSPoint(x: bounds.minX, y: bounds.maxY - 0.5))
-                path.line(to: NSPoint(x: bounds.maxX, y: bounds.maxY - 0.5))
-                path.lineWidth = 1.0
-                path.stroke()
-            }
+        }
+        
+        if let topBorder = theme.topBorderColor {
+            NSColor(rgba: topBorder).setStroke()
+            let path = NSBezierPath()
+            path.move(to: NSPoint(x: bounds.minX, y: bounds.maxY - 0.5))
+            path.line(to: NSPoint(x: bounds.maxX, y: bounds.maxY - 0.5))
+            path.lineWidth = 1.0
+            path.stroke()
         }
     }
 }

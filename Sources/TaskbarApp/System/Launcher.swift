@@ -39,7 +39,7 @@ public enum Launcher {
     private static func triggerSpotlight() {
         // Ensure Accessibility permission is granted, otherwise prompt user
         if !AccessibilityPermission.isGranted() {
-            print("[Launcher] Accessibility permission required to trigger Spotlight keystroke. Prompting...")
+            TaskbarLogger.lifecycle.warning("Accessibility permission required to trigger Spotlight keystroke. Prompting...")
             AccessibilityPermission.promptIfNecessary()
             AccessibilityPermission.openSystemSettings()
             return

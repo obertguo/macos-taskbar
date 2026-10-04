@@ -98,7 +98,7 @@ public final class DockController: @unchecked Sendable {
         
         _isDockHidden = true
         _currentAppliedDelay = delay
-        print("[DockController] System Dock hidden (autohide-delay: \(delay)s).")
+        TaskbarLogger.dock.info("System Dock hidden (autohide-delay: \(delay)s).")
     }
     
     /// Restores the user's original Dock preferences and restarts the Dock process.
@@ -142,7 +142,7 @@ public final class DockController: @unchecked Sendable {
         // Restart Dock
         executeCommand(TaskbarConstants.Dock.killallBinaryPath, arguments: [TaskbarConstants.Dock.processName])
         
-        print("[DockController] System Dock restored to original settings.")
+        TaskbarLogger.dock.info("System Dock restored to original settings.")
     }
     
     @discardableResult

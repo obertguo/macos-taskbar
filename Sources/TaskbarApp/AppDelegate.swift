@@ -21,7 +21,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Check Accessibility permission on startup
         if !AccessibilityPermission.isGranted() {
-            print("[\(BuildConfiguration.appName)] Accessibility permission not granted yet. Prompting user...")
+            TaskbarLogger.lifecycle.info("Accessibility permission not granted yet. Prompting user...")
             AccessibilityPermission.promptIfNecessary()
         }
         
@@ -52,6 +52,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize menu bar status item
         let statusMenu = StatusMenu(
             currentStyle: settings.themeStyle,
+            currentThemeId: settings.activeThemeId,
             minButtonWidth: settings.minButtonWidth,
             barHeight: settings.barHeight,
             fontSize: settings.fontSize,
@@ -65,6 +66,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             self.settings.themeStyle = newStyle
             self.settings.save()
             self.screenManager?.updateThemeStyle(newStyle)
+        }
+        statusMenu.onThemeIdChanged = { [weak self] themeId in
+            guard let self = self else { return }
+            self.settings.activeThemeId = themeId
+            self.settings.save()
+            self.screenManager?.updateTheme(themeId: themeId)
         }
         statusMenu.onMinButtonWidthChanged = { [weak self] minWidth in
             guard let self = self else { return }
@@ -133,13 +140,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         self.statusMenu = statusMenu
         
-        print("[\(BuildConfiguration.appName)] Started successfully on \(NSScreen.screens.count) screen(s). Theme: \(settings.themeStyle.displayName). Dock: \(settings.hideSystemDock ? "Hidden" : "Visible"). Tracking active.")
+        TaskbarLogger.lifecycle.info("Started successfully on \(NSScreen.screens.count) screen(s). Theme: \(self.settings.activeThemeId). Dock: \(self.settings.hideSystemDock ? "Hidden" : "Visible"). Tracking active.")
     }
     
     public func applicationWillTerminate(_ notification: Notification) {
         // Guaranteed restoration of native macOS Dock on quit
         DockController.restoreDockSync()
         screenManager?.closeAll()
-        print("[\(BuildConfiguration.appName)] Terminated cleanly.")
+        TaskbarLogger.lifecycle.info("Terminated cleanly.")
     }
 }
