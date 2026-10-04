@@ -1,4 +1,4 @@
-# Build & Release Guide (v0.1.1)
+# Build & Release Guide (v0.1.0)
 
 This document describes how to compile, bundle, codesign, verify, install, and uninstall `Taskbar.app`.
 
@@ -149,3 +149,52 @@ Before deleting the application, ensure the system Dock is restored to standard 
    ```bash
    defaults delete com.local.taskbar
    ```
+
+---
+
+## 8. Packaging & Distributing Releases (`scripts/package-release.sh`)
+
+To package standalone `.dmg` and `.zip` distribution bundles with checksums, use the automated release script:
+
+### Packaging the Current Version
+```bash
+./scripts/package-release.sh
+```
+
+### Bumping Version and Packaging
+The script supports semantic version increments (`major`, `minor`, `patch`). When a bump is specified, `config/build.env` serves as the single source of truth and is permanently updated upon a successful build:
+
+```bash
+# Bump patch: e.g. 0.1.0 -> 0.1.1 (increments BUILD_NUMBER)
+./scripts/package-release.sh --patch
+
+# Bump minor: e.g. 0.1.0 -> 0.2.0
+./scripts/package-release.sh --minor
+
+# Bump major: e.g. 0.1.0 -> 1.0.0
+./scripts/package-release.sh --major
+```
+
+### Safety & Fail-Fast Guarantees
+- **Automated Pre-Flight Verification:** Runs `swift test` prior to packaging; any test failure immediately halts the release process.
+- **Atomic Rollback:** If tests, compilation, or disk image assembly fail at any point, `config/build.env` is automatically restored to its original state.
+- **Artifacts Output:** Generated archives and checksums are placed into `dist/`:
+  - `dist/Taskbar-v<VERSION>.dmg` (drag-and-drop disk image)
+  - `dist/Taskbar-v<VERSION>.zip` (compressed application bundle)
+  - `dist/SHA256SUMS.txt` (SHA256 checksums)
+
+### Publishing on GitLab
+1. Commit the updated version in `config/build.env` (and synchronized generated files):
+   ```bash
+   git add config/build.env Sources/TaskbarCore/Config/BuildConfiguration.swift Resources/Info.plist
+   git commit -m "chore(release): bump version to v<VERSION>"
+   ```
+2. Create and push the Git tag:
+   ```bash
+   git tag -a "v<VERSION>" -m "Release v<VERSION>"
+   git push origin main --tags
+   ```
+3. Navigate to GitLab $\rightarrow$ **Deploy** $\rightarrow$ **Releases** $\rightarrow$ **New release**:
+   - Select tag `v<VERSION>`.
+   - Paste release notes from `CHANGELOG.md`.
+   - Attach `Taskbar-v<VERSION>.dmg` and `Taskbar-v<VERSION>.zip` from `dist/` as release assets.

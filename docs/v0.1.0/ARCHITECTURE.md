@@ -1,4 +1,4 @@
-# Architecture & Concurrency Guide (v0.1.1)
+# Architecture & Concurrency Guide (v0.1.0)
 
 This document describes the architectural topology, threading model, subsystem boundaries, and event pipelines for `Taskbar.app`.
 

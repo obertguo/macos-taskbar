@@ -1,4 +1,4 @@
-# Testing & Verification Guide (v0.1.1)
+# Testing & Verification Guide (v0.1.0)
 
 This document describes the automated test architecture, unit test suites, stress testing procedures, and manual verification checklists for `Taskbar.app`.
 

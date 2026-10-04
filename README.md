@@ -44,6 +44,15 @@ Designed for peak responsiveness, ~0.0% idle CPU, and rock-solid stability using
 swift test
 ```
 
+### Packaging Releases
+```bash
+# Package DMG, ZIP, and SHA256 checksums into dist/
+./scripts/package-release.sh
+
+# Or bump semver (patch, minor, or major) and package
+./scripts/package-release.sh --patch
+```
+
 ### Emergency Dock Restore
 If the Dock ever remains hidden (e.g., following a force kill during development):
 ```bash

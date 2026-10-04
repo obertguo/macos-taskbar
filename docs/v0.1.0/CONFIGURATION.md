@@ -1,4 +1,4 @@
-# Configuration Reference (v0.1.1)
+# Configuration Reference (v0.1.0)
 
 This document provides a comprehensive reference for build-time configuration, runtime user preferences, centralized design tokens, and localized copy catalogs.
 
