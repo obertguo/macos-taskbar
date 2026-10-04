@@ -32,19 +32,15 @@ public enum WindowActions {
                 return
             }
             
-            // 1. Raise the window
+            // 1. Raise the target window
             AXUIElementPerformAction(winElement, kAXRaiseAction as CFString)
             
             // 2. Set as main window
             AXUIElementSetAttributeValue(winElement, kAXMainAttribute as CFString, kCFBooleanTrue)
             
-            // 3. Make owning application frontmost via AX
-            let appElement = AXUIElementCreateApplication(key.pid)
-            AXUIElementSetAttributeValue(appElement, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
-            
-            // 4. Activate via NSRunningApplication
+            // 3. Activate application without bringing all windows forward across displays
             DispatchQueue.main.async {
-                NSRunningApplication(processIdentifier: key.pid)?.activate()
+                NSRunningApplication(processIdentifier: key.pid)?.activate(options: [])
             }
         }
     }
@@ -82,16 +78,13 @@ public enum WindowActions {
             // 1. Deminiaturize window
             AXUIElementSetAttributeValue(winElement, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
             
-            // 2. Raise and focus
+            // 2. Raise and focus target window
             AXUIElementPerformAction(winElement, kAXRaiseAction as CFString)
             AXUIElementSetAttributeValue(winElement, kAXMainAttribute as CFString, kCFBooleanTrue)
             
-            let appElement = AXUIElementCreateApplication(key.pid)
-            AXUIElementSetAttributeValue(appElement, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
-            
-            // 3. Activate app
+            // 3. Activate application without bringing all windows forward across displays
             DispatchQueue.main.async {
-                NSRunningApplication(processIdentifier: key.pid)?.activate()
+                NSRunningApplication(processIdentifier: key.pid)?.activate(options: [])
             }
         }
     }

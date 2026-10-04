@@ -55,11 +55,12 @@ All test cases are formally specified in [`docs/v0.2.0/TEST_SPECIFICATIONS.md`](
 - `WindowStoreTests`: Window ordering, display assignment, sync snapshot reconciliation, full-screen transitions (4 test cases).
 - `ScreenAssignmentTests`: Primary/secondary monitor boundary partitioning (3 test cases).
 
-### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 26 Tests)
-- **Window Lifecycle Suite (`WindowLifecycleIntegrationTests.swift` — 6 Tests):**
+### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 27 Tests)
+- **Window Lifecycle Suite (`WindowLifecycleIntegrationTests.swift` — 7 Tests):**
   - `TC-FUNC-001`: Window creation and store discovery within $\le 3\text{s}$.
   - `TC-FUNC-002`: Window minimization state tracking via AX notification.
   - `TC-FUNC-003`: Window restoration and deminiaturization state tracking.
+  - `TC-FUNC-004`: Window focus targeting specific window without raising other windows of the same application.
   - `TC-FUNC-005`: Dynamic window title mutation reflection.
   - `TC-FUNC-006`: Window close event teardown and button cleanup.
   - `TC-FUNC-007`: Application termination and observer cleanup.

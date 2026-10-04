@@ -110,6 +110,47 @@ struct WindowLifecycleIntegrationTests {
         #expect(restored == true, "WindowStore should record isMinimized == false after restore")
     }
     
+    @Test("TC-FUNC-004: Window focus targeting specific window without raising other windows of the same application")
+    func testSingleWindowFocusIsolation() async throws {
+        guard AccessibilityPermission.isGranted() else {
+            print("Skipping TC-FUNC-004: Accessibility permission not granted.")
+            return
+        }
+        
+        let store = WindowStore()
+        let tracker = AppTracker(store: store)
+        defer { tracker.stopTracking() }
+        
+        let doc1Title = "FocusDoc1_\(UUID().uuidString.prefix(6))"
+        let doc2Title = "FocusDoc2_\(UUID().uuidString.prefix(6))"
+        
+        let fixture = try await TestFixtureApp.launchTextEdit(documentTitle: doc1Title)
+        defer { fixture.terminate() }
+        
+        try fixture.createDocument(documentTitle: doc2Title)
+        
+        // Wait for both windows to be discovered in WindowStore
+        let bothDiscovered = await waitUntil(timeoutSeconds: 3.0) {
+            store.allWindows.contains { $0.title.contains(doc1Title) } &&
+            store.allWindows.contains { $0.title.contains(doc2Title) }
+        }
+        #expect(bothDiscovered == true, "Both document windows should be tracked in store")
+        
+        guard let win2Info = store.allWindows.first(where: { $0.title.contains(doc2Title) }) else {
+            Issue.record("Failed to find second document in WindowStore")
+            return
+        }
+        
+        // Focus the second window via WindowActions
+        WindowActions.performAction(.focus, for: win2Info.key)
+        
+        // Verify target application is activated
+        let focused = await waitUntil(timeoutSeconds: 3.0) {
+            NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.TextEdit"
+        }
+        #expect(focused == true, "Target application should be activated")
+    }
+    
     @Test("TC-FUNC-005: Dynamic window title mutation")
     func testWindowTitleMutation() async throws {
         guard AccessibilityPermission.isGranted() else {

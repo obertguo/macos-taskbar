@@ -61,6 +61,19 @@ This document provides the canonical specification catalog and requirements trac
 - **Automated Verification:** `TC-FUNC-003` in `WindowLifecycleIntegrationTests.swift`
 - **Pass/Fail Criteria:** Window button reflects un-minimized state within 100ms.
 
+#### [TC-FUNC-004] Single Window Focus Targeting & Display Isolation
+- **Category:** Functional / Focus State & Multi-Display Isolation
+- **Preconditions:** Application fixture running with two distinct document windows (e.g. on separate screens or behind other apps); an external application is currently frontmost.
+- **Stimulus / Action:**
+  1. Trigger window focus for the second document window via `WindowActions.performAction(.focus, for: win2.key)`.
+  2. Verify target application process is activated.
+- **Expected Outcome:**
+  1. Target window performs `kAXRaiseAction` and is assigned `kAXMainAttribute`.
+  2. Target application process is activated without `.activateAllWindows`.
+  3. The target window is raised and focused, while other windows of the same application (e.g. on another monitor) remain in their background z-order without stealing focus or covering active windows on that display.
+- **Automated Verification:** `TC-FUNC-004` in `WindowLifecycleIntegrationTests.swift`
+- **Pass/Fail Criteria:** Targeted window is focused and raised while background windows of the same application remain undisturbed.
+
 #### [TC-FUNC-005] Dynamic Window Title Mutation
 - **Category:** Functional / Dynamic Properties
 - **Preconditions:** Fixture window open and tracked.
@@ -143,6 +156,7 @@ This document provides the canonical specification catalog and requirements trac
 |---|---|---|
 | **Window Discovery & Tracking** | `TC-FUNC-001`, `TC-FUNC-005` | `WindowLifecycleIntegrationTests` |
 | **Window State Management** | `TC-FUNC-002`, `TC-FUNC-003` | `WindowLifecycleIntegrationTests` |
+| **Window Focus & Multi-Display** | `TC-FUNC-004` | `WindowLifecycleIntegrationTests` |
 | **Window Teardown & Quitting** | `TC-FUNC-006`, `TC-FUNC-007` | `WindowLifecycleIntegrationTests` |
 | **Edge-Case Filtering** | `TC-EDGE-001`, `TC-EDGE-002` | `EdgeCasesIntegrationTests` |
 | **Event Debounce & Multi-Monitor** | `TC-EDGE-003`, `TC-EDGE-004` | `EdgeCasesIntegrationTests` |

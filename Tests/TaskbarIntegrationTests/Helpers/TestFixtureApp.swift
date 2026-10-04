@@ -88,6 +88,16 @@ public final class TestFixtureApp: @unchecked Sendable {
         Self.terminateApp(appName: appName, bundleIdentifier: bundleIdentifier)
     }
     
+    /// Creates an additional document window for the fixture app.
+    public func createDocument(documentTitle: String) throws {
+        let script = """
+        tell application "\(appName)"
+            make new document with properties {name:"\(documentTitle)"}
+        end tell
+        """
+        _ = try runAppleScript(script)
+    }
+    
     // MARK: - Window Manipulations
     
     /// Queries the number of visible windows for the fixture app.
