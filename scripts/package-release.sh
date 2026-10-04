@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# ==============================================================================
+# scripts/package-release.sh
+#
+# Builds, tests, and packages Taskbar for distribution.
+# Assembles standalone .dmg (Disk Image) and .zip archives in dist/ with SHA256
+# checksums. Supports automated semver bumping (patch, minor, major) with atomic
+# rollback if pre-flight tests or compilation fail.
+# ==============================================================================
 set -euo pipefail
 
 # Locate project directories
@@ -235,7 +243,8 @@ echo "     git commit -m \"chore(release): bump version to v${TARGET_VERSION}\""
 echo "  2. Create and push Git tag:"
 echo "     git tag -a \"v${TARGET_VERSION}\" -m \"Release v${TARGET_VERSION}\""
 echo "     git push origin main --tags"
-echo "  3. Create release in GitLab (Deploy -> Releases -> New Release):"
-echo "     Select tag 'v${TARGET_VERSION}', paste release notes from CHANGELOG.md,"
-echo "     and attach ${DMG_NAME} and ${ZIP_NAME} from the dist/ folder."
+echo "  3. Upload packages to GitLab & publish release:"
+echo "     ./scripts/upload-release.sh --create-release"
+echo "     (Requires config/gitlab.env; see config/gitlab.env.example)"
+echo "     Alternatively, upload manually in GitLab Web UI (Deploy -> Releases)."
 echo "============================================================"

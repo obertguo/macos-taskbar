@@ -44,13 +44,20 @@ Designed for peak responsiveness, ~0.0% idle CPU, and rock-solid stability using
 swift test
 ```
 
-### Packaging Releases
+### Packaging & Publishing Releases
 ```bash
-# Package DMG, ZIP, and SHA256 checksums into dist/
+# 1. Package DMG, ZIP, and SHA256 checksums into dist/
 ./scripts/package-release.sh
 
 # Or bump semver (patch, minor, or major) and package
 ./scripts/package-release.sh --patch
+
+# 2. One-time setup: configure GitLab Project ID and Token (gitignored)
+cp config/gitlab.env.example config/gitlab.env
+# Edit config/gitlab.env with your Project ID and Token
+
+# 3. Upload to GitLab Package Registry & publish Release
+./scripts/upload-release.sh --create-release
 ```
 
 ### Emergency Dock Restore

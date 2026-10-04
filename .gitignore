@@ -6,3 +6,8 @@ build/
 .swiftpm/
 references/
 dist/
+
+# Sensitive environment configuration files
+config/gitlab.env
+config/*.local.env
+*.env.local

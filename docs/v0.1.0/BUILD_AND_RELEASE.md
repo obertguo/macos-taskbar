@@ -184,17 +184,32 @@ The script supports semantic version increments (`major`, `minor`, `patch`). Whe
   - `dist/SHA256SUMS.txt` (SHA256 checksums)
 
 ### Publishing on GitLab
-1. Commit the updated version in `config/build.env` (and synchronized generated files):
-   ```bash
-   git add config/build.env Sources/TaskbarCore/Config/BuildConfiguration.swift Resources/Info.plist
-   git commit -m "chore(release): bump version to v<VERSION>"
-   ```
-2. Create and push the Git tag:
-   ```bash
-   git tag -a "v<VERSION>" -m "Release v<VERSION>"
-   git push origin main --tags
-   ```
-3. Navigate to GitLab $\rightarrow$ **Deploy** $\rightarrow$ **Releases** $\rightarrow$ **New release**:
-   - Select tag `v<VERSION>`.
-   - Paste release notes from `CHANGELOG.md`.
-   - Attach `Taskbar-v<VERSION>.dmg` and `Taskbar-v<VERSION>.zip` from `dist/` as release assets.
+
+#### 1. Setup GitLab Credentials (One-Time)
+Copy the template and fill in your Project ID and Access Token (this file is gitignored and will never be committed):
+```bash
+cp config/gitlab.env.example config/gitlab.env
+```
+Edit `config/gitlab.env`:
+- `GITLAB_PROJECT_ID`: Found on your project overview page in GitLab.
+- `GITLAB_TOKEN`: A Personal Access Token or Project Access Token with `api` scope.
+
+#### 2. Commit Version Bump & Tag
+```bash
+git add config/build.env Sources/TaskbarCore/Config/BuildConfiguration.swift Resources/Info.plist
+git commit -m "chore(release): bump version to v<VERSION>"
+git tag -a "v<VERSION>" -m "Release v<VERSION>"
+git push origin main --tags
+```
+
+#### 3. Upload to GitLab Package Registry & Create Release
+Run the automated upload script:
+```bash
+# Upload artifacts to GitLab Generic Package Registry
+./scripts/upload-release.sh
+
+# Or upload and automatically create the GitLab Release with asset links:
+./scripts/upload-release.sh --create-release
+```
+
+Once uploaded, direct download links for the `.dmg`, `.zip`, and checksums are immediately available and displayed in terminal.
