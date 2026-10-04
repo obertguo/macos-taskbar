@@ -62,4 +62,19 @@ final class ButtonLayoutTests: XCTestCase {
         XCTAssertFalse(result.showTitle)
         XCTAssertTrue(result.hasOverflow)
     }
+    
+    func testOverflowLayoutWithWideButtons() {
+        // 500px for 10 buttons with minButtonWidth 80px -> 6 fit: 6 * 80 + 5 * 2 = 490px
+        let result = ButtonLayout.computeLayout(
+            availableWidth: 500.0,
+            itemCount: 10,
+            maxButtonWidth: 160.0,
+            minButtonWidth: 80.0,
+            spacing: 2.0
+        )
+        XCTAssertEqual(result.buttonWidth, 80.0)
+        XCTAssertEqual(result.visibleCount, 6)
+        XCTAssertTrue(result.showTitle)
+        XCTAssertTrue(result.hasOverflow)
+    }
 }

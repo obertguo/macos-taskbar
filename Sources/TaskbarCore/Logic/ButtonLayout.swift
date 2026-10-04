@@ -55,10 +55,11 @@ public enum ButtonLayout {
             let maxVisible = Int(floor((availableWidth + spacing) / (minButtonWidth + spacing)))
             let visibleCount = max(0, min(itemCount, maxVisible))
             let hasOverflow = itemCount > visibleCount
+            let showTitle = minButtonWidth >= 50.0
             return ButtonLayoutResult(
                 buttonWidth: minButtonWidth,
                 visibleCount: visibleCount,
-                showTitle: false,
+                showTitle: showTitle,
                 hasOverflow: hasOverflow
             )
         }
