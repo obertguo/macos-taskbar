@@ -34,7 +34,7 @@ Runtime settings are managed through `Settings.swift` and persisted in `UserDefa
 | `themeStyle` | `ThemeStyle` | `.modernHybrid` | Visual style: `.modernHybrid` (vibrancy + pill buttons) or `.retroClassic` (gray `#C0C0C0` + 3D bevels). |
 | `barHeight` | `CGFloat` | `30.0` | Vertical height in points of the taskbar on each screen. |
 | `maxButtonWidth` | `CGFloat` | `160.0` | Maximum width in points for an individual window button. |
-| `minButtonWidth` | `CGFloat` | `28.0` | Minimum width in points when the bar is crowded (icon only). |
+| `minButtonWidth` | `CGFloat` | `80.0` | Minimum width in points when crowded (keeps titles legible; configurable via menu bar or UserDefaults). Below this, `»` overflow chevron appears. |
 | `launcherAction` | `LauncherAction`| `.spotlight` | Action triggered by Start button: `.spotlight`, `.raycast`, or `.customPath(String)`. |
 | `enableAXNudger` | `Bool` | `true` | When `true`, automatically clamps maximized windows so bottom edges stay above the taskbar. |
 | `hideSystemDock` | `Bool` | `true` | When `true`, hides the macOS system Dock while Taskbar is running. |
