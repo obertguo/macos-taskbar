@@ -19,7 +19,7 @@ Individual release cycles will have their own dedicated, detailed implementation
 
 ```mermaid
 flowchart LR
-    v010["v0.1.0<br/>Initial Release<br/>(Complete)"] --> v011["v0.1.1<br/>Foundational Quality<br/>& Stress Testing"]
+    v010["v0.1.0<br/>Initial Release<br/>(Complete)"] --> v011["v0.1.1<br/>Foundational Quality<br/>& Stress Testing<br/>(Complete)"]
     v011 --> v020["v0.2.0<br/>Custom Theming &<br/>Pinned Apps"]
     v020 --> v030["v0.3.0<br/>Window Re-ordering &<br/>Optional Grouping"]
     v030 --> v040["v0.4.0<br/>Edge Placement &<br/>Auto-Hide"]
@@ -28,14 +28,14 @@ flowchart LR
 | Release | Milestone Focus | Key Objectives |
 |---|---|---|
 | **v0.1.0** | **Initial Core Release** *(Completed)* | Dual themes, 1-to-1 task buttons, AX Nudger (`WorkAreaEnforcer`), Dock hiding with configurable delays, button overflow chevron, and packaging pipeline. |
-| **v0.1.1** | **Foundational Quality & Hardening** | Automated functional & stress test harness, codebase audit & refactoring, ecosystem research. |
+| **v0.1.1** | **Foundational Quality & Hardening** *(Completed)* | Automated functional & stress test harness, codebase audit & refactoring, ecosystem research. |
 | **v0.2.0** | **Personalization & Quick Launch** | Data-driven custom theming (JSON import/export), Quick Launch / pinned applications. |
 | **v0.3.0** | **Advanced Window Organization** | Drag-and-drop window re-ordering, optional window grouping. |
 | **v0.4.0** | **Layout & Placement Flexibility** | Multi-edge placement (Top/Left/Right/Bottom), taskbar auto-hide mode, button alignment (Left vs. Center). |
 
 ---
 
-## 3. Phase 1: Foundational Quality, Testing & Research (v0.1.1)
+## 3. Phase 1: Foundational Quality, Testing & Research (v0.1.1) *(Completed)*
 
 Before expanding feature surface area, establish a robust automated testing and benchmarking harness to prevent functional or performance regressions.
 
