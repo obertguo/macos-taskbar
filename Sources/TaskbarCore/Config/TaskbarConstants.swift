@@ -170,8 +170,20 @@ public enum TaskbarConstants {
     
     // MARK: - System Dock Integration
     public enum Dock {
-        /// Extreme autohide delay in seconds (1000s) written to macOS preferences to keep native Dock hidden.
-        public static let autohideDelaySeconds: Double = 1000.0
+        /// Default autohide delay in seconds (1000s) written to macOS preferences to keep native Dock permanently hidden.
+        public static let defaultAutohideDelaySeconds: Double = 1000.0
+        
+        /// Alias for default autohide delay in seconds.
+        public static let autohideDelaySeconds: Double = defaultAutohideDelaySeconds
+        
+        /// Preset configurations for Dock autohide delay in settings menu.
+        public static let dockDelayPresets: [(title: String, delay: Double)] = [
+            (TaskbarStrings.Presets.dockDelayPermanentlyHidden, 1000.0),
+            (TaskbarStrings.Presets.dockDelay15s, 1.5),
+            (TaskbarStrings.Presets.dockDelay10s, 1.0),
+            (TaskbarStrings.Presets.dockDelay05s, 0.5),
+            (TaskbarStrings.Presets.dockDelayInstant, 0.0)
+        ]
         
         /// File system path to the macOS `/usr/bin/defaults` command-line utility.
         public static let defaultsBinaryPath = "/usr/bin/defaults"

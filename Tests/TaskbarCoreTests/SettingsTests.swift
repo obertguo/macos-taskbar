@@ -17,6 +17,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(defaults.launcherAction, .spotlight)
         XCTAssertTrue(defaults.enableAXNudger)
         XCTAssertTrue(defaults.hideSystemDock)
+        XCTAssertEqual(defaults.dockHideDelay, TaskbarConstants.Dock.defaultAutohideDelaySeconds)
     }
     
     func testSettingsEncodingDecoding() throws {
@@ -31,13 +32,25 @@ final class SettingsTests: XCTestCase {
             iconSize: 20.0,
             launcherAction: .raycast,
             enableAXNudger: false,
-            hideSystemDock: false
+            hideSystemDock: true,
+            dockHideDelay: 1.5
         )
         
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(Settings.self, from: data)
         
         XCTAssertEqual(original, decoded)
+    }
+    
+    func testBackwardCompatibleDecodingWithoutDockHideDelay() throws {
+        // Simulates persisted settings from older versions lacking dockHideDelay key
+        let baseData = try JSONEncoder().encode(Settings.default)
+        var dict = try JSONSerialization.jsonObject(with: baseData) as! [String: Any]
+        dict.removeValue(forKey: "dockHideDelay")
+        let legacyData = try JSONSerialization.data(withJSONObject: dict)
+        
+        let decoded = try JSONDecoder().decode(Settings.self, from: legacyData)
+        XCTAssertEqual(decoded.dockHideDelay, TaskbarConstants.Dock.defaultAutohideDelaySeconds)
     }
     
     func testUserDefaultsPersistence() {
@@ -51,6 +64,7 @@ final class SettingsTests: XCTestCase {
         settings.barHeight = 36.0
         settings.fontSize = 13.0
         settings.iconSize = 18.0
+        settings.dockHideDelay = 1.0
         settings.save(to: testDefaults)
         
         let reloaded = Settings.load(from: testDefaults)
@@ -58,6 +72,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(reloaded.barHeight, 36.0)
         XCTAssertEqual(reloaded.fontSize, 13.0)
         XCTAssertEqual(reloaded.iconSize, 18.0)
+        XCTAssertEqual(reloaded.dockHideDelay, 1.0)
     }
     
     func testTaskbarStringsAndPresets() {
@@ -81,5 +96,9 @@ final class SettingsTests: XCTestCase {
         // Ensure iconSizePresets contains the defaultIconSize
         let iconSizes = TaskbarConstants.Layout.iconSizePresets.map { $0.size }
         XCTAssertTrue(iconSizes.contains(TaskbarConstants.Layout.defaultIconSize))
+        
+        // Ensure dockDelayPresets contains defaultAutohideDelaySeconds
+        let dockDelays = TaskbarConstants.Dock.dockDelayPresets.map { $0.delay }
+        XCTAssertTrue(dockDelays.contains(TaskbarConstants.Dock.defaultAutohideDelaySeconds))
     }
 }

@@ -32,6 +32,7 @@ public struct Settings: Codable, Sendable, Equatable {
     public var launcherAction: LauncherAction
     public var enableAXNudger: Bool
     public var hideSystemDock: Bool
+    public var dockHideDelay: Double
     
     public static let `default` = Settings(
         themeStyle: .modernHybrid,
@@ -44,7 +45,8 @@ public struct Settings: Codable, Sendable, Equatable {
         iconSize: TaskbarConstants.Layout.defaultIconSize,
         launcherAction: .spotlight,
         enableAXNudger: true,
-        hideSystemDock: true
+        hideSystemDock: true,
+        dockHideDelay: TaskbarConstants.Dock.defaultAutohideDelaySeconds
     )
     
     public init(
@@ -58,7 +60,8 @@ public struct Settings: Codable, Sendable, Equatable {
         iconSize: Double = TaskbarConstants.Layout.defaultIconSize,
         launcherAction: LauncherAction = .spotlight,
         enableAXNudger: Bool = true,
-        hideSystemDock: Bool = true
+        hideSystemDock: Bool = true,
+        dockHideDelay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds
     ) {
         self.themeStyle = themeStyle
         self.barHeight = barHeight
@@ -71,12 +74,13 @@ public struct Settings: Codable, Sendable, Equatable {
         self.launcherAction = launcherAction
         self.enableAXNudger = enableAXNudger
         self.hideSystemDock = hideSystemDock
+        self.dockHideDelay = dockHideDelay
     }
     
     private enum CodingKeys: String, CodingKey {
         case themeStyle, barHeight, maxButtonWidth, minButtonWidth
         case buttonSpacing, titleVisibilityThreshold, fontSize, iconSize
-        case launcherAction, enableAXNudger, hideSystemDock
+        case launcherAction, enableAXNudger, hideSystemDock, dockHideDelay
     }
     
     public init(from decoder: Decoder) throws {
@@ -92,6 +96,7 @@ public struct Settings: Codable, Sendable, Equatable {
         self.launcherAction = try container.decodeIfPresent(LauncherAction.self, forKey: .launcherAction) ?? .spotlight
         self.enableAXNudger = try container.decodeIfPresent(Bool.self, forKey: .enableAXNudger) ?? true
         self.hideSystemDock = try container.decodeIfPresent(Bool.self, forKey: .hideSystemDock) ?? true
+        self.dockHideDelay = try container.decodeIfPresent(Double.self, forKey: .dockHideDelay) ?? TaskbarConstants.Dock.defaultAutohideDelaySeconds
     }
     
     private static let userDefaultsKey = "com.taskbar.settings"

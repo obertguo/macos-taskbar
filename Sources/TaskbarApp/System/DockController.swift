@@ -9,9 +9,14 @@ public final class DockController: @unchecked Sendable {
     private static let originalStateKey = TaskbarConstants.Dock.originalStateUserDefaultsKey
     private let lock = NSLock()
     private var _isDockHidden: Bool = false
+    private var _currentAppliedDelay: Double?
     
     public var isDockHidden: Bool {
         lock.withLock { _isDockHidden }
+    }
+    
+    public var currentAppliedDelay: Double? {
+        lock.withLock { _currentAppliedDelay }
     }
     
     private struct SavedDockState: Codable {
@@ -33,7 +38,7 @@ public final class DockController: @unchecked Sendable {
         let delay = querySystemAutohideDelay()
         
         // If delay is already ~1000s (e.g. from a prior test session), treat as unconfigured (nil)
-        let cleanDelay = (delay != nil && delay! >= TaskbarConstants.Dock.autohideDelaySeconds - 1.0) ? nil : delay
+        let cleanDelay = (delay != nil && delay! >= TaskbarConstants.Dock.defaultAutohideDelaySeconds - 1.0) ? nil : delay
         
         let state = SavedDockState(autohide: autohide, autohideDelay: cleanDelay)
         if let data = try? JSONEncoder().encode(state) {
@@ -75,21 +80,25 @@ public final class DockController: @unchecked Sendable {
         return Double(trimmed)
     }
     
-    /// Hides the system Dock by applying a 1000-second hover delay and enabling autohide.
-    public func hideDock() {
+    /// Hides the system Dock by applying the specified autohide hover delay and enabling autohide.
+    public func hideDock(delay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds) {
         lock.lock()
         defer { lock.unlock() }
         
         captureOriginalStateIfFirstRun()
         
-        guard !_isDockHidden else { return }
+        // If already hidden with the exact same delay, no-op
+        if _isDockHidden, let current = _currentAppliedDelay, abs(current - delay) < 0.01 {
+            return
+        }
         
         Self.executeCommand(TaskbarConstants.Dock.defaultsBinaryPath, arguments: ["write", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideKey, "-bool", "true"])
-        Self.executeCommand(TaskbarConstants.Dock.defaultsBinaryPath, arguments: ["write", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideDelayKey, "-float", "\(Int(TaskbarConstants.Dock.autohideDelaySeconds))"])
+        Self.executeCommand(TaskbarConstants.Dock.defaultsBinaryPath, arguments: ["write", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideDelayKey, "-float", "\(delay)"])
         Self.executeCommand(TaskbarConstants.Dock.killallBinaryPath, arguments: [TaskbarConstants.Dock.processName])
         
         _isDockHidden = true
-        print("[DockController] System Dock hidden (autohide-delay: \(Int(TaskbarConstants.Dock.autohideDelaySeconds))s).")
+        _currentAppliedDelay = delay
+        print("[DockController] System Dock hidden (autohide-delay: \(delay)s).")
     }
     
     /// Restores the user's original Dock preferences and restarts the Dock process.
@@ -100,6 +109,7 @@ public final class DockController: @unchecked Sendable {
         guard _isDockHidden else { return }
         Self.restoreDockInternal()
         _isDockHidden = false
+        _currentAppliedDelay = nil
     }
     
     /// Static synchronous restore callable from POSIX signal handlers, atexit, or termination.

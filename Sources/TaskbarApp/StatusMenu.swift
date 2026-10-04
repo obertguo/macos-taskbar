@@ -13,6 +13,7 @@ public final class StatusMenu {
     private var iconSize: Double
     private var isNudgerEnabled: Bool
     private var isDockHidden: Bool
+    private var dockDelay: Double
     
     public var onThemeChanged: ((ThemeStyle) -> Void)?
     public var onMinButtonWidthChanged: ((Double) -> Void)?
@@ -22,6 +23,7 @@ public final class StatusMenu {
     public var onLauncherTriggered: (() -> Void)?
     public var onNudgerToggled: ((Bool) -> Void)?
     public var onHideDockToggled: ((Bool) -> Void)?
+    public var onDockDelayChanged: ((Double) -> Void)?
     public var onRestoreDockRequested: (() -> Void)?
     public var onQuitRequested: (() -> Void)?
     
@@ -32,7 +34,8 @@ public final class StatusMenu {
         fontSize: Double = TaskbarConstants.Layout.defaultFontSize,
         iconSize: Double = TaskbarConstants.Layout.defaultIconSize,
         isNudgerEnabled: Bool = true,
-        isDockHidden: Bool = true
+        isDockHidden: Bool = true,
+        dockDelay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds
     ) {
         self.currentStyle = currentStyle
         self.minButtonWidth = minButtonWidth
@@ -41,6 +44,7 @@ public final class StatusMenu {
         self.iconSize = iconSize
         self.isNudgerEnabled = isNudgerEnabled
         self.isDockHidden = isDockHidden
+        self.dockDelay = dockDelay
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         setupMenu()
@@ -78,6 +82,11 @@ public final class StatusMenu {
     
     public func updateDockHiddenState(_ hidden: Bool) {
         self.isDockHidden = hidden
+        setupMenu()
+    }
+    
+    public func updateDockDelay(_ delay: Double) {
+        self.dockDelay = delay
         setupMenu()
     }
     
@@ -200,13 +209,27 @@ public final class StatusMenu {
         hideDockItem.state = isDockHidden ? .on : .off
         menu.addItem(hideDockItem)
         
+        let dockDelaySubmenu = NSMenu(title: TaskbarStrings.StatusMenu.dockDelayMenu)
+        for preset in TaskbarConstants.Dock.dockDelayPresets {
+            let item = NSMenuItem(title: preset.title, action: #selector(handleDockDelaySelection(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = preset.delay
+            item.state = (abs(preset.delay - dockDelay) < 0.1) ? .on : .off
+            item.isEnabled = isDockHidden
+            dockDelaySubmenu.addItem(item)
+        }
+        let dockDelayParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.dockDelayMenu, action: nil, keyEquivalent: "")
+        dockDelayParentItem.submenu = dockDelaySubmenu
+        dockDelayParentItem.isEnabled = isDockHidden
+        menu.addItem(dockDelayParentItem)
+        
         let restoreDockItem = NSMenuItem(
             title: TaskbarStrings.StatusMenu.restoreSystemDock,
             action: #selector(handleRestoreDock),
             keyEquivalent: ""
         )
         restoreDockItem.target = self
-        restoreDockItem.state = isDockHidden ? .on : .off
+        restoreDockItem.isEnabled = isDockHidden
         menu.addItem(restoreDockItem)
         
         menu.addItem(NSMenuItem.separator())
@@ -277,6 +300,14 @@ public final class StatusMenu {
         isDockHidden.toggle()
         setupMenu()
         onHideDockToggled?(isDockHidden)
+    }
+    
+    @objc private func handleDockDelaySelection(_ sender: NSMenuItem) {
+        if let delay = sender.representedObject as? Double {
+            dockDelay = delay
+            setupMenu()
+            onDockDelayChanged?(delay)
+        }
     }
     
     @objc private func handleRestoreDock() {

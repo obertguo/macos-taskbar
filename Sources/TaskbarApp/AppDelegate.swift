@@ -27,7 +27,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Hide macOS System Dock if enabled in settings
         if settings.hideSystemDock {
-            DockController.shared.hideDock()
+            DockController.shared.hideDock(delay: settings.dockHideDelay)
         }
         
         // Initialize multi-screen manager
@@ -57,7 +57,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             fontSize: settings.fontSize,
             iconSize: settings.iconSize,
             isNudgerEnabled: settings.enableAXNudger,
-            isDockHidden: settings.hideSystemDock
+            isDockHidden: settings.hideSystemDock,
+            dockDelay: settings.dockHideDelay
         )
         statusMenu.onThemeChanged = { [weak self] newStyle in
             guard let self = self else { return }
@@ -104,9 +105,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             self.settings.hideSystemDock = hide
             self.settings.save()
             if hide {
-                DockController.shared.hideDock()
+                DockController.shared.hideDock(delay: self.settings.dockHideDelay)
             } else {
                 DockController.shared.restoreDock()
+            }
+        }
+        statusMenu.onDockDelayChanged = { [weak self] newDelay in
+            guard let self = self else { return }
+            self.settings.dockHideDelay = newDelay
+            self.settings.save()
+            if self.settings.hideSystemDock {
+                DockController.shared.hideDock(delay: newDelay)
             }
         }
         statusMenu.onRestoreDockRequested = { [weak self] in

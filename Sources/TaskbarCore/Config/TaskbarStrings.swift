@@ -78,6 +78,9 @@ public enum TaskbarStrings {
         /// Menu item toggle to keep the native macOS Dock permanently hidden.
         public static let hideSystemDock = "Hide macOS System Dock"
         
+        /// Title for the Dock Autohide Delay submenu.
+        public static let dockDelayMenu = "Dock Autohide Delay"
+        
         /// Menu item to immediately restore native macOS Dock autohide settings.
         public static let restoreSystemDock = "Restore System Dock Now"
         
@@ -116,6 +119,13 @@ public enum TaskbarStrings {
         public static let iconSizeMedium = "18 pt (Medium)"
         public static let iconSizeLarge = "20 pt (Large)"
         public static let iconSizeExtraLarge = "24 pt (Extra Large)"
+        
+        // Dock Autohide Delay Presets
+        public static let dockDelayPermanentlyHidden = "Permanently Hidden (1000s)"
+        public static let dockDelay15s = "1.5s (Deliberate Hover)"
+        public static let dockDelay10s = "1.0s (Slow Hover)"
+        public static let dockDelay05s = "0.5s (Normal Autohide)"
+        public static let dockDelayInstant = "0.0s (Instant Reveal)"
     }
     
     // MARK: - Theme Display Names
