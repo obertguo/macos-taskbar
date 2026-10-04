@@ -47,13 +47,17 @@ All test cases are formally specified in [`docs/v0.2.0/TEST_SPECIFICATIONS.md`](
 
 ### 3.1 Core Unit Tests (`Tests/TaskbarCoreTests/` — 69 Tests)
 - `WorkAreaMathTests`: Clamping math, vertical maximization checks, multi-monitor coordinates, subpixel overlap tolerances (10 test cases).
+- `ClickPolicyTests`: Taskbar click dispatch rules across unfocused, focused, minimized, hidden, and frontmost windows (5 test cases).
+- `ButtonLayoutTests`: Spacious, compressing, icon-only, overflow width calculations, and custom title visibility thresholds (6 test cases).
 - `WindowFilterTests`: Normal app inclusion, modal sheet rejection, 0x0 minimized preservation, system overlay exclusion (5 test cases).
-- `ThemePresetsTests`: Modern Hybrid, Retro Classic, Windows XP Luna, and Dark Minimal presets, JSON serialization round-trips, and contrast checks (10 test cases).
+- `ThemePresetsTests`: Modern Hybrid, Retro Classic, Windows XP Luna, and Dark Minimal presets, JSON round-trips, and contrast checks (7 test cases).
+- `ThemeTests`: Theme definition properties, JSON serialization round-trips, and theme registry built-ins (5 test cases).
 - `ThemeFileLoaderTests`: Directory discovery, custom JSON deserialization, missing defaults tolerance, non-JSON filtering, built-in ID collision rejection, corrupted JSON resilience, export routines, and registry synchronization (8 test cases).
 - `PinnedAppTests`: PinnedApp model serialization, missing fields fallback, duplicate pin rejection, unpinning, reordering boundary checks, and UserDefaults storage (9 test cases).
-- `SettingsTests`: Default values, serialization, UserDefaults persistence, backward compatibility with v0.1 payloads (5 test cases).
+- `SettingsTests`: Default values, serialization, UserDefaults persistence, backward compatibility with v0.1 payloads, strings, and presets (6 test cases).
 - `WindowStoreTests`: Window ordering, display assignment, sync snapshot reconciliation, full-screen transitions (4 test cases).
 - `ScreenAssignmentTests`: Primary/secondary monitor boundary partitioning (3 test cases).
+- `TaskbarCoreTests`: Build configuration sanity checks (1 test case).
 
 ### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 28 Tests)
 - **Window Lifecycle Suite (`WindowLifecycleIntegrationTests.swift` — 7 Tests):**

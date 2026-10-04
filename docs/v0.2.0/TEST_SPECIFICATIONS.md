@@ -119,7 +119,19 @@ This document provides the canonical specification catalog and requirements trac
 - **[TC-EDGE-002] Modal Sheet & System Dialog Rejection:** Elements with subrole `AXSheet` or non-minimized `AXDialog` are excluded from `WindowFilter.shouldInclude`.
 - **[TC-EDGE-003] Rapid Title Churn Coalescing:** Burst of 25 title mutations within 10ms is coalesced by `Debouncer` into a single UI update.
 - **[TC-EDGE-004] Dual-Monitor Coordinate Partitioning:** Windows are strictly assigned to displays based on center-point intersection against screen bounds.
-- **[TC-EDGE-005] Full-Screen Window Resize Debounce & Animation Settle:** Rapid window maximize and resize bursts coalescing move and resize events preserve the resize flag across debounce generations and settle clamped above the taskbar boundary without requiring application defocus or app switching.
+- **[TC-EDGE-005] Full-Screen Window Resize Debounce & Animation Settle:**
+  - **Category:** Edge Cases / Window Clamping & Debounce
+  - **Preconditions:** Window fixture open and tracked; taskbar running with height reserved.
+  - **Stimulus / Action:**
+    1. Expand window bounds to fill entire screen vertically (overlapping taskbar).
+    2. Simulate rapid resize notification followed by move/reconcile events.
+    3. Allow Pass 1 (150ms), Pass 2 (400ms), and Pass 3 (650ms) settle passes to execute.
+  - **Expected Outcome:**
+    1. Self-inflicted resize notifications from Taskbar's own `setSize` are filtered to prevent debounce invalidation and feedback loops.
+    2. Active mouse drags defer clamping until mouse-up.
+    3. Window settles cleanly clamped at or above the taskbar top edge without requiring application defocus or app switching.
+  - **Automated Verification:** `TC-EDGE-005` in `EdgeCasesIntegrationTests.swift`
+  - **Pass/Fail Criteria:** `clampedFrame.maxY <= screenBounds.maxY - barHeight + overlapThreshold`.
 
 ---
 
