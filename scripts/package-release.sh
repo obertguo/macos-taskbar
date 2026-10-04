@@ -164,8 +164,8 @@ echo "==> Packaging release for ${APP_NAME} v${TARGET_VERSION}..."
 
 # 1. Run automated tests (Fail-fast verification)
 if [[ "${SKIP_TESTS}" == false ]]; then
-    echo "==> Running automated test suite..."
-    (cd "${PROJECT_ROOT}" && swift test)
+    echo "==> Running automated test suite via test-functional.sh..."
+    "${SCRIPT_DIR}/test-functional.sh" --all
 else
     echo "==> Skipping automated tests (--skip-tests)"
 fi

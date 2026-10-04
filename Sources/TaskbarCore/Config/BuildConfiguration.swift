@@ -4,8 +4,8 @@
 public struct BuildConfiguration: Sendable {
     public static let appName: String = "Taskbar"
     public static let bundleID: String = "com.local.taskbar"
-    public static let appVersion: String = "0.2.0"
-    public static let buildNumber: String = "3"
+    public static let appVersion: String = "0.2.1"
+    public static let buildNumber: String = "4"
     public static let minMacOSVersion: String = "14.0"
     public static let installDir: String = "~/Applications"
 }
