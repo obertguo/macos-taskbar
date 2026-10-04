@@ -65,6 +65,11 @@ public final class AXAppObserver: @unchecked Sendable {
         let source = AXObserverGetRunLoopSource(observer)
         self.runLoopSource = source
         CFRunLoopAddSource(AXThread.shared.runLoop, source, .commonModes)
+        
+        // Observe all existing windows for this application immediately
+        for win in appElement.windows {
+            observeWindow(win)
+        }
     }
     
     /// Attaches window-level notifications to an individual window element.
@@ -82,7 +87,9 @@ public final class AXAppObserver: @unchecked Sendable {
     }
     
     fileprivate func handleNotification(_ name: String, element: AXUIElement) {
-        if name == (kAXWindowResizedNotification as String) {
+        if name == (kAXWindowCreatedNotification as String) {
+            observeWindow(element)
+        } else if name == (kAXWindowResizedNotification as String) {
             WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: element, pid: pid, isResize: true)
         } else if name == (kAXWindowMovedNotification as String) {
             WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: element, pid: pid, isResize: false)

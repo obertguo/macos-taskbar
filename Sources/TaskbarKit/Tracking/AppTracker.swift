@@ -11,6 +11,7 @@ public final class AppTracker {
     
     private var observers: [pid_t: AXAppObserver] = [:]
     private var isRefreshing = false
+    private var needsReconcileAgain = false
     private var pendingDebounceWorkItem: DispatchWorkItem?
     
     public init(store: WindowStore) {
@@ -118,8 +119,13 @@ public final class AppTracker {
     }
     
     private func reconcileWindows() {
-        guard !isRefreshing, AccessibilityPermission.isGranted() else { return }
+        guard AccessibilityPermission.isGranted() else { return }
+        if isRefreshing {
+            needsReconcileAgain = true
+            return
+        }
         isRefreshing = true
+        needsReconcileAgain = false
         
         let runningApps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
         let frontmostApp = NSWorkspace.shared.frontmostApplication
@@ -203,6 +209,16 @@ public final class AppTracker {
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 
+                // Prune any stored windows and observers for PIDs that have terminated
+                let activePIDs = Set(runningApps.map { $0.processIdentifier })
+                let storedPIDs = Set(store.allWindows.map { $0.pid })
+                for stalePID in storedPIDs where !activePIDs.contains(stalePID) {
+                    store.removeWindows(forPID: stalePID)
+                    if let observer = self.observers.removeValue(forKey: stalePID) {
+                        observer.invalidate()
+                    }
+                }
+                
                 store.setFrontmostPID(frontmostPID)
                 store.setFocusedWindow(key: currentFocusedKey)
                 
@@ -212,6 +228,11 @@ public final class AppTracker {
                 
                 self.isRefreshing = false
                 self.onWindowsChanged?()
+                
+                if self.needsReconcileAgain {
+                    self.needsReconcileAgain = false
+                    self.scheduleReconcile(delay: TaskbarConstants.Timing.frameRenderDebounce)
+                }
             }
         }
     }

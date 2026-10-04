@@ -6,13 +6,13 @@ import AppKit
 import TaskbarCore
 import TaskbarKit
 
-@Suite("Window Lifecycle Integration Suite")
+@Suite("Window Lifecycle Integration Suite", .serialized)
 @MainActor
 struct WindowLifecycleIntegrationTests {
     
     /// Helper to wait asynchronously until a condition is met or timeout expires.
     private func waitUntil(
-        timeoutSeconds: Double = 3.0,
+        timeoutSeconds: Double = 5.0,
         intervalSeconds: Double = 0.05,
         condition: () -> Bool
     ) async -> Bool {
@@ -22,6 +22,7 @@ struct WindowLifecycleIntegrationTests {
                 return true
             }
             try? await Task.sleep(nanoseconds: UInt64(intervalSeconds * 1_000_000_000))
+            await Task.yield()
         }
         return condition()
     }

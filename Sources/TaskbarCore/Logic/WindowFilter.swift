@@ -24,8 +24,8 @@ public enum WindowFilter {
         // 3. Role must be an AXWindow
         guard role == TaskbarConstants.Accessibility.windowRole else { return false }
         
-        // 4. Reject modal dialogs, sheets, palettes, and popovers
-        if let subrole = subrole, TaskbarConstants.Accessibility.rejectedSubroles.contains(subrole) {
+        // 4. Reject modal dialogs, sheets, palettes, and popovers (unless minimized, as macOS may report minimized windows with AXDialog)
+        if !isMinimized, let subrole = subrole, TaskbarConstants.Accessibility.rejectedSubroles.contains(subrole) {
             return false
         }
         
