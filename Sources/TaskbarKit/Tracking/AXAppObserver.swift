@@ -28,7 +28,9 @@ public final class AXAppObserver: @unchecked Sendable {
     private let appNotifications: [CFString] = [
         kAXWindowCreatedNotification as CFString,
         kAXFocusedWindowChangedNotification as CFString,
-        kAXMainWindowChangedNotification as CFString
+        kAXMainWindowChangedNotification as CFString,
+        kAXWindowResizedNotification as CFString,
+        kAXWindowMovedNotification as CFString
     ]
     
     // Window-level notifications (must be attached to AXWindow elements)
@@ -90,8 +92,10 @@ public final class AXAppObserver: @unchecked Sendable {
         if name == (kAXWindowCreatedNotification as String) {
             observeWindow(element)
         } else if name == (kAXWindowResizedNotification as String) {
+            observeWindow(element)
             WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: element, pid: pid, isResize: true)
         } else if name == (kAXWindowMovedNotification as String) {
+            observeWindow(element)
             WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: element, pid: pid, isResize: false)
         } else if name == (kAXUIElementDestroyedNotification as String) {
             let winID = element.windowID
