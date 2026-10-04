@@ -50,7 +50,12 @@ public final class ScreenManager {
         
         for panel in panels.values {
             panel.applyTheme(currentTheme)
-            panel.updateButtonWidths(minWidth: newSettings.minButtonWidth, maxWidth: newSettings.maxButtonWidth)
+            panel.updateButtonLayout(
+                minWidth: newSettings.minButtonWidth,
+                maxWidth: newSettings.maxButtonWidth,
+                spacing: newSettings.buttonSpacing,
+                titleThreshold: newSettings.titleVisibilityThreshold
+            )
         }
         
         refreshPanels()
@@ -101,10 +106,11 @@ public final class ScreenManager {
             let winFrame = CGRect(x: x, y: y, width: width, height: height)
             
             // Native full-screen windows cover the entire physical screen display bounds
-            if abs(winFrame.minX - screenBounds.minX) <= 2.0 &&
-               abs(winFrame.minY - screenBounds.minY) <= 2.0 &&
-               abs(winFrame.width - screenBounds.width) <= 2.0 &&
-               abs(winFrame.height - screenBounds.height) <= 2.0 {
+            let tol = TaskbarConstants.WorkArea.fullScreenDisplayTolerance
+            if abs(winFrame.minX - screenBounds.minX) <= tol &&
+               abs(winFrame.minY - screenBounds.minY) <= tol &&
+               abs(winFrame.width - screenBounds.width) <= tol &&
+               abs(winFrame.height - screenBounds.height) <= tol {
                 return true
             }
         }
@@ -130,7 +136,9 @@ public final class ScreenManager {
                     theme: currentTheme,
                     launcherAction: settings.launcherAction,
                     minButtonWidth: settings.minButtonWidth,
-                    maxButtonWidth: settings.maxButtonWidth
+                    maxButtonWidth: settings.maxButtonWidth,
+                    buttonSpacing: settings.buttonSpacing,
+                    titleVisibilityThreshold: settings.titleVisibilityThreshold
                 )
                 panels[displayID] = panel
                 panel.orderFrontRegardless()

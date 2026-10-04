@@ -47,7 +47,7 @@ public final class AppTracker {
         AXThread.shared.async { [weak self] in
             let observer = AXAppObserver(pid: pid) { [weak self] in
                 DispatchQueue.main.async {
-                    self?.scheduleReconcile(delay: 0.016)
+                    self?.scheduleReconcile(delay: TaskbarConstants.Timing.frameRenderDebounce)
                 }
             }
             
@@ -71,7 +71,7 @@ public final class AppTracker {
         guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
               app.activationPolicy == .regular else { return }
         trackApp(app.processIdentifier)
-        scheduleReconcile(delay: 0.05)
+        scheduleReconcile(delay: TaskbarConstants.Timing.appLifecycleDebounce)
     }
     
     @objc private func handleAppTerminated(_ notification: Notification) {
@@ -82,7 +82,7 @@ public final class AppTracker {
     @objc private func handleAppActivated(_ notification: Notification) {
         guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
         store.setFrontmostPID(app.processIdentifier)
-        scheduleReconcile(delay: 0.016)
+        scheduleReconcile(delay: TaskbarConstants.Timing.frameRenderDebounce)
     }
     
     @objc private func handleAppHidden(_ notification: Notification) {
@@ -94,15 +94,15 @@ public final class AppTracker {
     @objc private func handleAppUnhidden(_ notification: Notification) {
         guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
         store.setAppHidden(pid: app.processIdentifier, isHidden: false)
-        scheduleReconcile(delay: 0.016)
+        scheduleReconcile(delay: TaskbarConstants.Timing.frameRenderDebounce)
     }
     
     @objc private func handleActiveSpaceChanged(_ notification: Notification) {
-        scheduleReconcile(delay: 0.05)
-        scheduleReconcile(delay: 0.15)
+        scheduleReconcile(delay: TaskbarConstants.Timing.spaceChangeInitialDebounce)
+        scheduleReconcile(delay: TaskbarConstants.Timing.spaceChangeSettleDelay)
     }
     
-    public func scheduleReconcile(delay: TimeInterval = 0.016) {
+    public func scheduleReconcile(delay: TimeInterval = TaskbarConstants.Timing.frameRenderDebounce) {
         pendingDebounceWorkItem?.cancel()
         
         let workItem = DispatchWorkItem { [weak self] in
@@ -138,7 +138,7 @@ public final class AppTracker {
                 let observer = activeObservers[pid]
                 
                 let appElement = AXUIElementCreateApplication(pid)
-                appElement.setTimeout(0.3)
+                appElement.setTimeout(TaskbarConstants.Timing.axTimeout)
                 
                 if pid == frontmostPID, let focusedWin = appElement.focusedWindow {
                     currentFocusedKey = WindowKey(id: focusedWin.windowID, pid: pid)
@@ -148,7 +148,7 @@ public final class AppTracker {
                 var appWindows: [WindowInfo] = []
                 
                 for win in windowElements {
-                    win.setTimeout(0.3)
+                    win.setTimeout(TaskbarConstants.Timing.axTimeout)
                     
                     // Attach per-window AX notifications
                     observer?.observeWindow(win)

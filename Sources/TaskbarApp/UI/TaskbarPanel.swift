@@ -12,8 +12,10 @@ public final class TaskbarPanel: NSPanel {
         height: CGFloat,
         theme: ThemeDefinition,
         launcherAction: LauncherAction,
-        minButtonWidth: Double = 80.0,
-        maxButtonWidth: Double = 160.0
+        minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth,
+        maxButtonWidth: Double = TaskbarConstants.Layout.defaultMaxButtonWidth,
+        buttonSpacing: Double = TaskbarConstants.Layout.defaultButtonSpacing,
+        titleVisibilityThreshold: Double = TaskbarConstants.Layout.defaultTitleVisibilityThreshold
     ) {
         // Resolve display ID
         let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
@@ -30,7 +32,9 @@ public final class TaskbarPanel: NSPanel {
             theme: theme,
             launcherAction: launcherAction,
             minButtonWidth: minButtonWidth,
-            maxButtonWidth: maxButtonWidth
+            maxButtonWidth: maxButtonWidth,
+            buttonSpacing: buttonSpacing,
+            titleVisibilityThreshold: titleVisibilityThreshold
         )
         
         super.init(
@@ -76,5 +80,17 @@ public final class TaskbarPanel: NSPanel {
     public func updateButtonWidths(minWidth: Double, maxWidth: Double) {
         taskbarView.minButtonWidth = minWidth
         taskbarView.maxButtonWidth = maxWidth
+    }
+    
+    public func updateButtonLayout(
+        minWidth: Double,
+        maxWidth: Double,
+        spacing: Double,
+        titleThreshold: Double
+    ) {
+        taskbarView.minButtonWidth = minWidth
+        taskbarView.maxButtonWidth = maxWidth
+        taskbarView.buttonSpacing = spacing
+        taskbarView.titleVisibilityThreshold = titleThreshold
     }
 }

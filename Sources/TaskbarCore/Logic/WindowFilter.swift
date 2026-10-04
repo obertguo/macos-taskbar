@@ -4,25 +4,6 @@ import Foundation
 import CoreGraphics
 
 public enum WindowFilter {
-    private static let rejectedSubroles: Set<String> = [
-        "AXDialog",
-        "AXSystemDialog",
-        "AXFloatingWindow",
-        "AXSheet",
-        "AXDrawer",
-        "AXMenu",
-        "AXPopover"
-    ]
-    
-    private static let ignoredBundleIDs: Set<String> = [
-        "com.apple.dock",
-        "com.apple.controlcenter",
-        "com.apple.notificationcenterui",
-        "com.apple.WindowManager",
-        "com.apple.Spotlight",
-        "com.apple.SystemUIServer"
-    ]
-    
     /// Determines whether a window candidate meets the criteria to be displayed on the taskbar.
     public static func shouldInclude(
         role: String,
@@ -36,15 +17,15 @@ public enum WindowFilter {
         guard isAppRegular else { return false }
         
         // 2. Ignore self and system overlays
-        if bundleID == BuildConfiguration.bundleID || ignoredBundleIDs.contains(bundleID) {
+        if bundleID == BuildConfiguration.bundleID || TaskbarConstants.Accessibility.ignoredSystemBundleIDs.contains(bundleID) {
             return false
         }
         
         // 3. Role must be an AXWindow
-        guard role == "AXWindow" else { return false }
+        guard role == TaskbarConstants.Accessibility.windowRole else { return false }
         
         // 4. Reject modal dialogs, sheets, palettes, and popovers
-        if let subrole = subrole, rejectedSubroles.contains(subrole) {
+        if let subrole = subrole, TaskbarConstants.Accessibility.rejectedSubroles.contains(subrole) {
             return false
         }
         
@@ -54,7 +35,8 @@ public enum WindowFilter {
         }
         
         // 6. Must have visible non-zero dimensions (filters out invisible tracking windows)
-        guard frame.width >= 50.0 && frame.height >= 50.0 else {
+        let minDim = TaskbarConstants.WorkArea.minimumWindowDimension
+        guard frame.width >= minDim && frame.height >= minDim else {
             return false
         }
         

@@ -10,7 +10,7 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
     
     private let lock = NSLock()
     private var _isEnabled: Bool = true
-    private var _barHeight: CGFloat = 30.0
+    private var _barHeight: CGFloat = CGFloat(TaskbarConstants.Layout.defaultBarHeight)
     private var _screens: [ScreenDescriptor] = []
     
     // Per-window debounce generation counters: [windowID: generation]
@@ -72,9 +72,9 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
         }
         lock.unlock()
         
-        // 150ms settle debounce: allows window manager animations (e.g. titlebar double-click zoom)
+        // Settle debounce: allows window manager animations (e.g. titlebar double-click zoom)
         // and mouse drag operations to coalesce before evaluating clamping
-        DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + 0.15) { [element] in
+        DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + TaskbarConstants.Timing.windowDragSettleDebounce) { [element] in
             AXThread.shared.async {
                 let enforcer = WorkAreaEnforcer.shared
                 let (currentGen, wasResized) = enforcer.lock.withLock {
@@ -101,7 +101,7 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
             lock.unlock()
         }
         
-        element.setTimeout(0.3)
+        element.setTimeout(TaskbarConstants.Timing.axTimeout)
         
         // Skip minimized or native full-screen windows
         guard !element.isMinimized, !element.isFullScreen else { return }
@@ -127,15 +127,15 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
             return
         }
         
-        // Recursion guard: allow up to 2 attempts within 600ms to recover from
+        // Recursion guard: allow up to maxNudgeAttempts within nudgeRecursionWindow to recover from
         // OS zoom animations that revert the frame upon completion.
         let shouldProceed: Bool = lock.withLock {
             if var record = nudgeRecords[winID] {
-                let isSameTarget = abs(record.targetHeight - clampedFrame.height) < 1.0
-                let isRecent = Date().timeIntervalSince(record.lastTimestamp) < 0.6
+                let isSameTarget = abs(record.targetHeight - clampedFrame.height) < TaskbarConstants.WorkArea.clampingRecursionGuardDelta
+                let isRecent = Date().timeIntervalSince(record.lastTimestamp) < TaskbarConstants.Timing.nudgeRecursionWindow
                 
                 if isSameTarget && isRecent {
-                    if record.attempts >= 2 {
+                    if record.attempts >= TaskbarConstants.Timing.maxNudgeAttempts {
                         // Max attempts reached; break infinite feedback loop
                         return false
                     }
@@ -158,11 +158,11 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
         
         _ = element.setSize(clampedFrame.size)
         
-        // Follow-up settle verification (250ms):
+        // Follow-up settle verification:
         // AppKit's native zoom animation can take ~200ms to complete. If AppKit's completion
         // handler overwrites the frame with its full un-nudged bounds, this verification pass
         // ensures the window settles cleanly at the taskbar boundary.
-        DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + 0.25) { [element] in
+        DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + TaskbarConstants.Timing.windowZoomAnimationSettleDelay) { [element] in
             AXThread.shared.async {
                 let enforcer = WorkAreaEnforcer.shared
                 guard enforcer.isEnabled else { return }

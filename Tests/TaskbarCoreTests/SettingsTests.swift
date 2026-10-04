@@ -7,9 +7,11 @@ final class SettingsTests: XCTestCase {
     func testDefaultSettings() {
         let defaults = Settings.default
         XCTAssertEqual(defaults.themeStyle, .modernHybrid)
-        XCTAssertEqual(defaults.barHeight, 30.0)
-        XCTAssertEqual(defaults.maxButtonWidth, 160.0)
-        XCTAssertEqual(defaults.minButtonWidth, 80.0)
+        XCTAssertEqual(defaults.barHeight, TaskbarConstants.Layout.defaultBarHeight)
+        XCTAssertEqual(defaults.maxButtonWidth, TaskbarConstants.Layout.defaultMaxButtonWidth)
+        XCTAssertEqual(defaults.minButtonWidth, TaskbarConstants.Layout.defaultMinButtonWidth)
+        XCTAssertEqual(defaults.buttonSpacing, TaskbarConstants.Layout.defaultButtonSpacing)
+        XCTAssertEqual(defaults.titleVisibilityThreshold, TaskbarConstants.Layout.defaultTitleVisibilityThreshold)
         XCTAssertEqual(defaults.launcherAction, .spotlight)
         XCTAssertTrue(defaults.enableAXNudger)
         XCTAssertTrue(defaults.hideSystemDock)
@@ -21,6 +23,8 @@ final class SettingsTests: XCTestCase {
             barHeight: 34.0,
             maxButtonWidth: 180.0,
             minButtonWidth: 32.0,
+            buttonSpacing: 3.0,
+            titleVisibilityThreshold: 45.0,
             launcherAction: .raycast,
             enableAXNudger: false,
             hideSystemDock: false

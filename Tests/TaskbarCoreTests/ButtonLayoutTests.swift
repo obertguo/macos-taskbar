@@ -77,4 +77,19 @@ final class ButtonLayoutTests: XCTestCase {
         XCTAssertTrue(result.showTitle)
         XCTAssertTrue(result.hasOverflow)
     }
+
+    func testCustomTitleVisibilityThreshold() {
+        // 100px for 2 buttons -> ~49px each. With threshold 40.0, title should be shown
+        let result = ButtonLayout.computeLayout(
+            availableWidth: 100.0,
+            itemCount: 2,
+            maxButtonWidth: 160.0,
+            minButtonWidth: 28.0,
+            spacing: 2.0,
+            titleVisibilityThreshold: 40.0
+        )
+        XCTAssertTrue(result.showTitle)
+        XCTAssertEqual(result.visibleCount, 2)
+    }
 }
+

@@ -22,9 +22,10 @@ public enum ButtonLayout {
     public static func computeLayout(
         availableWidth: Double,
         itemCount: Int,
-        maxButtonWidth: Double = 160.0,
-        minButtonWidth: Double = 80.0,
-        spacing: Double = 2.0
+        maxButtonWidth: Double = TaskbarConstants.Layout.defaultMaxButtonWidth,
+        minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth,
+        spacing: Double = TaskbarConstants.Layout.defaultButtonSpacing,
+        titleVisibilityThreshold: Double = TaskbarConstants.Layout.defaultTitleVisibilityThreshold
     ) -> ButtonLayoutResult {
         guard itemCount > 0, availableWidth > 0 else {
             return ButtonLayoutResult(buttonWidth: maxButtonWidth, visibleCount: 0, showTitle: true, hasOverflow: false)
@@ -43,7 +44,7 @@ public enum ButtonLayout {
             )
         } else if widthPerButton >= minButtonWidth {
             // Compressed buttons (shrinking evenly)
-            let showTitle = widthPerButton >= 50.0
+            let showTitle = widthPerButton >= titleVisibilityThreshold
             return ButtonLayoutResult(
                 buttonWidth: widthPerButton,
                 visibleCount: itemCount,
@@ -55,7 +56,7 @@ public enum ButtonLayout {
             let maxVisible = Int(floor((availableWidth + spacing) / (minButtonWidth + spacing)))
             let visibleCount = max(0, min(itemCount, maxVisible))
             let hasOverflow = itemCount > visibleCount
-            let showTitle = minButtonWidth >= 50.0
+            let showTitle = minButtonWidth >= titleVisibilityThreshold
             return ButtonLayoutResult(
                 buttonWidth: minButtonWidth,
                 visibleCount: visibleCount,

@@ -5,28 +5,29 @@ import CoreGraphics
 
 public enum WorkAreaMath {
     /// Minimum allowed window height in points to prevent collapsing windows into unusable slices.
-    public static let minimumWindowHeight: CGFloat = 100.0
+    public static let minimumWindowHeight: CGFloat = TaskbarConstants.WorkArea.minimumWindowHeight
     
     /// Overlap threshold in points to ignore sub-pixel or rounding differences.
-    public static let overlapThreshold: CGFloat = 2.0
+    public static let overlapThreshold: CGFloat = TaskbarConstants.WorkArea.overlapTolerance
     
     /// Checks whether a window is considered vertically maximized or screen-filling (e.g. zoomed or split-tiled).
     public static func isVerticallyMaximized(
         _ windowFrame: CGRect,
         screenFrame: CGRect,
-        taskbarHeight: CGFloat = 30.0
+        taskbarHeight: CGFloat = CGFloat(TaskbarConstants.Layout.defaultBarHeight)
     ) -> Bool {
         guard screenFrame.height > 0 else { return false }
         
         // Window top starts in the upper portion of the screen (generous tolerance for notch, menu bar, and titlebar padding)
-        let nearTop = windowFrame.minY <= screenFrame.minY + max(120.0, screenFrame.height * 0.2)
+        let topTolerance = max(TaskbarConstants.WorkArea.screenTopToleranceBase, screenFrame.height * TaskbarConstants.WorkArea.screenTopToleranceRatio)
+        let nearTop = windowFrame.minY <= screenFrame.minY + topTolerance
         
         // Window bottom extends into the taskbar reserved region
         let taskbarTopY = screenFrame.maxY - taskbarHeight
         let extendsIntoTaskbar = windowFrame.maxY > taskbarTopY + overlapThreshold
         
-        // Window occupies a significant portion of screen height (at least 45% of the screen)
-        let isTall = windowFrame.height >= screenFrame.height * 0.45
+        // Window occupies a significant portion of screen height (e.g. >= 45% of screen)
+        let isTall = windowFrame.height >= screenFrame.height * TaskbarConstants.WorkArea.screenHeightMaximizedRatio
         
         return nearTop && extendsIntoTaskbar && isTall
     }
@@ -66,8 +67,8 @@ public enum WorkAreaMath {
         let newHeight = windowFrame.height - overlap
         guard newHeight >= minimumWindowHeight else { return nil }
         
-        // Recursion guard: ignore adjustments of less than 1.0 point
-        guard abs(newHeight - windowFrame.height) >= 1.0 else { return nil }
+        // Recursion guard: ignore adjustments of less than minimumClampingDelta
+        guard abs(newHeight - windowFrame.height) >= TaskbarConstants.WorkArea.clampingRecursionGuardDelta else { return nil }
         
         return CGRect(
             x: windowFrame.origin.x,

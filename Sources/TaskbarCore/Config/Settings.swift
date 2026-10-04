@@ -25,15 +25,19 @@ public struct Settings: Codable, Sendable, Equatable {
     public var barHeight: Double
     public var maxButtonWidth: Double
     public var minButtonWidth: Double
+    public var buttonSpacing: Double
+    public var titleVisibilityThreshold: Double
     public var launcherAction: LauncherAction
     public var enableAXNudger: Bool
     public var hideSystemDock: Bool
     
     public static let `default` = Settings(
         themeStyle: .modernHybrid,
-        barHeight: 30.0,
-        maxButtonWidth: 160.0,
-        minButtonWidth: 80.0,
+        barHeight: TaskbarConstants.Layout.defaultBarHeight,
+        maxButtonWidth: TaskbarConstants.Layout.defaultMaxButtonWidth,
+        minButtonWidth: TaskbarConstants.Layout.defaultMinButtonWidth,
+        buttonSpacing: TaskbarConstants.Layout.defaultButtonSpacing,
+        titleVisibilityThreshold: TaskbarConstants.Layout.defaultTitleVisibilityThreshold,
         launcherAction: .spotlight,
         enableAXNudger: true,
         hideSystemDock: true
@@ -41,9 +45,11 @@ public struct Settings: Codable, Sendable, Equatable {
     
     public init(
         themeStyle: ThemeStyle = .modernHybrid,
-        barHeight: Double = 30.0,
-        maxButtonWidth: Double = 160.0,
-        minButtonWidth: Double = 80.0,
+        barHeight: Double = TaskbarConstants.Layout.defaultBarHeight,
+        maxButtonWidth: Double = TaskbarConstants.Layout.defaultMaxButtonWidth,
+        minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth,
+        buttonSpacing: Double = TaskbarConstants.Layout.defaultButtonSpacing,
+        titleVisibilityThreshold: Double = TaskbarConstants.Layout.defaultTitleVisibilityThreshold,
         launcherAction: LauncherAction = .spotlight,
         enableAXNudger: Bool = true,
         hideSystemDock: Bool = true
@@ -52,6 +58,8 @@ public struct Settings: Codable, Sendable, Equatable {
         self.barHeight = barHeight
         self.maxButtonWidth = maxButtonWidth
         self.minButtonWidth = minButtonWidth
+        self.buttonSpacing = buttonSpacing
+        self.titleVisibilityThreshold = titleVisibilityThreshold
         self.launcherAction = launcherAction
         self.enableAXNudger = enableAXNudger
         self.hideSystemDock = hideSystemDock

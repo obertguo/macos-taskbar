@@ -1,11 +1,12 @@
 // Sources/TaskbarApp/System/DockController.swift
 
 import Foundation
+import TaskbarCore
 
 public final class DockController: @unchecked Sendable {
     public static let shared = DockController()
     
-    private static let originalStateKey = "com.taskbar.original_dock_state"
+    private static let originalStateKey = TaskbarConstants.Dock.originalStateUserDefaultsKey
     private let lock = NSLock()
     private var _isDockHidden: Bool = false
     
@@ -32,7 +33,7 @@ public final class DockController: @unchecked Sendable {
         let delay = querySystemAutohideDelay()
         
         // If delay is already ~1000s (e.g. from a prior test session), treat as unconfigured (nil)
-        let cleanDelay = (delay != nil && delay! >= 999.0) ? nil : delay
+        let cleanDelay = (delay != nil && delay! >= TaskbarConstants.Dock.autohideDelaySeconds - 1.0) ? nil : delay
         
         let state = SavedDockState(autohide: autohide, autohideDelay: cleanDelay)
         if let data = try? JSONEncoder().encode(state) {
@@ -43,8 +44,8 @@ public final class DockController: @unchecked Sendable {
     private func querySystemAutohide() -> Bool {
         let pipe = Pipe()
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
-        process.arguments = ["read", "com.apple.dock", "autohide"]
+        process.executableURL = URL(fileURLWithPath: TaskbarConstants.Dock.defaultsBinaryPath)
+        process.arguments = ["read", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideKey]
         process.standardOutput = pipe
         process.standardError = Pipe()
         
@@ -60,8 +61,8 @@ public final class DockController: @unchecked Sendable {
     private func querySystemAutohideDelay() -> Double? {
         let pipe = Pipe()
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
-        process.arguments = ["read", "com.apple.dock", "autohide-delay"]
+        process.executableURL = URL(fileURLWithPath: TaskbarConstants.Dock.defaultsBinaryPath)
+        process.arguments = ["read", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideDelayKey]
         process.standardOutput = pipe
         process.standardError = Pipe()
         
@@ -83,12 +84,12 @@ public final class DockController: @unchecked Sendable {
         
         guard !_isDockHidden else { return }
         
-        Self.executeCommand("/usr/bin/defaults", arguments: ["write", "com.apple.dock", "autohide", "-bool", "true"])
-        Self.executeCommand("/usr/bin/defaults", arguments: ["write", "com.apple.dock", "autohide-delay", "-float", "1000"])
-        Self.executeCommand("/usr/bin/killall", arguments: ["Dock"])
+        Self.executeCommand(TaskbarConstants.Dock.defaultsBinaryPath, arguments: ["write", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideKey, "-bool", "true"])
+        Self.executeCommand(TaskbarConstants.Dock.defaultsBinaryPath, arguments: ["write", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideDelayKey, "-float", "\(Int(TaskbarConstants.Dock.autohideDelaySeconds))"])
+        Self.executeCommand(TaskbarConstants.Dock.killallBinaryPath, arguments: [TaskbarConstants.Dock.processName])
         
         _isDockHidden = true
-        print("[DockController] System Dock hidden (autohide-delay: 1000s).")
+        print("[DockController] System Dock hidden (autohide-delay: \(Int(TaskbarConstants.Dock.autohideDelaySeconds))s).")
     }
     
     /// Restores the user's original Dock preferences and restarts the Dock process.
@@ -120,16 +121,16 @@ public final class DockController: @unchecked Sendable {
         
         // Restore autohide delay
         if let delay = originalDelay {
-            executeCommand("/usr/bin/defaults", arguments: ["write", "com.apple.dock", "autohide-delay", "-float", "\(delay)"])
+            executeCommand(TaskbarConstants.Dock.defaultsBinaryPath, arguments: ["write", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideDelayKey, "-float", "\(delay)"])
         } else {
-            executeCommand("/usr/bin/defaults", arguments: ["delete", "com.apple.dock", "autohide-delay"])
+            executeCommand(TaskbarConstants.Dock.defaultsBinaryPath, arguments: ["delete", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideDelayKey])
         }
         
         // Restore autohide flag
-        executeCommand("/usr/bin/defaults", arguments: ["write", "com.apple.dock", "autohide", "-bool", originalAutohide ? "true" : "false"])
+        executeCommand(TaskbarConstants.Dock.defaultsBinaryPath, arguments: ["write", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideKey, "-bool", originalAutohide ? "true" : "false"])
         
         // Restart Dock
-        executeCommand("/usr/bin/killall", arguments: ["Dock"])
+        executeCommand(TaskbarConstants.Dock.killallBinaryPath, arguments: [TaskbarConstants.Dock.processName])
         
         print("[DockController] System Dock restored to original settings.")
     }

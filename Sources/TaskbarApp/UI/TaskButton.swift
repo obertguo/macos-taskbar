@@ -164,15 +164,16 @@ public final class TaskButton: NSView {
             BevelDrawing.drawRaisedBevel(in: bounds)
         }
         
+        let iconSize = TaskbarConstants.Layout.iconSize
         let iconOffset: CGFloat = isDown ? 1.0 : 0.0
-        let iconX = bounds.minX + 4.0 + iconOffset
-        let iconY = bounds.midY - 8.0 - iconOffset
+        let iconX = bounds.minX + TaskbarConstants.Layout.taskButtonIconMarginRetro + iconOffset
+        let iconY = bounds.midY - (iconSize / 2.0) - iconOffset
         let icon = IconCache.shared.icon(for: windowInfo.bundleID, pid: windowInfo.pid)
-        icon.draw(in: NSRect(x: iconX, y: iconY, width: 16, height: 16))
+        icon.draw(in: NSRect(x: iconX, y: iconY, width: iconSize, height: iconSize))
         
         if showTitle {
-            let textX = iconX + 16.0 + 4.0
-            let maxTextW = max(0, bounds.maxX - textX - 4.0)
+            let textX = iconX + iconSize + TaskbarConstants.Layout.taskButtonIconMarginRetro
+            let maxTextW = max(0, bounds.maxX - textX - TaskbarConstants.Layout.taskButtonIconMarginRetro)
             let textY = bounds.midY - 7.0 - iconOffset
             
             let isDimmed = windowInfo.isMinimized || windowInfo.isAppHidden
@@ -196,7 +197,7 @@ public final class TaskButton: NSView {
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 1.0, dy: 1.0), xRadius: cornerRadius, yRadius: cornerRadius)
         
         let isDimmed = windowInfo.isMinimized || windowInfo.isAppHidden
-        let alphaMultiplier: CGFloat = isDimmed ? 0.6 : 1.0
+        let alphaMultiplier: CGFloat = isDimmed ? TaskbarConstants.Layout.dimmedButtonAlpha : 1.0
         
         let bgColor: NSColor
         if isPressed || isFocusedWindow {
@@ -215,19 +216,20 @@ public final class TaskButton: NSView {
         path.lineWidth = 1.0
         path.stroke()
         
-        let iconX = bounds.minX + 6.0
-        let iconY = bounds.midY - 8.0
+        let iconSize = TaskbarConstants.Layout.iconSize
+        let iconX = bounds.minX + TaskbarConstants.Layout.taskButtonIconMarginHybrid
+        let iconY = bounds.midY - (iconSize / 2.0)
         let icon = IconCache.shared.icon(for: windowInfo.bundleID, pid: windowInfo.pid)
         icon.draw(
-            in: NSRect(x: iconX, y: iconY, width: 16, height: 16),
+            in: NSRect(x: iconX, y: iconY, width: iconSize, height: iconSize),
             from: .zero,
             operation: .sourceOver,
             fraction: alphaMultiplier
         )
         
         if showTitle {
-            let textX = iconX + 16.0 + 5.0
-            let maxTextW = max(0, bounds.maxX - textX - 6.0)
+            let textX = iconX + iconSize + 5.0
+            let maxTextW = max(0, bounds.maxX - textX - TaskbarConstants.Layout.taskButtonIconMarginHybrid)
             let textY = bounds.midY - 7.0
             
             let para = NSMutableParagraphStyle()

@@ -21,27 +21,41 @@ public final class TaskbarView: NSView {
     private var focusedKey: WindowKey?
     private var frontmostPID: pid_t?
     
-    public var minButtonWidth: Double = 80.0 {
+    public var minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth {
         didSet {
             if oldValue != minButtonWidth { layoutComponents() }
         }
     }
-    public var maxButtonWidth: Double = 160.0 {
+    public var maxButtonWidth: Double = TaskbarConstants.Layout.defaultMaxButtonWidth {
         didSet {
             if oldValue != maxButtonWidth { layoutComponents() }
+        }
+    }
+    public var buttonSpacing: Double = TaskbarConstants.Layout.defaultButtonSpacing {
+        didSet {
+            if oldValue != buttonSpacing { layoutComponents() }
+        }
+    }
+    public var titleVisibilityThreshold: Double = TaskbarConstants.Layout.defaultTitleVisibilityThreshold {
+        didSet {
+            if oldValue != titleVisibilityThreshold { layoutComponents() }
         }
     }
     
     public init(
         theme: ThemeDefinition,
         launcherAction: LauncherAction,
-        minButtonWidth: Double = 80.0,
-        maxButtonWidth: Double = 160.0
+        minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth,
+        maxButtonWidth: Double = TaskbarConstants.Layout.defaultMaxButtonWidth,
+        buttonSpacing: Double = TaskbarConstants.Layout.defaultButtonSpacing,
+        titleVisibilityThreshold: Double = TaskbarConstants.Layout.defaultTitleVisibilityThreshold
     ) {
         self.theme = theme
         self.launcherAction = launcherAction
         self.minButtonWidth = minButtonWidth
         self.maxButtonWidth = maxButtonWidth
+        self.buttonSpacing = buttonSpacing
+        self.titleVisibilityThreshold = titleVisibilityThreshold
         self.startButton = StartButton(theme: theme)
         self.overflowButton = OverflowButton(theme: theme)
         super.init(frame: .zero)
@@ -165,13 +179,20 @@ public final class TaskbarView: NSView {
     private func layoutComponents() {
         visualEffectView.frame = bounds
         
-        let padY: CGFloat = 2.0
-        let btnH = max(18.0, bounds.height - (padY * 2))
-        let startBtnW: CGFloat = (theme.style == .retroClassic) ? 56.0 : 62.0
-        startButton.frame = NSRect(x: 3.0, y: padY, width: startBtnW, height: btnH)
+        let padY = TaskbarConstants.Layout.taskbarVerticalPadding
+        let btnH = max(TaskbarConstants.Layout.minimumButtonHeight, bounds.height - (padY * 2))
+        let startBtnW: CGFloat = (theme.style == .retroClassic)
+            ? TaskbarConstants.Layout.startButtonWidthRetro
+            : TaskbarConstants.Layout.startButtonWidthHybrid
+        startButton.frame = NSRect(
+            x: TaskbarConstants.Layout.startButtonLeadingMargin,
+            y: padY,
+            width: startBtnW,
+            height: btnH
+        )
         
-        let startX = startButton.frame.maxX + 4.0
-        let totalAvailableW = max(0.0, bounds.width - startX - 4.0)
+        let startX = startButton.frame.maxX + TaskbarConstants.Layout.startButtonTrailingMargin
+        let totalAvailableW = max(0.0, bounds.width - startX - TaskbarConstants.Layout.taskbarTrailingMargin)
         
         // Initial layout calculation
         var layout = ButtonLayout.computeLayout(
@@ -179,24 +200,26 @@ public final class TaskbarView: NSView {
             itemCount: taskButtons.count,
             maxButtonWidth: maxButtonWidth,
             minButtonWidth: minButtonWidth,
-            spacing: 2.0
+            spacing: buttonSpacing,
+            titleVisibilityThreshold: titleVisibilityThreshold
         )
         
-        let overflowBtnW: CGFloat = 26.0
+        let overflowBtnW = TaskbarConstants.Layout.overflowButtonWidth
         if layout.hasOverflow {
             // Reserve space for the overflow chevron button on the right edge
-            let netAvailableW = max(0.0, totalAvailableW - overflowBtnW - 2.0)
+            let netAvailableW = max(0.0, totalAvailableW - overflowBtnW - CGFloat(buttonSpacing))
             layout = ButtonLayout.computeLayout(
                 availableWidth: Double(netAvailableW),
                 itemCount: taskButtons.count,
                 maxButtonWidth: maxButtonWidth,
                 minButtonWidth: minButtonWidth,
-                spacing: 2.0
+                spacing: buttonSpacing,
+                titleVisibilityThreshold: titleVisibilityThreshold
             )
             
             overflowButton.isHidden = false
             overflowButton.frame = NSRect(
-                x: bounds.width - overflowBtnW - 3.0,
+                x: bounds.width - overflowBtnW - TaskbarConstants.Layout.overflowButtonTrailingMargin,
                 y: padY,
                 width: overflowBtnW,
                 height: btnH
@@ -216,7 +239,7 @@ public final class TaskbarView: NSView {
                     height: btnH
                 )
                 btn.showTitle = layout.showTitle
-                currentX += CGFloat(layout.buttonWidth) + 2.0
+                currentX += CGFloat(layout.buttonWidth) + CGFloat(buttonSpacing)
             } else {
                 btn.isHidden = true
             }
@@ -247,7 +270,7 @@ public final class TaskbarView: NSView {
             menu.addItem(item)
         }
         
-        let menuOrigin = NSPoint(x: 0, y: bounds.height + 2.0)
+        let menuOrigin = NSPoint(x: 0, y: bounds.height + TaskbarConstants.Layout.overflowMenuVerticalOffset)
         menu.popUp(positioning: nil, at: menuOrigin, in: overflowButton)
     }
     
