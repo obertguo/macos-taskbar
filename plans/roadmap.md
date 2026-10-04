@@ -60,7 +60,7 @@ Before expanding feature surface area, establish a robust automated testing and 
 
 ### 1. Custom Theming
 - **Data-Driven Theme Schema:** Codable `ThemeDefinition` supporting custom palettes, background materials/fills, border bevels, corner radii, and typography.
-- **Import / Export:** Support loading and sharing custom themes via lightweight `.taskbartheme` JSON files.
+- **Import / Export:** Support loading and sharing custom themes via standard `.json` configuration files.
 - **Built-in Presets:** Expand preset roster (e.g. Modern Hybrid, Retro Classic, Windows XP Luna, Dark Minimal).
 
 ### 2. Quick Launch / Pinned Applications
