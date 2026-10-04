@@ -129,12 +129,13 @@ public final class StartButton: NSView {
         
         // Draw "Start" label
         let textX = iconX + (boxSize * 2) + spacing + 5.0
-        let textY = bounds.midY - 7.0 + (isPressed ? -1.0 : 0.0)
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: .bold),
             .foregroundColor: NSColor(rgba: theme.textColor)
         ]
         let str = NSAttributedString(string: TaskbarStrings.StartButton.title, attributes: attrs)
+        let lineHeight = ceil(str.size().height)
+        let textY = bounds.midY - (lineHeight / 2.0) + (isPressed ? -1.0 : 0.0)
         str.draw(at: NSPoint(x: textX, y: textY))
     }
     
@@ -175,12 +176,13 @@ public final class StartButton: NSView {
         
         // Text
         let textX = iconX + (dotSize * 2) + dotSpacing + 6.0
-        let textY = bounds.midY - 7.0
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: .medium),
             .foregroundColor: NSColor(rgba: theme.textColor)
         ]
         let str = NSAttributedString(string: TaskbarStrings.StartButton.title, attributes: attrs)
+        let lineHeight = ceil(str.size().height)
+        let textY = bounds.midY - (lineHeight / 2.0)
         str.draw(at: NSPoint(x: textX, y: textY))
     }
 }

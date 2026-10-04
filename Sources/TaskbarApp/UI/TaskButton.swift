@@ -179,8 +179,6 @@ public final class TaskButton: NSView {
             let textColor = isDimmed ? NSColor(rgba: RGBAColor.retroShadow) : NSColor.black
             
             let font = NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: isFocusedWindow ? .bold : .regular)
-            let textY = bounds.midY - (font.ascender / 2.0) - iconOffset
-            
             let para = NSMutableParagraphStyle()
             para.lineBreakMode = .byTruncatingTail
             
@@ -190,7 +188,9 @@ public final class TaskButton: NSView {
                 .paragraphStyle: para
             ]
             let str = NSAttributedString(string: windowInfo.displayTitle, attributes: attrs)
-            str.draw(in: NSRect(x: textX, y: textY, width: maxTextW, height: font.pointSize + 5.0))
+            let lineHeight = ceil(str.size().height)
+            let textY = bounds.midY - (lineHeight / 2.0) - iconOffset
+            str.draw(in: NSRect(x: textX, y: textY, width: maxTextW, height: lineHeight))
         }
     }
     
@@ -234,8 +234,6 @@ public final class TaskButton: NSView {
             let maxTextW = max(0, bounds.maxX - textX - TaskbarConstants.Layout.taskButtonIconMarginHybrid)
             
             let font = NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: isFocusedWindow ? .bold : .medium)
-            let textY = bounds.midY - (font.ascender / 2.0)
-            
             let para = NSMutableParagraphStyle()
             para.lineBreakMode = .byTruncatingTail
             
@@ -247,7 +245,9 @@ public final class TaskButton: NSView {
                 .paragraphStyle: para
             ]
             let str = NSAttributedString(string: windowInfo.displayTitle, attributes: attrs)
-            str.draw(in: NSRect(x: textX, y: textY, width: maxTextW, height: font.pointSize + 5.0))
+            let lineHeight = ceil(str.size().height)
+            let textY = bounds.midY - (lineHeight / 2.0)
+            str.draw(in: NSRect(x: textX, y: textY, width: maxTextW, height: lineHeight))
         }
     }
 }
