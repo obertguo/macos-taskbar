@@ -61,6 +61,7 @@ public struct Settings: Codable, Sendable, Equatable {
     public var enableAXNudger: Bool
     public var hideSystemDock: Bool
     public var dockHideDelay: Double
+    public var pinnedApps: [PinnedApp]
     
     public static let `default` = Settings(
         activeThemeId: ThemeDefinition.modernHybrid.id,
@@ -74,7 +75,8 @@ public struct Settings: Codable, Sendable, Equatable {
         launcherAction: .spotlight,
         enableAXNudger: true,
         hideSystemDock: true,
-        dockHideDelay: TaskbarConstants.Dock.defaultAutohideDelaySeconds
+        dockHideDelay: TaskbarConstants.Dock.defaultAutohideDelaySeconds,
+        pinnedApps: PinnedApp.defaultPinnedApps
     )
     
     public init(
@@ -89,7 +91,8 @@ public struct Settings: Codable, Sendable, Equatable {
         launcherAction: LauncherAction = .spotlight,
         enableAXNudger: Bool = true,
         hideSystemDock: Bool = true,
-        dockHideDelay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds
+        dockHideDelay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds,
+        pinnedApps: [PinnedApp] = PinnedApp.defaultPinnedApps
     ) {
         self.activeThemeId = activeThemeId
         self.barHeight = barHeight
@@ -103,6 +106,7 @@ public struct Settings: Codable, Sendable, Equatable {
         self.enableAXNudger = enableAXNudger
         self.hideSystemDock = hideSystemDock
         self.dockHideDelay = dockHideDelay
+        self.pinnedApps = pinnedApps
     }
     
     public init(
@@ -117,7 +121,8 @@ public struct Settings: Codable, Sendable, Equatable {
         launcherAction: LauncherAction = .spotlight,
         enableAXNudger: Bool = true,
         hideSystemDock: Bool = true,
-        dockHideDelay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds
+        dockHideDelay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds,
+        pinnedApps: [PinnedApp] = PinnedApp.defaultPinnedApps
     ) {
         self.init(
             activeThemeId: (themeStyle == .retroClassic) ? ThemeDefinition.retroClassic.id : ThemeDefinition.modernHybrid.id,
@@ -131,7 +136,8 @@ public struct Settings: Codable, Sendable, Equatable {
             launcherAction: launcherAction,
             enableAXNudger: enableAXNudger,
             hideSystemDock: hideSystemDock,
-            dockHideDelay: dockHideDelay
+            dockHideDelay: dockHideDelay,
+            pinnedApps: pinnedApps
         )
     }
     
@@ -139,6 +145,7 @@ public struct Settings: Codable, Sendable, Equatable {
         case activeThemeId, themeStyle, barHeight, maxButtonWidth, minButtonWidth
         case buttonSpacing, titleVisibilityThreshold, fontSize, iconSize
         case launcherAction, enableAXNudger, hideSystemDock, dockHideDelay
+        case pinnedApps
     }
     
     public init(from decoder: Decoder) throws {
@@ -166,6 +173,7 @@ public struct Settings: Codable, Sendable, Equatable {
         self.enableAXNudger = try container.decodeIfPresent(Bool.self, forKey: .enableAXNudger) ?? true
         self.hideSystemDock = try container.decodeIfPresent(Bool.self, forKey: .hideSystemDock) ?? true
         self.dockHideDelay = try container.decodeIfPresent(Double.self, forKey: .dockHideDelay) ?? TaskbarConstants.Dock.defaultAutohideDelaySeconds
+        self.pinnedApps = try container.decodeIfPresent([PinnedApp].self, forKey: .pinnedApps) ?? PinnedApp.defaultPinnedApps
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -183,6 +191,60 @@ public struct Settings: Codable, Sendable, Equatable {
         try container.encode(enableAXNudger, forKey: .enableAXNudger)
         try container.encode(hideSystemDock, forKey: .hideSystemDock)
         try container.encode(dockHideDelay, forKey: .dockHideDelay)
+        try container.encode(pinnedApps, forKey: .pinnedApps)
+    }
+    
+    // MARK: - Pinned Applications Management
+    
+    /// Pins an application by bundle identifier and display name if not already pinned.
+    /// - Returns: `true` if newly pinned, `false` if already present.
+    @discardableResult
+    public mutating func pinApp(bundleIdentifier: String, displayName: String, customPath: String? = nil) -> Bool {
+        guard !isPinned(bundleIdentifier: bundleIdentifier) else { return false }
+        let newPinned = PinnedApp(
+            bundleIdentifier: bundleIdentifier,
+            displayName: displayName,
+            customPath: customPath
+        )
+        pinnedApps.append(newPinned)
+        return true
+    }
+    
+    /// Pins an existing `PinnedApp` model if not already pinned.
+    /// - Returns: `true` if newly pinned, `false` if already present.
+    @discardableResult
+    public mutating func pinApp(_ app: PinnedApp) -> Bool {
+        guard !isPinned(bundleIdentifier: app.bundleIdentifier) else { return false }
+        pinnedApps.append(app)
+        return true
+    }
+    
+    /// Unpins an application by its bundle identifier.
+    /// - Returns: `true` if found and removed, `false` if not present.
+    @discardableResult
+    public mutating func unpinApp(bundleIdentifier: String) -> Bool {
+        let initialCount = pinnedApps.count
+        pinnedApps.removeAll { $0.bundleIdentifier == bundleIdentifier }
+        return pinnedApps.count < initialCount
+    }
+    
+    /// Checks whether an application with the given bundle identifier is pinned.
+    public func isPinned(bundleIdentifier: String) -> Bool {
+        pinnedApps.contains { $0.bundleIdentifier == bundleIdentifier }
+    }
+    
+    /// Reorders a pinned application from one position to another.
+    /// - Returns: `true` if reordered, `false` if either index is out of bounds or identical.
+    @discardableResult
+    public mutating func movePinnedApp(fromIndex: Int, toIndex: Int) -> Bool {
+        guard fromIndex >= 0 && fromIndex < pinnedApps.count,
+              toIndex >= 0 && toIndex < pinnedApps.count,
+              fromIndex != toIndex else {
+            return false
+        }
+        let item = pinnedApps.remove(at: fromIndex)
+        pinnedApps.insert(item, at: toIndex)
+        return true
     }
     
     private static let userDefaultsKey = "com.taskbar.settings"

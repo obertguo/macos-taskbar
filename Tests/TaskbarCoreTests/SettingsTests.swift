@@ -18,6 +18,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(defaults.enableAXNudger)
         XCTAssertTrue(defaults.hideSystemDock)
         XCTAssertEqual(defaults.dockHideDelay, TaskbarConstants.Dock.defaultAutohideDelaySeconds)
+        XCTAssertEqual(defaults.pinnedApps, PinnedApp.defaultPinnedApps)
     }
     
     func testSettingsEncodingDecoding() throws {
@@ -33,7 +34,10 @@ final class SettingsTests: XCTestCase {
             launcherAction: .raycast,
             enableAXNudger: false,
             hideSystemDock: true,
-            dockHideDelay: 1.5
+            dockHideDelay: 1.5,
+            pinnedApps: [
+                PinnedApp(bundleIdentifier: "com.apple.Maps", displayName: "Maps")
+            ]
         )
         
         let data = try JSONEncoder().encode(original)
@@ -51,6 +55,17 @@ final class SettingsTests: XCTestCase {
         
         let decoded = try JSONDecoder().decode(Settings.self, from: legacyData)
         XCTAssertEqual(decoded.dockHideDelay, TaskbarConstants.Dock.defaultAutohideDelaySeconds)
+    }
+    
+    func testBackwardCompatibleDecodingWithoutPinnedApps() throws {
+        // Simulates persisted settings from older versions lacking pinnedApps key
+        let baseData = try JSONEncoder().encode(Settings.default)
+        var dict = try JSONSerialization.jsonObject(with: baseData) as! [String: Any]
+        dict.removeValue(forKey: "pinnedApps")
+        let legacyData = try JSONSerialization.data(withJSONObject: dict)
+        
+        let decoded = try JSONDecoder().decode(Settings.self, from: legacyData)
+        XCTAssertEqual(decoded.pinnedApps, PinnedApp.defaultPinnedApps)
     }
     
     func testUserDefaultsPersistence() {
