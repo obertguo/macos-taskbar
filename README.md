@@ -28,7 +28,7 @@ Designed for peak responsiveness, ~0.0% idle CPU, and rock-solid stability using
   - **Retro Classic:** Windows 95/98 style with `#C0C0C0` solid background, 3D raised/sunken beveled borders, and classic typography.
   - **Windows XP Luna:** Iconic royal blue taskbar with signature emerald green Start button and gold accents.
   - **Dark Minimal:** Pitch black `#121212` background, subtle borders, and cyan `#00BCD4` active accent indicator.
-  - **User Custom Theme Engine:** Discovers and validates `*.json` themes in `~/.config/taskbar/themes/` with live reload and export tools in the Status Menu.
+  - **User Custom Theme Engine:** Discovers and validates `*.json` themes in `~/.config/taskbar/themes/` with live reload, layout metric adoption (`barHeight`, `minButtonWidth`, `maxButtonWidth`, `buttonSpacing`), and export tools in the Status Menu.
 - **High-DPI & Multi-Resolution Icon Sanitization:**
   - Filters corrupt legacy low-resolution bitmaps (<64px) from third-party app bundles (e.g. Electron / Antigravity) when high-resolution representations exist, guaranteeing crisp bilinear anti-aliasing across mixed-DPI displays.
 - **Screen Space Reservation via AX Nudger (`WorkAreaEnforcer`):** Maximized windows (from native zoom, double-click titlebar, Rectangle, Raycast, etc.) are actively clamped so their bottom edges (status bars, terminal prompts, input boxes) remain visible above the bar. Features multi-pass debounce settling (150ms / 400ms / 650ms), active mouse-drag deferral, and self-inflicted notification filtering to prevent jitter and feedback loops.
@@ -68,7 +68,7 @@ Taskbar includes a 3-tier test harness with automated memory and CPU benchmarkin
 # Stress & capacity suite (100-window burst, chevron overflow, button recycling)
 ./scripts/test-functional.sh --stress
 
-# Run all test suites (97 tests) + resident memory (<45 MB RSS) and CPU benchmarks
+# Run all test suites (99 tests) + resident memory (<45 MB RSS) and CPU benchmarks
 ./scripts/test-functional.sh --all
 ```
 
@@ -101,10 +101,10 @@ If the Dock ever remains hidden (e.g., following a force kill during development
 For in-depth guides intended for human developers and AI coding agents:
 
 - [**Changelog & Release Notes**](CHANGELOG.md): Complete release history and feature logs.
-- [**Architecture & Concurrency Guide**](docs/v0.2.0/ARCHITECTURE.md): SPM target hierarchy (`TaskbarCore`, `TaskbarKit`, `TaskbarApp`), threading model, AX concurrency, view recycling, work area clamping, and focus isolation.
+- [**Architecture & Concurrency Guide**](docs/v0.2.0/ARCHITECTURE.md): SPM target hierarchy (`TaskbarCore`, `TaskbarKit`, `TaskbarApp`), threading model, AX concurrency, view recycling, work area clamping, focus isolation, and custom theme engine.
 - [**Build & Release Guide**](docs/v0.2.0/BUILD_AND_RELEASE.md): Compilation, code signing, installation, testing, and release packaging.
 - [**Configuration Reference**](docs/v0.2.0/CONFIGURATION.md): Centralized build settings (`config/build.env`), common shell utilities, and JSON theme specifications.
-- [**Testing & Verification Guide**](docs/v0.2.0/TESTING.md): 3-tier testing pyramid, fixture automation, runner modes, and resource benchmarking across 97 tests.
+- [**Testing & Verification Guide**](docs/v0.2.0/TESTING.md): 3-tier testing pyramid, fixture automation, runner modes, and resource benchmarking across 99 tests.
 - [**Test Specifications Catalog**](docs/v0.2.0/TEST_SPECIFICATIONS.md): Complete test taxonomy (`TC-FUNC-*`, `TC-EDGE-*`, `TC-STRESS-*`, `TC-PERF-*`, `TC-PIN-*`, `TC-THEME-*`, `TC-UNIT-*`) with requirement traceability.
 - [**Codebase Conventions & Best Practices**](docs/v0.2.0/CONVENTIONS.md): Architectural boundaries, threading invariants, constants management, and safety protocols.
 

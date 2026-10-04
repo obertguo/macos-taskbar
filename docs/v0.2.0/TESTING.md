@@ -59,7 +59,7 @@ All test cases are formally specified in [`docs/v0.2.0/TEST_SPECIFICATIONS.md`](
 - `ScreenAssignmentTests`: Primary/secondary monitor boundary partitioning (3 test cases).
 - `TaskbarCoreTests`: Build configuration sanity checks (1 test case).
 
-### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 28 Tests)
+### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 30 Tests)
 - **Window Lifecycle Suite (`WindowLifecycleIntegrationTests.swift` — 7 Tests):**
   - `TC-FUNC-001`: Window creation and store discovery within $\le 3\text{s}$.
   - `TC-FUNC-002`: Window minimization state tracking via AX notification.
@@ -87,13 +87,15 @@ All test cases are formally specified in [`docs/v0.2.0/TEST_SPECIFICATIONS.md`](
   - `ScreenManager` multi-display synchronization of pin and unpin actions across all panels.
   - `IconCache` bundle ID and fallback resolution.
   - `IconCache` multi-resolution icon preparation sanitizing legacy 1x corrupt assets.
-- **Theme Expansion Suite (`ThemeExpansionIntegrationTests.swift` — 2 Tests):**
+- **Theme Expansion Suite (`ThemeExpansionIntegrationTests.swift` — 3 Tests):**
   - Dynamic switching to Windows XP Luna and Dark Minimal presets across all display panels.
   - `ThemeFileLoader` discovery of valid custom JSON and graceful handling of corrupted JSON files.
-- **Status Menu Theme Suite (`StatusMenuThemeTests.swift` — 3 Tests):**
+  - `ScreenManager` dynamic application of custom JSON themes and preservation of custom layout metrics (`barHeight`, `minButtonWidth`, `buttonSpacing`, `fontSize`, `iconSize`).
+- **Status Menu Theme Suite (`StatusMenuThemeTests.swift` — 4 Tests):**
   - Submenu structure validating built-in presets and disk action items.
   - Dynamic menu item updates when custom themes are registered.
   - Callback invocation when triggering "Reload Themes from Disk".
+  - Custom theme selection notifying `onThemeIdChanged` and maintaining checkmark state without legacy Modern Hybrid fallback.
 
 ---
 

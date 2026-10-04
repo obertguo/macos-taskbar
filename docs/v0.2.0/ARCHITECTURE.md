@@ -250,3 +250,48 @@ flowchart TD
    If screen descriptors have not yet been populated by `ScreenManager`, `evaluateAndClamp` dynamically queries `NSScreen.screens` to resolve physical display bounds.
 5. **Application-Level Move/Resize Listening:**
    `AXAppObserver` registers `kAXWindowResizedNotification` and `kAXWindowMovedNotification` at the application level as well as the window level. Newly opened windows in Electron and Chromium apps that omit `kAXWindowCreatedNotification` are automatically registered and observed upon first movement or resize.
+
+---
+
+## 9. Custom Theme Engine & Dynamic Layout Metric Adoption
+
+Taskbar provides a modular, data-driven theming architecture supporting both built-in presets (`modern-hybrid`, `retro-classic`, `windows-xp-luna`, `dark-minimal`) and user-authored JSON themes loaded dynamically from disk.
+
+```mermaid
+flowchart LR
+    Disk["~/.config/taskbar/themes/*.json"] --> Loader["ThemeFileLoader"]
+    Loader --> Reg["ThemeRegistry.shared"]
+    Reg --> Menu["StatusMenu UI<br/>(Theme Submenu)"]
+    
+    Menu -- "Click Custom Theme" --> IDChange["onThemeIdChanged(themeId)"]
+    IDChange --> Settings["Settings.activeThemeId = themeId"]
+    IDChange --> SM["ScreenManager.updateTheme(themeId)"]
+    
+    SM --> Metrics["Adopt ThemeMetrics:<br/>barHeight, minButtonWidth,<br/>buttonSpacing, fontSize, iconSize"]
+    SM --> Panels["TaskbarPanel.applyTheme() &<br/>updateButtonLayout()"]
+    SM --> Nudger["WorkAreaEnforcer.barHeight = customHeight"]
+```
+
+### 9.1 Callback Architecture & Invariant Enforcement
+- **Unified Event Flow:** In earlier iterations, `StatusMenu` invoked both `onThemeIdChanged` and legacy `onThemeChanged(ThemeStyle)`. Because custom themes are not built-in enum presets, `theme.style` evaluates to `.modernHybrid`, which inadvertently clobbered custom theme selection back to Modern Hybrid.
+- **Strict Invariant:** All theme activation flows through `onThemeIdChanged(String)`. `onThemeChanged(ThemeStyle)` is strictly guarded to only fire if `ThemeRegistry.shared.isBuiltIn(themeId:)` is true, ensuring user custom themes remain active permanently.
+
+### 9.2 Dynamic Layout Metric Adoption
+- **Extended Theme Metrics (`ThemeMetrics`):** Theme JSON definitions can optionally specify layout dimensions:
+  ```json
+  "metrics": {
+    "barHeight": 64.0,
+    "minButtonWidth": 50.0,
+    "maxButtonWidth": 250.0,
+    "buttonSpacing": 10.0,
+    "fontSize": 8.0,
+    "iconSize": 48.0,
+    "buttonCornerRadius": 25.0,
+    "is3DBeveled": true
+  }
+  ```
+- **Panel & Work Area Propagation:** When switching to a custom theme, `ScreenManager.updateTheme` adopts the theme's custom `fontSize`, `iconSize`, `barHeight`, `minButtonWidth`, `maxButtonWidth`, and `buttonSpacing`:
+  1. Updates `settings` and persists to `UserDefaults`.
+  2. Updates `WorkAreaEnforcer.shared.barHeight` so maximized windows clamp to the new taskbar height.
+  3. Calls `refreshPanels()` to resize panels across all connected displays.
+  4. Synchronizes Status Menu checkmarks and submenus (`barHeight`, `fontSize`, `iconSize`, `minButtonWidth`).

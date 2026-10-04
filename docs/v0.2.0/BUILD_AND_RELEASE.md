@@ -88,7 +88,7 @@ Before packaging any release, run the automated test harness:
 ```
 
 Requirements for release readiness:
-- 100% test pass rate across all 18 test suites (97 tests total).
+- 100% test pass rate across all 18 test suites (99 tests total).
 - Resident memory $< 45\text{ MB}$ RSS.
 - Idle CPU $\sim 0.0\%$.
 
@@ -103,8 +103,7 @@ The packaging script [`scripts/package-release.sh`](../../scripts/package-releas
 ./scripts/package-release.sh
 
 # Or bump version and package atomically:
-./scripts/package-release.sh --minor  # 0.1.1 -> 0.2.0 (Build 3)
-./scripts/package-release.sh --patch  # 0.2.0 -> 0.2.1 (Build 4)
+./scripts/package-release.sh --patch  # 0.2.1 -> 0.2.2 (Build 5)
 ```
 
 ### Generated Artifacts in `dist/`:

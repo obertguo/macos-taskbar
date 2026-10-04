@@ -160,6 +160,15 @@ This document provides the canonical specification catalog and requirements trac
 - **[TC-THEME-002] Multi-Display Theme Propagation:** Calling `ScreenManager.updateTheme(themeId:)` immediately updates palettes across all active display panels.
 - **[TC-THEME-003] Custom JSON Discovery & Resilience:** `ThemeFileLoader` discovers valid JSON themes from `~/.config/taskbar/themes/` while gracefully ignoring corrupted files, non-JSON files, and built-in ID collisions.
 - **[TC-THEME-004] Dynamic Status Menu Synchronization:** Discovered custom themes populate the Status Menu Theme submenu with active state checkmarks and reload triggers.
+- **[TC-THEME-005] Custom Theme Activation & Metric Adoption:**
+  - **Category:** Theming / Status Menu & Metrics
+  - **Preconditions:** Custom JSON theme registered in `ThemeRegistry`.
+  - **Stimulus / Action:**
+    1. Select custom theme from Status Menu.
+    2. Verify `onThemeIdChanged` receives the custom theme ID and legacy `onThemeChanged` does not fire with fallback `.modernHybrid`.
+    3. Verify `ScreenManager` applies theme and adopts custom layout dimensions (`barHeight`, `minButtonWidth`, `maxButtonWidth`, `buttonSpacing`, `fontSize`, `iconSize`).
+  - **Automated Verification:** `testCustomThemeSelectionDoesNotRevertToModernHybrid` in `StatusMenuThemeTests.swift` & `testScreenManagerDynamicCustomThemeSwitching` in `ThemeExpansionIntegrationTests.swift`.
+  - **Pass/Fail Criteria:** Custom theme ID retained, status menu checkmark remains active, and layout metrics reflect theme configuration.
 
 ---
 
@@ -178,5 +187,5 @@ This document provides the canonical specification catalog and requirements trac
 | **Context Menus & Multi-Screen Sync** | `TC-PIN-004`, `TC-PIN-005` | `PinnedAppsIntegrationTests` |
 | **Multi-Resolution Icon Sanitizer** | `TC-PIN-006` | `PinnedAppsIntegrationTests` |
 | **Expanded Presets (Luna & Dark)** | `TC-THEME-001`, `TC-THEME-002` | `ThemeExpansionIntegrationTests` |
-| **Custom JSON Theme Loader** | `TC-THEME-003`, `TC-THEME-004` | `ThemeExpansionIntegrationTests`, `StatusMenuThemeTests` |
+| **Custom JSON Theme Loader** | `TC-THEME-003`, `TC-THEME-004`, `TC-THEME-005` | `ThemeExpansionIntegrationTests`, `StatusMenuThemeTests` |
 | **Memory Bound (< 45 MB RSS)** | `TC-PERF-001` | `scripts/test-functional.sh --all` |

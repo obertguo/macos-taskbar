@@ -2,6 +2,31 @@
 
 All notable changes to **Taskbar** will be documented in this file.
 
+## [0.2.2] - 2026-10-04
+
+### Custom Theme Activation & Layout Metric Adoption
+
+Version `0.2.2` is a targeted patch release that resolves custom theme activation from the menu bar status menu and enables dynamic adoption of custom layout dimensions from user theme JSON files.
+
+#### Fixed
+- **Custom JSON Theme Activation & Menu Selection (`StatusMenu` & `AppDelegate`):**
+  - Resolved an issue where clicking custom themes in the status menu immediately reverted to Modern Hybrid due to a legacy `onThemeChanged` callback clobbering the active theme ID with the fallback `.modernHybrid` enum value.
+  - Guarded `onThemeChanged` in `StatusMenu` to only trigger for built-in preset IDs, and consolidated all theme lifecycle handling in `AppDelegate` exclusively under `onThemeIdChanged`.
+- **Custom Theme Typography & Icon Metric Preservation (`ScreenManager`):**
+  - Fixed an issue where selecting a custom theme stripped its custom `fontSize` and `iconSize` and forcefully overwritten them with standard defaults via unconditional `.withCustomMetrics()`.
+  - When switching to a custom theme, `ScreenManager` now directly adopts the theme's configured font size and icon size, keeping status menu controls in sync.
+- **Extended Layout Metrics in Theme JSON (`ThemeMetrics`):**
+  - Added optional decoding for `barHeight`, `minButtonWidth`, `maxButtonWidth`, and `buttonSpacing` in `ThemeMetrics`.
+  - When custom themes provide custom taskbar heights or button layout parameters (e.g. 64pt bar height or custom button widths), `ScreenManager` and `WorkAreaEnforcer` now dynamically resize taskbar panels, recalculate work area clamping bounds, and update menu bar status items.
+
+#### Added
+- **Integration Tests:**
+  - Added integration test `testCustomThemeSelectionDoesNotRevertToModernHybrid` in `StatusMenuThemeTests`.
+  - Added integration test `testScreenManagerDynamicCustomThemeSwitching` in `ThemeExpansionIntegrationTests`.
+  - Total test count expanded to 99 tests across 18 test suites passing at 100%.
+
+---
+
 ## [0.2.1] - 2026-10-04
 
 ### Window Focus Isolation & Full-Screen Clamping Resilience
