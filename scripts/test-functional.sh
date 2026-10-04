@@ -200,6 +200,18 @@ if [[ "${BASELINE_RSS}" != "0" ]]; then
     else
         echo -e "${GREEN}✓ Memory Bound: RSS is within 45.0 MB bound${NC}"
     fi
+    
+    # Sample CPU usage
+    local_pid=$(pgrep -x "Taskbar" || pgrep -x "TaskbarApp" || echo "")
+    if [[ -n "${local_pid}" ]]; then
+        CPU_USAGE=$(ps -o %cpu= -p "${local_pid}" | tr -d ' ' || echo "0.0")
+        echo -e "Taskbar CPU:   ${CPU_USAGE}%"
+        if (( $(echo "${CPU_USAGE} > 2.0" | bc -l) )); then
+            echo -e "${YELLOW}⚠ CPU Notice: Taskbar CPU during test was ${CPU_USAGE}%${NC}"
+        else
+            echo -e "${GREEN}✓ Idle CPU: CPU usage is well within bounds (${CPU_USAGE}%)${NC}"
+        fi
+    fi
 fi
 
 if [[ "${FAILED}" -eq 0 ]]; then
