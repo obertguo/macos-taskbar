@@ -8,11 +8,13 @@ public final class StatusMenu {
     private let statusItem: NSStatusItem
     private var currentStyle: ThemeStyle
     private var minButtonWidth: Double
+    private var barHeight: Double
     private var isNudgerEnabled: Bool
     private var isDockHidden: Bool
     
     public var onThemeChanged: ((ThemeStyle) -> Void)?
     public var onMinButtonWidthChanged: ((Double) -> Void)?
+    public var onBarHeightChanged: ((Double) -> Void)?
     public var onLauncherTriggered: (() -> Void)?
     public var onNudgerToggled: ((Bool) -> Void)?
     public var onHideDockToggled: ((Bool) -> Void)?
@@ -21,12 +23,14 @@ public final class StatusMenu {
     
     public init(
         currentStyle: ThemeStyle,
-        minButtonWidth: Double = 80.0,
+        minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth,
+        barHeight: Double = TaskbarConstants.Layout.defaultBarHeight,
         isNudgerEnabled: Bool = true,
         isDockHidden: Bool = true
     ) {
         self.currentStyle = currentStyle
         self.minButtonWidth = minButtonWidth
+        self.barHeight = barHeight
         self.isNudgerEnabled = isNudgerEnabled
         self.isDockHidden = isDockHidden
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -44,6 +48,11 @@ public final class StatusMenu {
         setupMenu()
     }
     
+    public func updateBarHeight(_ height: Double) {
+        self.barHeight = height
+        setupMenu()
+    }
+    
     public func updateNudgerState(_ enabled: Bool) {
         self.isNudgerEnabled = enabled
         setupMenu()
@@ -56,22 +65,29 @@ public final class StatusMenu {
     
     private func setupMenu() {
         if let button = statusItem.button {
-            if let image = NSImage(systemSymbolName: "menubar.dock.rectangle", accessibilityDescription: BuildConfiguration.appName) {
+            if let image = NSImage(
+                systemSymbolName: TaskbarStrings.StatusMenu.statusBarSymbol,
+                accessibilityDescription: BuildConfiguration.appName
+            ) {
                 button.image = image
             } else {
-                button.title = "⊞"
+                button.title = TaskbarStrings.StatusMenu.statusBarFallbackGlyph
             }
         }
         
         let menu = NSMenu()
         
-        let headerItem = NSMenuItem(title: "\(BuildConfiguration.appName) v\(BuildConfiguration.appVersion)", action: nil, keyEquivalent: "")
+        let headerTitle = TaskbarStrings.StatusMenu.appHeader(
+            name: BuildConfiguration.appName,
+            version: BuildConfiguration.appVersion
+        )
+        let headerItem = NSMenuItem(title: headerTitle, action: nil, keyEquivalent: "")
         headerItem.isEnabled = false
         menu.addItem(headerItem)
         menu.addItem(NSMenuItem.separator())
         
         // Theme Menu
-        let themeSubmenu = NSMenu(title: "Theme")
+        let themeSubmenu = NSMenu(title: TaskbarStrings.StatusMenu.themeMenu)
         for style in ThemeStyle.allCases {
             let item = NSMenuItem(title: style.displayName, action: #selector(handleThemeSelection(_:)), keyEquivalent: "")
             item.target = self
@@ -80,37 +96,51 @@ public final class StatusMenu {
             themeSubmenu.addItem(item)
         }
         
-        let themeParentItem = NSMenuItem(title: "Theme", action: nil, keyEquivalent: "")
+        let themeParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.themeMenu, action: nil, keyEquivalent: "")
         themeParentItem.submenu = themeSubmenu
         menu.addItem(themeParentItem)
         
         // Button Width / Overflow Threshold Menu
-        let widthSubmenu = NSMenu(title: "Button Width")
-        let presets: [(title: String, width: Double)] = [
-            ("80 pt (Default - Balanced)", 80.0),
-            ("100 pt (Roomy - Early overflow)", 100.0),
-            ("120 pt (Spacious)", 120.0),
-            ("60 pt (Compact)", 60.0),
-            ("28 pt (Ultra-compact - Icon only)", 28.0)
-        ]
-        for preset in presets {
+        let widthSubmenu = NSMenu(title: TaskbarStrings.StatusMenu.buttonWidthMenu)
+        for preset in TaskbarConstants.Layout.buttonWidthPresets {
             let item = NSMenuItem(title: preset.title, action: #selector(handleWidthSelection(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = preset.width
             item.state = (abs(preset.width - minButtonWidth) < 1.0) ? .on : .off
             widthSubmenu.addItem(item)
         }
-        let widthParentItem = NSMenuItem(title: "Button Width", action: nil, keyEquivalent: "")
+        let widthParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.buttonWidthMenu, action: nil, keyEquivalent: "")
         widthParentItem.submenu = widthSubmenu
         menu.addItem(widthParentItem)
         
+        // Taskbar Height Menu
+        let heightSubmenu = NSMenu(title: TaskbarStrings.StatusMenu.barHeightMenu)
+        for preset in TaskbarConstants.Layout.barHeightPresets {
+            let item = NSMenuItem(title: preset.title, action: #selector(handleHeightSelection(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = preset.height
+            item.state = (abs(preset.height - barHeight) < 1.0) ? .on : .off
+            heightSubmenu.addItem(item)
+        }
+        let heightParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.barHeightMenu, action: nil, keyEquivalent: "")
+        heightParentItem.submenu = heightSubmenu
+        menu.addItem(heightParentItem)
+        
         // Start Launcher item
-        let startItem = NSMenuItem(title: "Open Start Launcher", action: #selector(handleOpenLauncher), keyEquivalent: "s")
+        let startItem = NSMenuItem(
+            title: TaskbarStrings.StatusMenu.openStartLauncher,
+            action: #selector(handleOpenLauncher),
+            keyEquivalent: "s"
+        )
         startItem.target = self
         menu.addItem(startItem)
         
         // WorkArea Nudger Toggle
-        let nudgerItem = NSMenuItem(title: "Nudge Maximized Windows", action: #selector(handleToggleNudger), keyEquivalent: "")
+        let nudgerItem = NSMenuItem(
+            title: TaskbarStrings.StatusMenu.nudgeMaximizedWindows,
+            action: #selector(handleToggleNudger),
+            keyEquivalent: ""
+        )
         nudgerItem.target = self
         nudgerItem.state = isNudgerEnabled ? .on : .off
         menu.addItem(nudgerItem)
@@ -118,19 +148,31 @@ public final class StatusMenu {
         menu.addItem(NSMenuItem.separator())
         
         // macOS System Dock controls
-        let hideDockItem = NSMenuItem(title: "Hide macOS System Dock", action: #selector(handleToggleHideDock), keyEquivalent: "")
+        let hideDockItem = NSMenuItem(
+            title: TaskbarStrings.StatusMenu.hideSystemDock,
+            action: #selector(handleToggleHideDock),
+            keyEquivalent: ""
+        )
         hideDockItem.target = self
         hideDockItem.state = isDockHidden ? .on : .off
         menu.addItem(hideDockItem)
         
-        let restoreDockItem = NSMenuItem(title: "Restore System Dock Now", action: #selector(handleRestoreDock), keyEquivalent: "")
+        let restoreDockItem = NSMenuItem(
+            title: TaskbarStrings.StatusMenu.restoreSystemDock,
+            action: #selector(handleRestoreDock),
+            keyEquivalent: ""
+        )
         restoreDockItem.target = self
         menu.addItem(restoreDockItem)
         
         menu.addItem(NSMenuItem.separator())
         
         // Quit
-        let quitItem = NSMenuItem(title: "Quit \(BuildConfiguration.appName)", action: #selector(handleQuit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(
+            title: TaskbarStrings.StatusMenu.quitApp(name: BuildConfiguration.appName),
+            action: #selector(handleQuit),
+            keyEquivalent: "q"
+        )
         quitItem.target = self
         menu.addItem(quitItem)
         
@@ -153,6 +195,14 @@ public final class StatusMenu {
         }
     }
     
+    @objc private func handleHeightSelection(_ sender: NSMenuItem) {
+        if let height = sender.representedObject as? Double {
+            barHeight = height
+            setupMenu()
+            onBarHeightChanged?(height)
+        }
+    }
+    
     @objc private func handleOpenLauncher() {
         onLauncherTriggered?()
     }
@@ -161,11 +211,6 @@ public final class StatusMenu {
         isNudgerEnabled.toggle()
         setupMenu()
         onNudgerToggled?(isNudgerEnabled)
-    }
-    
-    @objc private func handleToggleHideHideDock() {
-        // Alias
-        handleToggleHideDock()
     }
     
     @objc private func handleToggleHideDock() {

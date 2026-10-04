@@ -24,9 +24,10 @@ public final class OverflowButton: NSView {
     
     public init(theme: ThemeDefinition) {
         self.theme = theme
-        super.init(frame: NSRect(x: 0, y: 0, width: 26, height: 26))
+        let btnW = TaskbarConstants.Layout.overflowButtonWidth
+        super.init(frame: NSRect(x: 0, y: 0, width: btnW, height: btnW))
         wantsLayer = true
-        toolTip = "More windows"
+        toolTip = TaskbarStrings.Overflow.toolTip
     }
     
     required init?(coder: NSCoder) {
@@ -96,7 +97,7 @@ public final class OverflowButton: NSView {
             .foregroundColor: textColor
         ]
         
-        let text = "»" as NSString
+        let text = TaskbarStrings.Overflow.buttonGlyph as NSString
         let textSize = text.size(withAttributes: attrs)
         let textRect = NSRect(
             x: bounds.midX - (textSize.width / 2.0) + (isPressed ? 1.0 : 0.0),
@@ -130,7 +131,7 @@ public final class OverflowButton: NSView {
             .foregroundColor: textColor
         ]
         
-        let text = "»" as NSString
+        let text = TaskbarStrings.Overflow.buttonGlyph as NSString
         let textSize = text.size(withAttributes: attrs)
         let textRect = NSRect(
             x: bounds.midX - (textSize.width / 2.0),

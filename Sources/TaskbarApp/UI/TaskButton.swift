@@ -109,7 +109,7 @@ public final class TaskButton: NSView {
         let menu = NSMenu(title: windowInfo.appName)
         
         // Restore / Minimize
-        let minActionTitle = windowInfo.isMinimized ? "Restore" : "Minimize"
+        let minActionTitle = windowInfo.isMinimized ? TaskbarStrings.ContextMenu.restore : TaskbarStrings.ContextMenu.minimize
         let minItem = NSMenuItem(title: minActionTitle, action: #selector(handleMenuMinimizeOrRestore), keyEquivalent: "")
         minItem.target = self
         menu.addItem(minItem)
@@ -117,12 +117,12 @@ public final class TaskButton: NSView {
         menu.addItem(NSMenuItem.separator())
         
         // Close Window
-        let closeItem = NSMenuItem(title: "Close Window", action: #selector(handleMenuClose), keyEquivalent: "w")
+        let closeItem = NSMenuItem(title: TaskbarStrings.ContextMenu.closeWindow, action: #selector(handleMenuClose), keyEquivalent: "w")
         closeItem.target = self
         menu.addItem(closeItem)
         
         // Quit App
-        let quitItem = NSMenuItem(title: "Quit \(windowInfo.appName)", action: #selector(handleMenuQuit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: TaskbarStrings.ContextMenu.quitApp(windowInfo.appName), action: #selector(handleMenuQuit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
         

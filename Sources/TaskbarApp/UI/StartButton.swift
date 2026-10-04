@@ -121,7 +121,7 @@ public final class StartButton: NSView {
             .font: NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: .bold),
             .foregroundColor: NSColor(rgba: theme.textColor)
         ]
-        let str = NSAttributedString(string: "Start", attributes: attrs)
+        let str = NSAttributedString(string: TaskbarStrings.StartButton.title, attributes: attrs)
         str.draw(at: NSPoint(x: textX, y: textY))
     }
     
@@ -167,7 +167,7 @@ public final class StartButton: NSView {
             .font: NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: .medium),
             .foregroundColor: NSColor(rgba: theme.textColor)
         ]
-        let str = NSAttributedString(string: "Start", attributes: attrs)
+        let str = NSAttributedString(string: TaskbarStrings.StartButton.title, attributes: attrs)
         str.draw(at: NSPoint(x: textX, y: textY))
     }
 }

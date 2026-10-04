@@ -1,0 +1,109 @@
+// Sources/TaskbarCore/Config/TaskbarStrings.swift
+
+import Foundation
+
+/// Centralized repository of user-facing UI strings and labels.
+/// Structured hierarchically to serve as the single source of truth for UI copy and future localization (i18n).
+public enum TaskbarStrings {
+    
+    // MARK: - Start Button
+    public enum StartButton {
+        /// Text label displayed on the Start button.
+        public static let title = "Start"
+    }
+    
+    // MARK: - Overflow UI
+    public enum Overflow {
+        /// Chevron glyph displayed on the overflow button when running windows exceed bar capacity.
+        public static let buttonGlyph = "»"
+        
+        /// Hover tooltip displayed on the overflow chevron button.
+        public static let toolTip = "More windows"
+        
+        /// Title for the overflow popup menu displaying hidden windows.
+        public static let menuTitle = "Overflow Windows"
+    }
+    
+    // MARK: - Task Button Context Menu
+    public enum ContextMenu {
+        /// Menu item to restore a minimized window to the desktop.
+        public static let restore = "Restore"
+        
+        /// Menu item to minimize an active window into the taskbar.
+        public static let minimize = "Minimize"
+        
+        /// Menu item to close the selected window.
+        public static let closeWindow = "Close Window"
+        
+        /// Menu item to terminate the application owning the window.
+        public static func quitApp(_ appName: String) -> String {
+            "Quit \(appName)"
+        }
+    }
+    
+    // MARK: - Menu Bar Status Item & Menu
+    public enum StatusMenu {
+        /// System SF Symbol identifier for the menu bar icon.
+        public static let statusBarSymbol = "menubar.dock.rectangle"
+        
+        /// Fallback text glyph for the menu bar item if the SF Symbol fails to render.
+        public static let statusBarFallbackGlyph = "⊞"
+        
+        /// Formatted application name and version string for the disabled header menu item.
+        public static func appHeader(name: String, version: String) -> String {
+            "\(name) v\(version)"
+        }
+        
+        /// Title for the Theme submenu.
+        public static let themeMenu = "Theme"
+        
+        /// Title for the Button Width / Overflow threshold submenu.
+        public static let buttonWidthMenu = "Button Width"
+        
+        /// Title for the Taskbar Height submenu.
+        public static let barHeightMenu = "Taskbar Height"
+        
+        /// Menu item to launch the configured start launcher (Spotlight, Raycast, etc.).
+        public static let openStartLauncher = "Open Start Launcher"
+        
+        /// Menu item toggle for automatically nudging maximized windows above the taskbar.
+        public static let nudgeMaximizedWindows = "Nudge Maximized Windows"
+        
+        /// Menu item toggle to keep the native macOS Dock permanently hidden.
+        public static let hideSystemDock = "Hide macOS System Dock"
+        
+        /// Menu item to immediately restore native macOS Dock autohide settings.
+        public static let restoreSystemDock = "Restore System Dock Now"
+        
+        /// Menu item to terminate the Taskbar process cleanly.
+        public static func quitApp(name: String) -> String {
+            "Quit \(name)"
+        }
+    }
+    
+    // MARK: - Presets Copy
+    public enum Presets {
+        // Button Width Presets
+        public static let buttonWidthBalanced = "80 pt (Default - Balanced)"
+        public static let buttonWidthRoomy = "100 pt (Roomy - Early overflow)"
+        public static let buttonWidthSpacious = "120 pt (Spacious)"
+        public static let buttonWidthCompact = "60 pt (Compact)"
+        public static let buttonWidthIconOnly = "28 pt (Ultra-compact - Icon only)"
+        
+        // Bar Height Presets
+        public static let barHeightSlim = "26 pt (Slim)"
+        public static let barHeightClassic = "30 pt (Default - Classic)"
+        public static let barHeightMedium = "34 pt (Medium)"
+        public static let barHeightLarge = "38 pt (Large)"
+        public static let barHeightSpacious = "44 pt (Spacious)"
+    }
+    
+    // MARK: - Theme Display Names
+    public enum Themes {
+        /// User-facing display name for the Modern Hybrid theme.
+        public static let modernHybrid = "Modern Hybrid"
+        
+        /// User-facing display name for the Retro Classic Windows 95 theme.
+        public static let retroClassic = "Retro Classic"
+    }
+}

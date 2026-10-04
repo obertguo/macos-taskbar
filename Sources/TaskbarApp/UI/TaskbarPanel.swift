@@ -69,6 +69,7 @@ public final class TaskbarPanel: NSPanel {
             height: height
         )
         setFrame(frame, display: true)
+        taskbarView.needsLayout = true
     }
     
     public func applyTheme(_ theme: ThemeDefinition) {

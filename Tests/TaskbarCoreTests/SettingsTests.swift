@@ -51,4 +51,19 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(reloaded.themeStyle, .retroClassic)
         XCTAssertEqual(reloaded.barHeight, 36.0)
     }
+    
+    func testTaskbarStringsAndPresets() {
+        XCTAssertEqual(TaskbarStrings.StartButton.title, "Start")
+        XCTAssertEqual(TaskbarStrings.Overflow.buttonGlyph, "»")
+        XCTAssertEqual(ThemeStyle.modernHybrid.displayName, TaskbarStrings.Themes.modernHybrid)
+        XCTAssertEqual(ThemeStyle.retroClassic.displayName, TaskbarStrings.Themes.retroClassic)
+        
+        // Ensure barHeightPresets contains the defaultBarHeight
+        let heights = TaskbarConstants.Layout.barHeightPresets.map { $0.height }
+        XCTAssertTrue(heights.contains(TaskbarConstants.Layout.defaultBarHeight))
+        
+        // Ensure buttonWidthPresets contains the defaultMinButtonWidth
+        let widths = TaskbarConstants.Layout.buttonWidthPresets.map { $0.width }
+        XCTAssertTrue(widths.contains(TaskbarConstants.Layout.defaultMinButtonWidth))
+    }
 }

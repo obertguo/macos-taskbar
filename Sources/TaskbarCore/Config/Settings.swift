@@ -8,8 +8,8 @@ public enum ThemeStyle: String, Codable, Sendable, CaseIterable {
     
     public var displayName: String {
         switch self {
-        case .modernHybrid: return "Modern Hybrid"
-        case .retroClassic: return "Retro Classic"
+        case .modernHybrid: return TaskbarStrings.Themes.modernHybrid
+        case .retroClassic: return TaskbarStrings.Themes.retroClassic
         }
     }
 }

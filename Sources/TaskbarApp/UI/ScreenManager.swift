@@ -61,6 +61,13 @@ public final class ScreenManager {
         refreshPanels()
     }
     
+    public func updateBarHeight(_ barHeight: Double) {
+        settings.barHeight = barHeight
+        settings.save()
+        WorkAreaEnforcer.shared.barHeight = CGFloat(barHeight)
+        refreshPanels()
+    }
+    
     public func updateMinButtonWidth(_ minWidth: Double) {
         settings.minButtonWidth = minWidth
         settings.save()

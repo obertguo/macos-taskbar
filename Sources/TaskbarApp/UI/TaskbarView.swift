@@ -246,8 +246,13 @@ public final class TaskbarView: NSView {
         }
     }
     
+    public override func layout() {
+        super.layout()
+        layoutComponents()
+    }
+    
     private func showOverflowMenu() {
-        let menu = NSMenu(title: "Overflow Windows")
+        let menu = NSMenu(title: TaskbarStrings.Overflow.menuTitle)
         menu.autoenablesItems = false
         
         let overflowingButtons = taskButtons.filter { $0.isHidden }

@@ -12,10 +12,10 @@ public enum Launcher {
             triggerSpotlight()
             
         case .raycast:
-            if let url = URL(string: "raycast://"), NSWorkspace.shared.open(url) {
+            if let url = URL(string: TaskbarConstants.Launcher.raycastScheme), NSWorkspace.shared.open(url) {
                 return
             }
-            let raycastURL = URL(fileURLWithPath: "/Applications/Raycast.app")
+            let raycastURL = URL(fileURLWithPath: TaskbarConstants.Launcher.raycastAppPath)
             if FileManager.default.fileExists(atPath: raycastURL.path) {
                 let config = NSWorkspace.OpenConfiguration()
                 config.activates = true
