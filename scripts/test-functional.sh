@@ -155,6 +155,15 @@ case "${MODE}" in
         log_info "Running Stress Suite (TC-STRESS-*)..."
         swift test --filter StressIntegrationTests || FAILED=1
         
+        log_info "Running Pinned Applications Suite..."
+        swift test --filter PinnedAppsIntegrationTests || FAILED=1
+        
+        log_info "Running Theme Expansion Suite..."
+        swift test --filter ThemeExpansionIntegrationTests || FAILED=1
+        
+        log_info "Running Status Menu Theme Suite..."
+        swift test --filter StatusMenuThemeTests || FAILED=1
+        
         log_info "Running Functional Lifecycle Suite (TC-FUNC-*)..."
         swift test --filter WindowLifecycleIntegrationTests || FAILED=1
         ;;
