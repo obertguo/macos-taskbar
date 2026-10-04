@@ -12,7 +12,7 @@ Designed for peak responsiveness, ~0.0% idle CPU, and rock-solid stability using
 - **1-to-1 Window Task Buttons:** Every open standard window gets a dedicated button displaying its application icon and window title.
 - **In-Place View Recycling:** Updates reuse existing button subviews in place, eliminating transient memory allocations, heap churn, and mouse tracking area flicker.
 - **Windows-Style Click Interactions:**
-  - Click unfocused window button $\rightarrow$ Raises and focuses the window.
+  - Click unfocused window button $\rightarrow$ Raises and focuses the target window without raising background windows across other displays.
   - Click already-focused window button $\rightarrow$ Minimizes the window.
   - Click minimized window button $\rightarrow$ Restores and focuses the window.
   - Right-click $\rightarrow$ Context menu with Minimize/Restore, Close Window, and Quit Application.
@@ -31,7 +31,7 @@ Designed for peak responsiveness, ~0.0% idle CPU, and rock-solid stability using
   - **User Custom Theme Engine:** Discovers and validates `*.json` themes in `~/.config/taskbar/themes/` with live reload and export tools in the Status Menu.
 - **High-DPI & Multi-Resolution Icon Sanitization:**
   - Filters corrupt legacy low-resolution bitmaps (<64px) from third-party app bundles (e.g. Electron / Antigravity) when high-resolution representations exist, guaranteeing crisp bilinear anti-aliasing across mixed-DPI displays.
-- **Screen Space Reservation via AX Nudger (`WorkAreaEnforcer`):** Maximized windows (from native zoom, Rectangle, Raycast, etc.) are actively clamped so their bottom edges (status bars, terminal prompts, input boxes) remain visible above the bar.
+- **Screen Space Reservation via AX Nudger (`WorkAreaEnforcer`):** Maximized windows (from native zoom, double-click titlebar, Rectangle, Raycast, etc.) are actively clamped so their bottom edges (status bars, terminal prompts, input boxes) remain visible above the bar. Features multi-pass debounce settling (150ms / 400ms / 650ms), active mouse-drag deferral, and self-inflicted notification filtering to prevent jitter and feedback loops.
 - **Configurable System Dock Replacement & Safety:** Safely hides the system Dock during execution with user-configurable autohide reveal delays (1000s Permanently Hidden, 1.5s Deliberate Hover, 1.0s, 0.5s, 0.0s). Restores original settings automatically on quit, `SIGINT`/`SIGTERM` signals, or via `./scripts/restore-dock.sh`.
 - **Full-Screen Space Suppression:** Taskbar panels automatically hide on native macOS full-screen spaces (keynote presentations, full-screen video, games).
 - **Status Menu Customization:** Adjust Theme, Taskbar Height (26–44pt), Button Width / Overflow Threshold (28–120pt), Font Size (10–14pt), and Icon Size (14–24pt) dynamically without restarting.
@@ -62,13 +62,13 @@ Taskbar includes a 3-tier test harness with automated memory and CPU benchmarkin
 # Fast functional window lifecycle checks
 ./scripts/test-functional.sh --quick
 
-# Edge-case suites (0x0 frames, sheets, debounce, multi-screen)
+# Edge-case suites (0x0 frames, sheets, debounce, multi-screen, settle passes)
 ./scripts/test-functional.sh --edge-cases
 
 # Stress & capacity suite (100-window burst, chevron overflow, button recycling)
 ./scripts/test-functional.sh --stress
 
-# Run all test suites + resident memory (<45 MB RSS) and CPU benchmarks
+# Run all test suites (97 tests) + resident memory (<45 MB RSS) and CPU benchmarks
 ./scripts/test-functional.sh --all
 ```
 
@@ -100,13 +100,13 @@ If the Dock ever remains hidden (e.g., following a force kill during development
 
 For in-depth guides intended for human developers and AI coding agents:
 
-- [**Changelog & Release Notes**](CHANGELOG.md): Release history and feature log for v0.1.1.
-- [**Architecture & Concurrency Guide**](docs/v0.1.1/ARCHITECTURE.md): SPM target hierarchy (`TaskbarCore`, `TaskbarKit`, `TaskbarApp`), threading model, AX concurrency, and view recycling.
-- [**Build & Release Guide**](docs/v0.1.1/BUILD_AND_RELEASE.md): Compilation, code signing, installation, testing, and release packaging.
-- [**Configuration Reference**](docs/v0.1.1/CONFIGURATION.md): Centralized build settings (`config/build.env`), common shell utilities, and JSON theme specifications.
-- [**Testing & Verification Guide**](docs/v0.1.1/TESTING.md): 3-tier testing pyramid, fixture automation, runner modes, and resource benchmarking.
-- [**Test Specifications Catalog**](docs/v0.1.1/TEST_SPECIFICATIONS.md): Complete test taxonomy (`TC-FUNC-*`, `TC-EDGE-*`, `TC-STRESS-*`, `TC-PERF-*`, `TC-UNIT-*`) with requirement traceability.
-- [**Codebase Conventions & Best Practices**](docs/v0.1.1/CONVENTIONS.md): Architectural boundaries, threading invariants, constants management, and safety protocols.
+- [**Changelog & Release Notes**](CHANGELOG.md): Complete release history and feature logs.
+- [**Architecture & Concurrency Guide**](docs/v0.2.0/ARCHITECTURE.md): SPM target hierarchy (`TaskbarCore`, `TaskbarKit`, `TaskbarApp`), threading model, AX concurrency, view recycling, work area clamping, and focus isolation.
+- [**Build & Release Guide**](docs/v0.2.0/BUILD_AND_RELEASE.md): Compilation, code signing, installation, testing, and release packaging.
+- [**Configuration Reference**](docs/v0.2.0/CONFIGURATION.md): Centralized build settings (`config/build.env`), common shell utilities, and JSON theme specifications.
+- [**Testing & Verification Guide**](docs/v0.2.0/TESTING.md): 3-tier testing pyramid, fixture automation, runner modes, and resource benchmarking across 97 tests.
+- [**Test Specifications Catalog**](docs/v0.2.0/TEST_SPECIFICATIONS.md): Complete test taxonomy (`TC-FUNC-*`, `TC-EDGE-*`, `TC-STRESS-*`, `TC-PERF-*`, `TC-PIN-*`, `TC-THEME-*`, `TC-UNIT-*`) with requirement traceability.
+- [**Codebase Conventions & Best Practices**](docs/v0.2.0/CONVENTIONS.md): Architectural boundaries, threading invariants, constants management, and safety protocols.
 
 ---
 

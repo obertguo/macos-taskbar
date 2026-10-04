@@ -48,6 +48,14 @@ The repository is structured into three modular Swift targets:
   ```
 - **Event Coalescing:** When receiving high-frequency AX notifications (moves, resizes, title updates), batch incoming updates across a **16ms window** (one display refresh frame) before dispatching immutable state snapshots to the main thread `WindowStore`.
 
+### Multi-Display Window Focus Targeting
+- **Hard Invariant:** Never activate applications using `.activateAllWindows`. Bulk activation raises background windows across secondary monitors, breaking multi-monitor isolation.
+- Always use targeted AX window activation: invoke `kAXRaiseAction` and set `kAXMainAttribute` directly on the target window element, followed by selective process activation (`app.activate(options: [])`).
+
+### Self-Notification Filtering & Clamping Invariants
+- **Self-Inflicted Notification Filtering:** Any subsystem that programmatically mutates window geometry via Accessibility APIs (such as `WorkAreaEnforcer`) must record its own applied sizes and timestamps to filter out subsequent self-inflicted `kAXWindowResizedNotification` callbacks. Failing to filter self-inflicted events invalidates downstream settle timers and triggers recursive debounce loops.
+- **Mouse Drag Deferral:** Never apply programmatic size adjustments while the user is actively dragging or resizing a window (`CGEventSource.buttonState(.combinedSessionState, button: .left)`). Clamping must be deferred until mouse-up to prevent fighting WindowServer and exhausting recursion limits.
+
 ---
 
 ## 3. UI Drawing & Performance

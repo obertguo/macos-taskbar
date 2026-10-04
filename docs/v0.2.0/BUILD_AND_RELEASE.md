@@ -88,7 +88,7 @@ Before packaging any release, run the automated test harness:
 ```
 
 Requirements for release readiness:
-- 100% test pass rate across all 6 test suites (95+ tests).
+- 100% test pass rate across all 18 test suites (97 tests total).
 - Resident memory $< 45\text{ MB}$ RSS.
 - Idle CPU $\sim 0.0\%$.
 

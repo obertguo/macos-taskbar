@@ -193,3 +193,60 @@ To maintain low memory usage ($< 25\text{ MB}$ typical RSS) and eliminate mouse 
 - **Dynamic Subrole Filtering:** macOS Accessibility dynamically morphs minimized Cocoa windows into `AXDialog` subroles when minimized to the Dock. `WindowFilter.shouldInclude` allows `AXDialog` subroles when `isMinimized == true` to prevent dropping minimized windows.
 - **In-Flight Observer Coalescing:** `AppTracker` implements `needsReconcileAgain` latching to prevent dropping notifications (e.g. `AXWindowDeminiaturized`) that arrive while a snapshot reconciliation pass is already in flight.
 - **Clean Notification Teardown:** Explicitly unregisters all window and application notifications via `AXObserverRemoveNotification` prior to clearing run loop sources in `AXAppObserver`.
+
+---
+
+## 7. Multi-Display Window Focus Isolation (`WindowActions`)
+
+In multi-monitor environments, activating an application using standard AppKit APIs (`NSRunningApplication.activate(options: .activateAllWindows)`) causes macOS to bring *all* windows belonging to that application to the front across *all* connected displays. This behavior disrupts user focus on other screens (e.g. clicking Chrome on Monitor 2 would unintentionally raise a background Chrome window on Monitor 1, covering an active code editor).
+
+To guarantee strict multi-display isolation:
+- **Targeted AX Window Focus:** `WindowActions.performAction(.focus, for: key)` locates the specific `AXUIElement` window for the requested key.
+- **Selective Raising:** Invokes `AXUIElementPerformAction(window, kAXRaiseAction)` and assigns `kAXMainAttribute` directly to the target window.
+- **Selective App Activation:** Activates the application process *without* the `.activateAllWindows` flag:
+  ```swift
+  app.activate(options: [])
+  ```
+- **Outcome:** Only the clicked window on the specific monitor is raised and given keyboard focus; background windows belonging to the same application on other monitors remain undisturbed in their existing z-order.
+
+---
+
+## 8. Work Area Clamping & Multi-Pass Settle Architecture (`WorkAreaEnforcer`)
+
+macOS lacks an official API like Windows' `SHAppBarMessage` or X11's `_NET_WM_STRUT` to reserve screen edge space for third-party docks. `WorkAreaEnforcer` enforces taskbar screen reservation by monitoring window geometry and clamping maximized window heights above the taskbar boundary.
+
+```mermaid
+flowchart TD
+    AX["AXObserver Event:<br/>Window Moved / Resized"] --> SelfFilter{"Matches Last Programmatic<br/>Clamp within 350ms?"}
+    SelfFilter -- Yes --> Ignore["Ignore Notification<br/>Preserve Settle Timers"]
+    SelfFilter -- No --> Gen["Increment Window Debounce Generation"]
+    
+    Gen --> P1["Pass 1: Quick Settle Debounce 150ms"]
+    Gen --> P2["Pass 2: Zoom Animation Settle 400ms"]
+    Gen --> P3["Pass 3: Extended Transition Settle 650ms"]
+    
+    P1 --> Eval["evaluateAndClamp"]
+    P2 --> Eval
+    P3 --> Eval
+    
+    Eval --> MouseCheck{"Left Mouse Button<br/>Down CGEventSource?"}
+    MouseCheck -- Yes --> Defer["Defer Clamping Until<br/>Mouse Released"]
+    MouseCheck -- No --> OverlapCheck{"Window Overlaps<br/>Taskbar Reserved Region?"}
+    
+    OverlapCheck -- No --> Done["Window Settled"]
+    OverlapCheck -- Yes --> Clamp["Apply element.setSize<br/>Record lastSelfNudge"]
+```
+
+### 8.1 Key Engineering Mitigations
+1. **Self-Inflicted Notification Filtering:**
+   Calling `element.setSize(clampedFrame.size)` triggers an operating system `kAXWindowResizedNotification`. `WorkAreaEnforcer` caches the exact programmatic clamp size and timestamp (`lastSelfNudges`). When incoming resize events match the target size within 350ms, they are ignored. This prevents self-inflicted feedback loops and guarantees that downstream settle verification passes are not superseded.
+2. **Active Mouse Drag Deferral:**
+   During live mouse resizing, WindowServer binds the window edge to the cursor coordinates. Calling `setSize` while the left mouse button is pressed causes visible cursor jitter and WindowServer immediately overrides the adjustment, burning through recursion limits. `WorkAreaEnforcer` checks `CGEventSource.buttonState(.combinedSessionState, button: .left)` and defers clamping until the mouse is released.
+3. **Multi-Pass Settle Verification:**
+   - **Pass 1 (150ms):** Fast debounce coalescing for rapid user interactions and window snapping.
+   - **Pass 2 (400ms):** Animation settle verification ensuring native macOS titlebar double-click zoom and window tiling animations (~250–300ms) settle cleanly above the taskbar without being reverted by AppKit animation completion handlers.
+   - **Pass 3 (650ms):** Extended settle verification accommodating slower Chromium and Electron window frame adjustments.
+4. **Dynamic Screen Fallback:**
+   If screen descriptors have not yet been populated by `ScreenManager`, `evaluateAndClamp` dynamically queries `NSScreen.screens` to resolve physical display bounds.
+5. **Application-Level Move/Resize Listening:**
+   `AXAppObserver` registers `kAXWindowResizedNotification` and `kAXWindowMovedNotification` at the application level as well as the window level. Newly opened windows in Electron and Chromium apps that omit `kAXWindowCreatedNotification` are automatically registered and observed upon first movement or resize.
