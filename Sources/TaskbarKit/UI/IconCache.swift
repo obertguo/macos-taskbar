@@ -11,8 +11,7 @@ public final class IconCache {
     
     private init() {
         let defaultImg = NSWorkspace.shared.icon(for: .application)
-        defaultImg.size = NSSize(width: 16, height: 16)
-        self.fallbackIcon = defaultImg
+        self.fallbackIcon = Self.prepareIcon(defaultImg, targetSize: NSSize(width: 16, height: 16))
     }
     
     public func icon(for bundleID: String, pid: pid_t) -> NSImage {
@@ -25,7 +24,8 @@ public final class IconCache {
         pid: pid_t? = nil,
         size: NSSize = NSSize(width: 16, height: 16)
     ) -> NSImage {
-        let cacheKey = !bundleID.isEmpty ? bundleID : (customPath ?? "")
+        let baseKey = !bundleID.isEmpty ? bundleID : (customPath ?? "")
+        let cacheKey = baseKey.isEmpty ? "" : "\(baseKey)_\(Int(size.width))x\(Int(size.height))"
         if let cached = cache[cacheKey], !cacheKey.isEmpty {
             return cached
         }
@@ -37,24 +37,21 @@ public final class IconCache {
            let app = NSRunningApplication(processIdentifier: pid),
            let bundleURL = app.bundleURL {
             let icon = NSWorkspace.shared.icon(forFile: bundleURL.path)
-            icon.size = size
-            resolvedIcon = icon
+            resolvedIcon = Self.prepareIcon(icon, targetSize: size)
         }
         
         // 2. Resolve via custom filesystem path if provided
         if resolvedIcon == nil, let path = customPath, !path.isEmpty,
            FileManager.default.fileExists(atPath: path) {
             let icon = NSWorkspace.shared.icon(forFile: path)
-            icon.size = size
-            resolvedIcon = icon
+            resolvedIcon = Self.prepareIcon(icon, targetSize: size)
         }
         
         // 3. Resolve via bundle ID URL
         if resolvedIcon == nil, !bundleID.isEmpty,
            let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
             let icon = NSWorkspace.shared.icon(forFile: appURL.path)
-            icon.size = size
-            resolvedIcon = icon
+            resolvedIcon = Self.prepareIcon(icon, targetSize: size)
         }
         
         let finalIcon = resolvedIcon ?? fallbackIcon
@@ -62,6 +59,33 @@ public final class IconCache {
             cache[cacheKey] = finalIcon
         }
         return finalIcon
+    }
+    
+    /// Prepares an application icon to ensure crisp rendering across all display scales (1x and 2x).
+    ///
+    /// Some application bundles (such as Antigravity / Electron apps) contain corrupt or uninitialized
+    /// legacy 1x bitmaps (e.g. 16x16 or 32x32) inside their `.icns` asset while having clean high-resolution
+    /// representations (64px, 128px, 256px, etc.). By filtering out representations below 64px when high-resolution
+    /// representations exist, AppKit's rendering engine automatically and smoothly downsamples from the clean
+    /// high-resolution source for non-Retina (1x) displays, eliminating noise/glitches.
+    public static func prepareIcon(_ rawIcon: NSImage, targetSize: NSSize) -> NSImage {
+        let reps = rawIcon.representations
+        let hasHighRes = reps.contains { $0.pixelsWide >= 64 }
+        
+        if hasHighRes {
+            let cleanImage = NSImage(size: targetSize)
+            for rep in reps where rep.pixelsWide >= 64 {
+                cleanImage.addRepresentation(rep)
+            }
+            return cleanImage
+        } else {
+            guard let copy = rawIcon.copy() as? NSImage else {
+                rawIcon.size = targetSize
+                return rawIcon
+            }
+            copy.size = targetSize
+            return copy
+        }
     }
     
     /// Clears the icon cache.

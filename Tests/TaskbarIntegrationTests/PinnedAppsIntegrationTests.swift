@@ -315,4 +315,52 @@ struct PinnedAppsIntegrationTests {
         let fallback = IconCache.shared.icon(for: "com.nonexistent.fake.app.bundle")
         #expect(fallback.size.width > 0)
     }
+    
+    @Test("IconCache multi-resolution icon preparation sanitizes legacy 1x corrupt assets")
+    func testIconCacheSanitizesLegacyLowResAssets() {
+        IconCache.shared.clearCache()
+        
+        // Synthetic icon containing a corrupt 16x16 representation (all noisy pixels)
+        // and a clean 128x128 high-resolution representation.
+        let rawImage = NSImage(size: NSSize(width: 128, height: 128))
+        
+        let corruptRep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: 16,
+            pixelsHigh: 16,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .calibratedRGB,
+            bytesPerRow: 16 * 4,
+            bitsPerPixel: 32
+        )!
+        corruptRep.size = NSSize(width: 16, height: 16)
+        
+        let cleanRep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: 128,
+            pixelsHigh: 128,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .calibratedRGB,
+            bytesPerRow: 128 * 4,
+            bitsPerPixel: 32
+        )!
+        cleanRep.size = NSSize(width: 128, height: 128)
+        
+        rawImage.addRepresentation(corruptRep)
+        rawImage.addRepresentation(cleanRep)
+        
+        let prepared = IconCache.prepareIcon(rawImage, targetSize: NSSize(width: 16, height: 16))
+        
+        // Corrupt rep (< 64px) should be stripped
+        #expect(!prepared.representations.contains { $0.pixelsWide < 64 })
+        // High-res rep should be preserved
+        #expect(prepared.representations.contains { $0.pixelsWide >= 64 })
+        #expect(prepared.size == NSSize(width: 16, height: 16))
+    }
 }
