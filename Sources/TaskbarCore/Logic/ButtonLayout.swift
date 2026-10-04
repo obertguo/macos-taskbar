@@ -23,7 +23,7 @@ public enum ButtonLayout {
         availableWidth: Double,
         itemCount: Int,
         maxButtonWidth: Double = 160.0,
-        minButtonWidth: Double = 28.0,
+        minButtonWidth: Double = 80.0,
         spacing: Double = 2.0
     ) -> ButtonLayoutResult {
         guard itemCount > 0, availableWidth > 0 else {

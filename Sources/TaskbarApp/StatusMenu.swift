@@ -7,18 +7,26 @@ import TaskbarCore
 public final class StatusMenu {
     private let statusItem: NSStatusItem
     private var currentStyle: ThemeStyle
+    private var minButtonWidth: Double
     private var isNudgerEnabled: Bool
     private var isDockHidden: Bool
     
     public var onThemeChanged: ((ThemeStyle) -> Void)?
+    public var onMinButtonWidthChanged: ((Double) -> Void)?
     public var onLauncherTriggered: (() -> Void)?
     public var onNudgerToggled: ((Bool) -> Void)?
     public var onHideDockToggled: ((Bool) -> Void)?
     public var onRestoreDockRequested: (() -> Void)?
     public var onQuitRequested: (() -> Void)?
     
-    public init(currentStyle: ThemeStyle, isNudgerEnabled: Bool = true, isDockHidden: Bool = true) {
+    public init(
+        currentStyle: ThemeStyle,
+        minButtonWidth: Double = 80.0,
+        isNudgerEnabled: Bool = true,
+        isDockHidden: Bool = true
+    ) {
         self.currentStyle = currentStyle
+        self.minButtonWidth = minButtonWidth
         self.isNudgerEnabled = isNudgerEnabled
         self.isDockHidden = isDockHidden
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -28,6 +36,11 @@ public final class StatusMenu {
     
     public func updateStyle(_ style: ThemeStyle) {
         self.currentStyle = style
+        setupMenu()
+    }
+    
+    public func updateMinButtonWidth(_ width: Double) {
+        self.minButtonWidth = width
         setupMenu()
     }
     
@@ -71,6 +84,26 @@ public final class StatusMenu {
         themeParentItem.submenu = themeSubmenu
         menu.addItem(themeParentItem)
         
+        // Button Width / Overflow Threshold Menu
+        let widthSubmenu = NSMenu(title: "Button Width")
+        let presets: [(title: String, width: Double)] = [
+            ("80 pt (Default - Balanced)", 80.0),
+            ("100 pt (Roomy - Early overflow)", 100.0),
+            ("120 pt (Spacious)", 120.0),
+            ("60 pt (Compact)", 60.0),
+            ("28 pt (Ultra-compact - Icon only)", 28.0)
+        ]
+        for preset in presets {
+            let item = NSMenuItem(title: preset.title, action: #selector(handleWidthSelection(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = preset.width
+            item.state = (abs(preset.width - minButtonWidth) < 1.0) ? .on : .off
+            widthSubmenu.addItem(item)
+        }
+        let widthParentItem = NSMenuItem(title: "Button Width", action: nil, keyEquivalent: "")
+        widthParentItem.submenu = widthSubmenu
+        menu.addItem(widthParentItem)
+        
         // Start Launcher item
         let startItem = NSMenuItem(title: "Open Start Launcher", action: #selector(handleOpenLauncher), keyEquivalent: "s")
         startItem.target = self
@@ -109,6 +142,14 @@ public final class StatusMenu {
             currentStyle = style
             setupMenu()
             onThemeChanged?(style)
+        }
+    }
+    
+    @objc private func handleWidthSelection(_ sender: NSMenuItem) {
+        if let width = sender.representedObject as? Double {
+            minButtonWidth = width
+            setupMenu()
+            onMinButtonWidthChanged?(width)
         }
     }
     

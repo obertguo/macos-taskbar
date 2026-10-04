@@ -50,9 +50,19 @@ public final class ScreenManager {
         
         for panel in panels.values {
             panel.applyTheme(currentTheme)
+            panel.updateButtonWidths(minWidth: newSettings.minButtonWidth, maxWidth: newSettings.maxButtonWidth)
         }
         
         refreshPanels()
+    }
+    
+    public func updateMinButtonWidth(_ minWidth: Double) {
+        settings.minButtonWidth = minWidth
+        settings.save()
+        
+        for panel in panels.values {
+            panel.updateButtonWidths(minWidth: minWidth, maxWidth: settings.maxButtonWidth)
+        }
     }
     
     public func updateThemeStyle(_ style: ThemeStyle) {
@@ -118,7 +128,9 @@ public final class ScreenManager {
                     screen: screen,
                     height: height,
                     theme: currentTheme,
-                    launcherAction: settings.launcherAction
+                    launcherAction: settings.launcherAction,
+                    minButtonWidth: settings.minButtonWidth,
+                    maxButtonWidth: settings.maxButtonWidth
                 )
                 panels[displayID] = panel
                 panel.orderFrontRegardless()

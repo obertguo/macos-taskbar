@@ -7,7 +7,14 @@ public final class TaskbarPanel: NSPanel {
     public let screenID: CGDirectDisplayID
     public let taskbarView: TaskbarView
     
-    public init(screen: NSScreen, height: CGFloat, theme: ThemeDefinition, launcherAction: LauncherAction) {
+    public init(
+        screen: NSScreen,
+        height: CGFloat,
+        theme: ThemeDefinition,
+        launcherAction: LauncherAction,
+        minButtonWidth: Double = 80.0,
+        maxButtonWidth: Double = 160.0
+    ) {
         // Resolve display ID
         let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
         self.screenID = displayID
@@ -19,7 +26,12 @@ public final class TaskbarPanel: NSPanel {
             height: height
         )
         
-        self.taskbarView = TaskbarView(theme: theme, launcherAction: launcherAction)
+        self.taskbarView = TaskbarView(
+            theme: theme,
+            launcherAction: launcherAction,
+            minButtonWidth: minButtonWidth,
+            maxButtonWidth: maxButtonWidth
+        )
         
         super.init(
             contentRect: frame,
@@ -59,5 +71,10 @@ public final class TaskbarPanel: NSPanel {
         self.isOpaque = !theme.useTranslucency
         self.backgroundColor = theme.useTranslucency ? .clear : NSColor(rgba: theme.backgroundColor)
         taskbarView.theme = theme
+    }
+    
+    public func updateButtonWidths(minWidth: Double, maxWidth: Double) {
+        taskbarView.minButtonWidth = minWidth
+        taskbarView.maxButtonWidth = maxWidth
     }
 }

@@ -52,6 +52,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize menu bar status item
         let statusMenu = StatusMenu(
             currentStyle: settings.themeStyle,
+            minButtonWidth: settings.minButtonWidth,
             isNudgerEnabled: settings.enableAXNudger,
             isDockHidden: settings.hideSystemDock
         )
@@ -60,6 +61,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             self.settings.themeStyle = newStyle
             self.settings.save()
             self.screenManager?.updateThemeStyle(newStyle)
+        }
+        statusMenu.onMinButtonWidthChanged = { [weak self] minWidth in
+            guard let self = self else { return }
+            self.settings.minButtonWidth = minWidth
+            self.settings.save()
+            self.screenManager?.updateMinButtonWidth(minWidth)
         }
         statusMenu.onNudgerToggled = { [weak self] enabled in
             guard let self = self else { return }

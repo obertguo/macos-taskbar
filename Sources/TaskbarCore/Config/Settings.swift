@@ -33,7 +33,7 @@ public struct Settings: Codable, Sendable, Equatable {
         themeStyle: .modernHybrid,
         barHeight: 30.0,
         maxButtonWidth: 160.0,
-        minButtonWidth: 28.0,
+        minButtonWidth: 80.0,
         launcherAction: .spotlight,
         enableAXNudger: true,
         hideSystemDock: true
@@ -43,7 +43,7 @@ public struct Settings: Codable, Sendable, Equatable {
         themeStyle: ThemeStyle = .modernHybrid,
         barHeight: Double = 30.0,
         maxButtonWidth: Double = 160.0,
-        minButtonWidth: Double = 28.0,
+        minButtonWidth: Double = 80.0,
         launcherAction: LauncherAction = .spotlight,
         enableAXNudger: Bool = true,
         hideSystemDock: Bool = true

@@ -21,9 +21,27 @@ public final class TaskbarView: NSView {
     private var focusedKey: WindowKey?
     private var frontmostPID: pid_t?
     
-    public init(theme: ThemeDefinition, launcherAction: LauncherAction) {
+    public var minButtonWidth: Double = 80.0 {
+        didSet {
+            if oldValue != minButtonWidth { layoutComponents() }
+        }
+    }
+    public var maxButtonWidth: Double = 160.0 {
+        didSet {
+            if oldValue != maxButtonWidth { layoutComponents() }
+        }
+    }
+    
+    public init(
+        theme: ThemeDefinition,
+        launcherAction: LauncherAction,
+        minButtonWidth: Double = 80.0,
+        maxButtonWidth: Double = 160.0
+    ) {
         self.theme = theme
         self.launcherAction = launcherAction
+        self.minButtonWidth = minButtonWidth
+        self.maxButtonWidth = maxButtonWidth
         self.startButton = StartButton(theme: theme)
         self.overflowButton = OverflowButton(theme: theme)
         super.init(frame: .zero)
@@ -159,8 +177,8 @@ public final class TaskbarView: NSView {
         var layout = ButtonLayout.computeLayout(
             availableWidth: Double(totalAvailableW),
             itemCount: taskButtons.count,
-            maxButtonWidth: 160.0,
-            minButtonWidth: 28.0,
+            maxButtonWidth: maxButtonWidth,
+            minButtonWidth: minButtonWidth,
             spacing: 2.0
         )
         
@@ -171,8 +189,8 @@ public final class TaskbarView: NSView {
             layout = ButtonLayout.computeLayout(
                 availableWidth: Double(netAvailableW),
                 itemCount: taskButtons.count,
-                maxButtonWidth: 160.0,
-                minButtonWidth: 28.0,
+                maxButtonWidth: maxButtonWidth,
+                minButtonWidth: minButtonWidth,
                 spacing: 2.0
             )
             

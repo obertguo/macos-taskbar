@@ -9,7 +9,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(defaults.themeStyle, .modernHybrid)
         XCTAssertEqual(defaults.barHeight, 30.0)
         XCTAssertEqual(defaults.maxButtonWidth, 160.0)
-        XCTAssertEqual(defaults.minButtonWidth, 28.0)
+        XCTAssertEqual(defaults.minButtonWidth, 80.0)
         XCTAssertEqual(defaults.launcherAction, .spotlight)
         XCTAssertTrue(defaults.enableAXNudger)
         XCTAssertTrue(defaults.hideSystemDock)
