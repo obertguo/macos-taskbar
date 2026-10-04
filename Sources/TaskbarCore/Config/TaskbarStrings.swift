@@ -141,5 +141,14 @@ public enum TaskbarStrings {
         
         /// User-facing display name for the Dark Minimal theme.
         public static let darkMinimal = "Dark Minimal"
+        
+        /// Label for the custom themes section or empty state.
+        public static let customThemesHeader = "Custom Themes"
+        public static let noCustomThemesFound = "No Custom Themes"
+        
+        /// Actions in the Theme menu.
+        public static let reloadThemes = "Reload Themes from Disk"
+        public static let openThemesFolder = "Open Themes Folder in Finder..."
+        public static let exportCurrentTheme = "Export Current Theme as JSON..."
     }
 }

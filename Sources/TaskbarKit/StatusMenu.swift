@@ -18,6 +18,9 @@ public final class StatusMenu {
     
     public var onThemeChanged: ((ThemeStyle) -> Void)?
     public var onThemeIdChanged: ((String) -> Void)?
+    public var onReloadThemesRequested: (() -> Void)?
+    public var onOpenThemesFolderRequested: (() -> Void)?
+    public var onExportThemeRequested: (() -> Void)?
     public var onMinButtonWidthChanged: ((Double) -> Void)?
     public var onBarHeightChanged: ((Double) -> Void)?
     public var onFontSizeChanged: ((Double) -> Void)?
@@ -101,6 +104,10 @@ public final class StatusMenu {
         setupMenu()
     }
     
+    public func refresh() {
+        setupMenu()
+    }
+    
     private func setupMenu() {
         if let button = statusItem.button {
             if let image = NSImage(
@@ -126,13 +133,60 @@ public final class StatusMenu {
         
         // Theme Menu
         let themeSubmenu = NSMenu(title: TaskbarStrings.StatusMenu.themeMenu)
-        for theme in ThemeRegistry.shared.allThemes {
+        
+        // 1. Built-in Presets
+        for theme in ThemeRegistry.shared.builtInThemes {
             let item = NSMenuItem(title: theme.displayName, action: #selector(handleThemeSelection(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = theme.id
             item.state = (theme.id == currentThemeId) ? .on : .off
             themeSubmenu.addItem(item)
         }
+        
+        // 2. Custom Themes Section
+        themeSubmenu.addItem(NSMenuItem.separator())
+        let customThemes = ThemeRegistry.shared.customThemes
+        if customThemes.isEmpty {
+            let emptyItem = NSMenuItem(title: TaskbarStrings.Themes.noCustomThemesFound, action: nil, keyEquivalent: "")
+            emptyItem.isEnabled = false
+            themeSubmenu.addItem(emptyItem)
+        } else {
+            for theme in customThemes {
+                let item = NSMenuItem(title: theme.displayName, action: #selector(handleThemeSelection(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = theme.id
+                item.state = (theme.id == currentThemeId) ? .on : .off
+                themeSubmenu.addItem(item)
+            }
+        }
+        
+        // 3. Theme Disk Actions
+        themeSubmenu.addItem(NSMenuItem.separator())
+        
+        let reloadThemesItem = NSMenuItem(
+            title: TaskbarStrings.Themes.reloadThemes,
+            action: #selector(handleReloadThemes),
+            keyEquivalent: "r"
+        )
+        reloadThemesItem.target = self
+        themeSubmenu.addItem(reloadThemesItem)
+        
+        let openThemesFolderItem = NSMenuItem(
+            title: TaskbarStrings.Themes.openThemesFolder,
+            action: #selector(handleOpenThemesFolder),
+            keyEquivalent: ""
+        )
+        openThemesFolderItem.target = self
+        themeSubmenu.addItem(openThemesFolderItem)
+        
+        let exportThemeItem = NSMenuItem(
+            title: TaskbarStrings.Themes.exportCurrentTheme,
+            action: #selector(handleExportCurrentTheme),
+            keyEquivalent: ""
+        )
+        exportThemeItem.target = self
+        themeSubmenu.addItem(exportThemeItem)
+        
         let themeParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.themeMenu, action: nil, keyEquivalent: "")
         themeParentItem.submenu = themeSubmenu
         menu.addItem(themeParentItem)
@@ -273,6 +327,18 @@ public final class StatusMenu {
             onThemeIdChanged?(theme.id)
             onThemeChanged?(style)
         }
+    }
+    
+    @objc private func handleReloadThemes() {
+        onReloadThemesRequested?()
+    }
+    
+    @objc private func handleOpenThemesFolder() {
+        onOpenThemesFolderRequested?()
+    }
+    
+    @objc private func handleExportCurrentTheme() {
+        onExportThemeRequested?()
     }
     
     @objc private func handleWidthSelection(_ sender: NSMenuItem) {

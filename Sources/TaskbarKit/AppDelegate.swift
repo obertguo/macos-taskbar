@@ -12,6 +12,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusMenu: StatusMenu?
     
     public func applicationDidFinishLaunching(_ notification: Notification) {
+        // Discover and register custom JSON themes on disk before loading settings
+        ThemeFileLoader.shared.reloadCustomThemes()
+        
         // Load persistent or default settings
         self.settings = Settings.load()
         
@@ -72,6 +75,28 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             self.settings.activeThemeId = themeId
             self.settings.save()
             self.screenManager?.updateTheme(themeId: themeId)
+        }
+        statusMenu.onReloadThemesRequested = { [weak self] in
+            guard let self = self else { return }
+            let count = ThemeFileLoader.shared.reloadCustomThemes().count
+            TaskbarLogger.ui.info("Reloaded custom themes: \(count) theme(s) found.")
+            let activeId = self.settings.activeThemeId
+            let theme = ThemeRegistry.shared.theme(for: activeId)
+            if theme.id != activeId && !ThemeRegistry.shared.isBuiltIn(themeId: activeId) {
+                self.settings.activeThemeId = ThemeDefinition.modernHybrid.id
+                self.settings.save()
+            }
+            self.screenManager?.updateTheme(themeId: self.settings.activeThemeId)
+            self.statusMenu?.updateThemeId(self.settings.activeThemeId)
+        }
+        statusMenu.onOpenThemesFolderRequested = {
+            let dir = ThemeFileLoader.shared.customThemesDirectory
+            try? ThemeFileLoader.shared.createDirectoryIfNeeded()
+            NSWorkspace.shared.open(dir)
+        }
+        statusMenu.onExportThemeRequested = { [weak self] in
+            guard let self = self else { return }
+            self.exportActiveTheme()
         }
         statusMenu.onMinButtonWidthChanged = { [weak self] minWidth in
             guard let self = self else { return }
@@ -141,6 +166,26 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         self.statusMenu = statusMenu
         
         TaskbarLogger.lifecycle.info("Started successfully on \(NSScreen.screens.count) screen(s). Theme: \(self.settings.activeThemeId). Dock: \(self.settings.hideSystemDock ? "Hidden" : "Visible"). Tracking active.")
+    }
+    
+    private func exportActiveTheme() {
+        let currentTheme = settings.currentTheme
+        let savePanel = NSSavePanel()
+        savePanel.title = TaskbarStrings.Themes.exportCurrentTheme
+        savePanel.nameFieldStringValue = "\(currentTheme.id).json"
+        savePanel.canCreateDirectories = true
+        if #available(macOS 11.0, *) {
+            savePanel.allowedContentTypes = [.json]
+        }
+        
+        if savePanel.runModal() == .OK, let targetURL = savePanel.url {
+            do {
+                try ThemeFileLoader.shared.exportTheme(currentTheme, to: targetURL)
+                TaskbarLogger.ui.info("Exported theme '\(currentTheme.id)' to \(targetURL.path)")
+            } catch {
+                TaskbarLogger.ui.error("Failed to export theme '\(currentTheme.id)': \(error.localizedDescription)")
+            }
+        }
     }
     
     public func applicationWillTerminate(_ notification: Notification) {

@@ -41,12 +41,60 @@ public final class ThemeRegistry: @unchecked Sendable {
         }
     }
     
+    public func isBuiltIn(themeId: String) -> Bool {
+        return [
+            ModernHybridTheme.id,
+            RetroClassicTheme.id,
+            WindowsXPLunaTheme.id,
+            DarkMinimalTheme.id
+        ].contains(themeId)
+    }
+    
+    private func internalBuiltInThemes() -> [ThemeDefinition] {
+        return [
+            themes[ModernHybridTheme.id] ?? ThemeDefinition.modernHybrid,
+            themes[RetroClassicTheme.id] ?? ThemeDefinition.retroClassic,
+            themes[WindowsXPLunaTheme.id] ?? ThemeDefinition.windowsXPLuna,
+            themes[DarkMinimalTheme.id] ?? ThemeDefinition.darkMinimal
+        ]
+    }
+    
+    private func internalCustomThemes() -> [ThemeDefinition] {
+        return themes.values
+            .filter { $0.isCustom }
+            .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+    }
+    
+    public var builtInThemes: [ThemeDefinition] {
+        lock.withLock {
+            internalBuiltInThemes()
+        }
+    }
+    
+    public var customThemes: [ThemeDefinition] {
+        lock.withLock {
+            internalCustomThemes()
+        }
+    }
+    
+    public func registerCustomThemes(_ newCustomThemes: [ThemeDefinition]) {
+        lock.withLock {
+            themes = themes.filter { !$0.value.isCustom }
+            for theme in newCustomThemes {
+                themes[theme.id] = theme
+            }
+        }
+    }
+    
+    public func unregisterAllCustomThemes() {
+        lock.withLock {
+            themes = themes.filter { !$0.value.isCustom }
+        }
+    }
+    
     public var allThemes: [ThemeDefinition] {
         lock.withLock {
-            let list = Array(themes.values)
-            let builtIns = list.filter { !$0.isCustom }.sorted { $0.displayName < $1.displayName }
-            let custom = list.filter { $0.isCustom }.sorted { $0.displayName < $1.displayName }
-            return builtIns + custom
+            internalBuiltInThemes() + internalCustomThemes()
         }
     }
     

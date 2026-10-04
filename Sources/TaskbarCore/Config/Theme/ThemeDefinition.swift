@@ -15,6 +15,18 @@ public struct RGBAColor: Equatable, Sendable, Codable {
         self.alpha = alpha
     }
     
+    private enum CodingKeys: String, CodingKey {
+        case red, green, blue, alpha
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.red = try container.decode(Double.self, forKey: .red)
+        self.green = try container.decode(Double.self, forKey: .green)
+        self.blue = try container.decode(Double.self, forKey: .blue)
+        self.alpha = try container.decodeIfPresent(Double.self, forKey: .alpha) ?? 1.0
+    }
+    
     public static let white = RGBAColor(red: 1.0, green: 1.0, blue: 1.0)
     public static let black = RGBAColor(red: 0.0, green: 0.0, blue: 0.0)
     public static let clear = RGBAColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.0)
@@ -83,9 +95,9 @@ public struct ThemeMetrics: Codable, Equatable, Sendable {
     public let iconSize: Double
 
     public init(
-        buttonCornerRadius: Double,
-        is3DBeveled: Bool,
-        fontBold: Bool,
+        buttonCornerRadius: Double = 4.0,
+        is3DBeveled: Bool = false,
+        fontBold: Bool = false,
         fontSize: Double = TaskbarConstants.Layout.defaultFontSize,
         iconSize: Double = TaskbarConstants.Layout.defaultIconSize
     ) {
@@ -95,13 +107,35 @@ public struct ThemeMetrics: Codable, Equatable, Sendable {
         self.fontSize = fontSize
         self.iconSize = iconSize
     }
+    
+    private enum CodingKeys: String, CodingKey {
+        case buttonCornerRadius, is3DBeveled, fontBold, fontSize, iconSize
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.buttonCornerRadius = try container.decodeIfPresent(Double.self, forKey: .buttonCornerRadius) ?? 4.0
+        self.is3DBeveled = try container.decodeIfPresent(Bool.self, forKey: .is3DBeveled) ?? false
+        self.fontBold = try container.decodeIfPresent(Bool.self, forKey: .fontBold) ?? false
+        self.fontSize = try container.decodeIfPresent(Double.self, forKey: .fontSize) ?? TaskbarConstants.Layout.defaultFontSize
+        self.iconSize = try container.decodeIfPresent(Double.self, forKey: .iconSize) ?? TaskbarConstants.Layout.defaultIconSize
+    }
 }
 
 public struct ThemeMaterials: Codable, Equatable, Sendable {
     public let useTranslucency: Bool
 
-    public init(useTranslucency: Bool) {
+    public init(useTranslucency: Bool = true) {
         self.useTranslucency = useTranslucency
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case useTranslucency
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.useTranslucency = try container.decodeIfPresent(Bool.self, forKey: .useTranslucency) ?? true
     }
 }
 
@@ -112,6 +146,31 @@ public struct ThemeDefinition: Codable, Equatable, Sendable {
     public let palette: ThemePalette
     public let metrics: ThemeMetrics
     public let materials: ThemeMaterials
+    
+    private enum CodingKeys: String, CodingKey {
+        case id, displayName, isCustom, palette, metrics, materials
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.displayName = try container.decodeIfPresent(String.self, forKey: .displayName) ?? self.id
+        self.isCustom = try container.decodeIfPresent(Bool.self, forKey: .isCustom) ?? true
+        self.palette = try container.decode(ThemePalette.self, forKey: .palette)
+        self.metrics = try container.decodeIfPresent(ThemeMetrics.self, forKey: .metrics) ?? ThemeMetrics()
+        self.materials = try container.decodeIfPresent(ThemeMaterials.self, forKey: .materials) ?? ThemeMaterials()
+    }
+    
+    public func asCustom(_ isCustom: Bool = true) -> ThemeDefinition {
+        ThemeDefinition(
+            id: id,
+            displayName: displayName,
+            isCustom: isCustom,
+            palette: palette,
+            metrics: metrics,
+            materials: materials
+        )
+    }
     
     // Style enum mapping for backward compatibility and fast categorization
     public var style: ThemeStyle {
