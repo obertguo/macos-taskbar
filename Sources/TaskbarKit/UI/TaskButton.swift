@@ -175,7 +175,7 @@ public final class TaskButton: NSView {
             let maxTextW = max(0, bounds.maxX - textX - TaskbarConstants.Layout.taskButtonIconMarginRetro)
             
             let isDimmed = windowInfo.isMinimized || windowInfo.isAppHidden
-            let textColor = isDimmed ? NSColor(rgba: RGBAColor.retroShadow) : NSColor.black
+            let textColor = isDimmed ? NSColor(rgba: theme.bevelShadow ?? RetroClassicTheme.shadow) : NSColor(rgba: theme.textColor)
             
             let font = NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: isFocusedWindow ? .bold : .regular)
             let para = NSMutableParagraphStyle()

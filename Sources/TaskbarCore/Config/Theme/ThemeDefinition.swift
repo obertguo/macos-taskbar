@@ -18,13 +18,6 @@ public struct RGBAColor: Equatable, Sendable, Codable {
     public static let white = RGBAColor(red: 1.0, green: 1.0, blue: 1.0)
     public static let black = RGBAColor(red: 0.0, green: 0.0, blue: 0.0)
     public static let clear = RGBAColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.0)
-    
-    // Retro Windows classic palette
-    public static let retroGray = RGBAColor(red: 192.0 / 255.0, green: 192.0 / 255.0, blue: 192.0 / 255.0)
-    public static let retroLightGray = RGBAColor(red: 220.0 / 255.0, green: 220.0 / 255.0, blue: 220.0 / 255.0)
-    public static let retroShadow = RGBAColor(red: 128.0 / 255.0, green: 128.0 / 255.0, blue: 128.0 / 255.0)
-    public static let retroDarkShadow = RGBAColor(red: 64.0 / 255.0, green: 64.0 / 255.0, blue: 64.0 / 255.0)
-    public static let retroNavy = RGBAColor(red: 0.0, green: 0.0, blue: 128.0 / 255.0)
 }
 
 public struct ThemePalette: Codable, Equatable, Sendable {

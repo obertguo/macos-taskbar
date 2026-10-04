@@ -43,7 +43,7 @@ final class ThemePresetsTests: XCTestCase {
         XCTAssertTrue(theme.is3DBeveled)
         XCTAssertEqual(theme.buttonCornerRadius, 0.0)
         XCTAssertTrue(theme.fontBold)
-        XCTAssertEqual(theme.backgroundColor, .retroGray)
+        XCTAssertEqual(theme.backgroundColor, RetroClassicTheme.gray)
         XCTAssertEqual(theme.displayName, TaskbarStrings.Themes.retroClassic)
     }
     

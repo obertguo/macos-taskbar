@@ -5,23 +5,30 @@ import Foundation
 public enum RetroClassicTheme {
     public static let id = "retro-classic"
     
+    // Named Palette Colors (Windows 95/98 Classic)
+    public static let gray = RGBAColor(red: 192.0 / 255.0, green: 192.0 / 255.0, blue: 192.0 / 255.0)
+    public static let lightGray = RGBAColor(red: 220.0 / 255.0, green: 220.0 / 255.0, blue: 220.0 / 255.0)
+    public static let shadow = RGBAColor(red: 128.0 / 255.0, green: 128.0 / 255.0, blue: 128.0 / 255.0)
+    public static let darkShadow = RGBAColor(red: 64.0 / 255.0, green: 64.0 / 255.0, blue: 64.0 / 255.0)
+    public static let navy = RGBAColor(red: 0.0, green: 0.0, blue: 128.0 / 255.0)
+    
     public static let definition = ThemeDefinition(
         id: id,
         displayName: TaskbarStrings.Themes.retroClassic,
         isCustom: false,
         palette: ThemePalette(
-            backgroundColor: .retroGray,
+            backgroundColor: gray,
             topBorderColor: .white,
             textNormal: .black,
             textPressed: .black,
-            buttonNormal: .retroGray,
-            buttonHover: .retroGray,
-            buttonPressed: .retroLightGray,
-            buttonBorderNormal: .retroDarkShadow,
+            buttonNormal: gray,
+            buttonHover: gray,
+            buttonPressed: lightGray,
+            buttonBorderNormal: darkShadow,
             buttonBorderPressed: .black,
             bevelHighlight: .white,
-            bevelShadow: .retroShadow,
-            bevelDarkShadow: .retroDarkShadow
+            bevelShadow: shadow,
+            bevelDarkShadow: darkShadow
         ),
         metrics: ThemeMetrics(
             buttonCornerRadius: 0.0,
