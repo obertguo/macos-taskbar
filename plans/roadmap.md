@@ -58,17 +58,27 @@ Before expanding feature surface area, establish a robust automated testing and 
 
 ## 4. Phase 2: Personalization & Quick Launch (v0.2.0)
 
-### 1. Custom Theming
-- **Data-Driven Theme Schema:** Codable `ThemeDefinition` supporting custom palettes, background materials/fills, border bevels, corner radii, and typography.
-- **Import / Export:** Support loading and sharing custom themes via standard `.json` configuration files.
-- **Built-in Presets:** Expand preset roster (e.g. Modern Hybrid, Retro Classic, Windows XP Luna, Dark Minimal).
+### 1. Custom Theming & Preset Modularization
+- **Modular Presets Architecture:** Refactor `Theme.swift` into dedicated files:
+  - `ThemeDefinition.swift` (core models, palette, metrics, materials, and Codable tokens)
+  - `Presets/` directory with separate Swift definitions for each built-in theme:
+    - `ModernHybridTheme.swift` (macOS vibrancy & pill buttons)
+    - `RetroClassicTheme.swift` (Windows 95/98 beveled classic)
+    - `WindowsXPLunaTheme.swift` (Windows XP Luna blue/green/silver)
+    - `DarkMinimalTheme.swift` (borderless high-contrast dark theme)
+- **User Custom Theme Loader:** `ThemeFileLoader.swift` discovering and auto-loading custom `.json` themes from `~/.config/taskbar/themes/`.
+- **Dynamic Menu Listing:** Status menu dynamically populates all registered themes (built-ins + custom files) under the Theme submenu.
+- **Import / Export:** Support exporting current theme to JSON and loading arbitrary theme files.
 
 ### 2. Quick Launch / Pinned Applications
-- **Pinned App Bar:** Ability to pin favorite applications directly to the taskbar adjacent to the Start button.
-- **State Behavior:**
-  - If the pinned app is running: focuses its active window or cycles through its open windows.
-  - If not running: launches the application cleanly via `NSWorkspace`.
-- **Configuration:** Persisted `pinnedApps: [String]` list in user settings.
+- **Pinned App Bar:** Dedicated pinned applications section adjacent to the Start button, rendered across all connected displays.
+- **Data Model & Persistence:** `PinnedApp` model (`bundleIdentifier`, `displayName`) stored in `Settings.pinnedApps` with backwards-compatible decoding.
+- **State & Interactions:**
+  - If app not running $\rightarrow$ Launches cleanly via `NSWorkspace`.
+  - If running $\rightarrow$ Raises and focuses the app's active window; subtle running indicator dot/badge below the icon.
+- **Context Menu Pinning:**
+  - Right-click any running `TaskButton` $\rightarrow$ "Pin to Taskbar" / "Unpin from Taskbar".
+  - Right-click `PinnedButton` $\rightarrow$ "Unpin from Taskbar", "Quit Application".
 
 ---
 
@@ -98,10 +108,18 @@ Before expanding feature surface area, establish a robust automated testing and 
 
 ---
 
-## 7. Explicit Scope Boundaries (Non-Goals)
+## 7. Future Explorations (Post-v0.4.0 Considerations)
+
+These enhancements may be evaluated as follow-ups once the core four-phase roadmap is complete:
+- **Optional Trailing Digital Clock Widget:** A lightweight, low-frequency digital clock label (`HH:mm` or `h:mm a`) updating once per minute on the trailing edge of the taskbar. Especially beneficial for full-screen workflows and secondary monitors where the macOS menu bar is out of view.
+- **Taskbar Sound Effects / Haptic Feedback:** Subtle, optional classic Windows sound cues or trackpad haptics on window minimize/restore and button clicks.
+
+---
+
+## 8. Explicit Scope Boundaries (Non-Goals)
 
 To preserve performance, reliability, and code simplicity, the following features are intentionally **out of scope**:
 
 - ❌ **Hover Window Previews:** Avoids requiring macOS Screen Recording permissions (`ScreenCaptureKit`), recurring system security dialogs, continuous GPU thumbnail capture, and UI bloat.
-- ❌ **Full System Tray / Status Replicas:** The macOS top menu bar already handles menu bar status items, Control Center, and battery. Duplicating tray items in the taskbar adds redundant complexity *(Note: a simple multi-monitor digital clock label may be evaluated as an optional lightweight widget in a future minor release).*
+- ❌ **Full System Tray / Status Replicas:** The macOS top menu bar already handles menu bar status items, Control Center, and battery. Duplicating tray items in the taskbar adds redundant complexity.
 - ❌ **Built-In Start Menu:** Building a full-fledged Start menu (application directories, search indexers, recent documents) duplicates Spotlight, Raycast, and Alfred. The Start button remains a dedicated, lightning-fast trigger for native launchers.
