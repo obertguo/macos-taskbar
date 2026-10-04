@@ -64,15 +64,24 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             isDockHidden: settings.hideSystemDock,
             dockDelay: settings.dockHideDelay
         )
-        statusMenu.onThemeChanged = { [weak self] newStyle in
-            guard let self = self else { return }
-            self.settings.themeStyle = newStyle
-            self.settings.save()
-            self.screenManager?.updateThemeStyle(newStyle)
-        }
         statusMenu.onThemeIdChanged = { [weak self] themeId in
             guard let self = self else { return }
             self.settings.activeThemeId = themeId
+            let theme = ThemeRegistry.shared.theme(for: themeId)
+            if theme.isCustom {
+                self.settings.fontSize = theme.metrics.fontSize
+                self.settings.iconSize = theme.metrics.iconSize
+                if let customBarHeight = theme.metrics.barHeight, customBarHeight > 0 {
+                    self.settings.barHeight = customBarHeight
+                    self.statusMenu?.updateBarHeight(customBarHeight)
+                }
+                if let customMinWidth = theme.metrics.minButtonWidth, customMinWidth > 0 {
+                    self.settings.minButtonWidth = customMinWidth
+                    self.statusMenu?.updateMinButtonWidth(customMinWidth)
+                }
+                self.statusMenu?.updateFontSize(theme.metrics.fontSize)
+                self.statusMenu?.updateIconSize(theme.metrics.iconSize)
+            }
             self.settings.save()
             self.screenManager?.updateTheme(themeId: themeId)
         }

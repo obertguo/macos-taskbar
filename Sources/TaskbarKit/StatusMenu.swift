@@ -7,7 +7,7 @@ import TaskbarCore
 public final class StatusMenu {
     private let statusItem: NSStatusItem
     private var currentStyle: ThemeStyle
-    private var currentThemeId: String
+    public private(set) var currentThemeId: String
     private var minButtonWidth: Double
     private var barHeight: Double
     private var fontSize: Double
@@ -318,7 +318,9 @@ public final class StatusMenu {
             self.currentStyle = theme.style
             setupMenu()
             onThemeIdChanged?(themeId)
-            onThemeChanged?(theme.style)
+            if ThemeRegistry.shared.isBuiltIn(themeId: themeId) {
+                onThemeChanged?(theme.style)
+            }
         } else if let style = sender.representedObject as? ThemeStyle {
             self.currentStyle = style
             let theme = ThemeDefinition.forStyle(style)

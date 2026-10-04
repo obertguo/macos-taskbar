@@ -6,17 +6,22 @@ import TaskbarCore
 @MainActor
 public final class ScreenManager {
     private var panels: [CGDirectDisplayID: TaskbarPanel] = [:]
-    private var settings: Settings
-    private var currentTheme: ThemeDefinition
+    public private(set) var settings: Settings
+    public private(set) var currentTheme: ThemeDefinition
     public let store: WindowStore
     
     public init(settings: Settings, store: WindowStore) {
         self.settings = settings
         self.store = store
-        self.currentTheme = ThemeRegistry.shared.theme(for: settings.activeThemeId).withCustomMetrics(
-            fontSize: settings.fontSize,
-            iconSize: settings.iconSize
-        )
+        let initialTheme = ThemeRegistry.shared.theme(for: settings.activeThemeId)
+        if initialTheme.isCustom {
+            self.currentTheme = initialTheme
+        } else {
+            self.currentTheme = initialTheme.withCustomMetrics(
+                fontSize: settings.fontSize,
+                iconSize: settings.iconSize
+            )
+        }
         
         NotificationCenter.default.addObserver(
             self,
@@ -46,10 +51,15 @@ public final class ScreenManager {
     
     public func updateSettings(_ newSettings: Settings) {
         self.settings = newSettings
-        self.currentTheme = ThemeRegistry.shared.theme(for: newSettings.activeThemeId).withCustomMetrics(
-            fontSize: newSettings.fontSize,
-            iconSize: newSettings.iconSize
-        )
+        let theme = ThemeRegistry.shared.theme(for: newSettings.activeThemeId)
+        if theme.isCustom {
+            self.currentTheme = theme
+        } else {
+            self.currentTheme = theme.withCustomMetrics(
+                fontSize: newSettings.fontSize,
+                iconSize: newSettings.iconSize
+            )
+        }
         
         WorkAreaEnforcer.shared.barHeight = CGFloat(newSettings.barHeight)
         WorkAreaEnforcer.shared.isEnabled = newSettings.enableAXNudger
@@ -110,13 +120,45 @@ public final class ScreenManager {
     
     public func updateTheme(themeId: String) {
         settings.activeThemeId = themeId
+        let theme = ThemeRegistry.shared.theme(for: themeId)
+        var shouldRefreshPanels = false
+        
+        if theme.isCustom {
+            settings.fontSize = theme.metrics.fontSize
+            settings.iconSize = theme.metrics.iconSize
+            if let customBarHeight = theme.metrics.barHeight, customBarHeight > 0 {
+                settings.barHeight = customBarHeight
+                WorkAreaEnforcer.shared.barHeight = CGFloat(customBarHeight)
+                shouldRefreshPanels = true
+            }
+            if let customMinWidth = theme.metrics.minButtonWidth, customMinWidth > 0 {
+                settings.minButtonWidth = customMinWidth
+            }
+            if let customMaxWidth = theme.metrics.maxButtonWidth, customMaxWidth > 0 {
+                settings.maxButtonWidth = customMaxWidth
+            }
+            if let customSpacing = theme.metrics.buttonSpacing, customSpacing >= 0 {
+                settings.buttonSpacing = customSpacing
+            }
+            currentTheme = theme
+        } else {
+            currentTheme = theme.withCustomMetrics(
+                fontSize: settings.fontSize,
+                iconSize: settings.iconSize
+            )
+        }
         settings.save()
-        currentTheme = ThemeRegistry.shared.theme(for: themeId).withCustomMetrics(
-            fontSize: settings.fontSize,
-            iconSize: settings.iconSize
-        )
         for panel in panels.values {
             panel.applyTheme(currentTheme)
+            panel.updateButtonLayout(
+                minWidth: settings.minButtonWidth,
+                maxWidth: settings.maxButtonWidth,
+                spacing: settings.buttonSpacing,
+                titleThreshold: settings.titleVisibilityThreshold
+            )
+        }
+        if shouldRefreshPanels {
+            refreshPanels()
         }
     }
     

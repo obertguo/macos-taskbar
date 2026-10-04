@@ -95,4 +95,45 @@ struct ThemeExpansionIntegrationTests {
             #expect(panel.taskbarView.theme.displayName == "Neon Matrix")
         }
     }
+    
+    @Test("ScreenManager dynamically applies custom theme and preserves custom layout metrics")
+    func testScreenManagerDynamicCustomThemeSwitching() {
+        let customTheme = ThemeDefinition(
+            id: "custom-dynamic-theme",
+            displayName: "Dynamic Custom",
+            isCustom: true,
+            palette: ModernHybridTheme.definition.palette,
+            metrics: ThemeMetrics(
+                fontSize: 9.0,
+                iconSize: 32.0,
+                barHeight: 44.0,
+                minButtonWidth: 70.0,
+                buttonSpacing: 8.0
+            ),
+            materials: ModernHybridTheme.definition.materials
+        )
+        ThemeRegistry.shared.registerCustomThemes([customTheme])
+        defer { ThemeRegistry.shared.unregisterAllCustomThemes() }
+        
+        let settings = Settings(activeThemeId: ModernHybridTheme.id)
+        let store = WindowStore()
+        let manager = ScreenManager(settings: settings, store: store)
+        defer { manager.closeAll() }
+        
+        // Dynamically switch to custom theme
+        manager.updateTheme(themeId: "custom-dynamic-theme")
+        
+        #expect(manager.settings.activeThemeId == "custom-dynamic-theme")
+        #expect(manager.settings.fontSize == 9.0)
+        #expect(manager.settings.iconSize == 32.0)
+        #expect(manager.settings.barHeight == 44.0)
+        #expect(manager.settings.minButtonWidth == 70.0)
+        #expect(manager.settings.buttonSpacing == 8.0)
+        
+        for panel in manager.allPanels {
+            #expect(panel.taskbarView.theme.id == "custom-dynamic-theme")
+            #expect(panel.taskbarView.theme.fontSize == 9.0)
+            #expect(panel.taskbarView.theme.iconSize == 32.0)
+        }
+    }
 }

@@ -93,23 +93,36 @@ public struct ThemeMetrics: Codable, Equatable, Sendable {
     public let fontBold: Bool
     public let fontSize: Double
     public let iconSize: Double
+    public let barHeight: Double?
+    public let minButtonWidth: Double?
+    public let maxButtonWidth: Double?
+    public let buttonSpacing: Double?
 
     public init(
         buttonCornerRadius: Double = 4.0,
         is3DBeveled: Bool = false,
         fontBold: Bool = false,
         fontSize: Double = TaskbarConstants.Layout.defaultFontSize,
-        iconSize: Double = TaskbarConstants.Layout.defaultIconSize
+        iconSize: Double = TaskbarConstants.Layout.defaultIconSize,
+        barHeight: Double? = nil,
+        minButtonWidth: Double? = nil,
+        maxButtonWidth: Double? = nil,
+        buttonSpacing: Double? = nil
     ) {
         self.buttonCornerRadius = buttonCornerRadius
         self.is3DBeveled = is3DBeveled
         self.fontBold = fontBold
         self.fontSize = fontSize
         self.iconSize = iconSize
+        self.barHeight = barHeight
+        self.minButtonWidth = minButtonWidth
+        self.maxButtonWidth = maxButtonWidth
+        self.buttonSpacing = buttonSpacing
     }
     
     private enum CodingKeys: String, CodingKey {
         case buttonCornerRadius, is3DBeveled, fontBold, fontSize, iconSize
+        case barHeight, minButtonWidth, maxButtonWidth, buttonSpacing
     }
     
     public init(from decoder: Decoder) throws {
@@ -119,6 +132,10 @@ public struct ThemeMetrics: Codable, Equatable, Sendable {
         self.fontBold = try container.decodeIfPresent(Bool.self, forKey: .fontBold) ?? false
         self.fontSize = try container.decodeIfPresent(Double.self, forKey: .fontSize) ?? TaskbarConstants.Layout.defaultFontSize
         self.iconSize = try container.decodeIfPresent(Double.self, forKey: .iconSize) ?? TaskbarConstants.Layout.defaultIconSize
+        self.barHeight = try container.decodeIfPresent(Double.self, forKey: .barHeight)
+        self.minButtonWidth = try container.decodeIfPresent(Double.self, forKey: .minButtonWidth)
+        self.maxButtonWidth = try container.decodeIfPresent(Double.self, forKey: .maxButtonWidth)
+        self.buttonSpacing = try container.decodeIfPresent(Double.self, forKey: .buttonSpacing)
     }
 }
 
@@ -225,7 +242,11 @@ public struct ThemeDefinition: Codable, Equatable, Sendable {
             is3DBeveled: metrics.is3DBeveled,
             fontBold: metrics.fontBold,
             fontSize: fontSize,
-            iconSize: iconSize
+            iconSize: iconSize,
+            barHeight: metrics.barHeight,
+            minButtonWidth: metrics.minButtonWidth,
+            maxButtonWidth: metrics.maxButtonWidth,
+            buttonSpacing: metrics.buttonSpacing
         )
         return ThemeDefinition(
             id: id,

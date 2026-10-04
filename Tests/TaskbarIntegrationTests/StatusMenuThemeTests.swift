@@ -96,4 +96,53 @@ struct StatusMenuThemeTests {
         _ = (target as AnyObject).perform(action, with: reloadItem)
         #expect(reloadCalled == true)
     }
+    
+    @Test("StatusMenu custom theme click notifies onThemeIdChanged without legacy modernHybrid clobber")
+    func testCustomThemeSelectionDoesNotRevertToModernHybrid() {
+        let customTheme = ThemeDefinition(
+            id: "custom-neon-matrix",
+            displayName: "Neon Matrix Custom",
+            isCustom: true,
+            palette: ModernHybridTheme.definition.palette,
+            metrics: ThemeMetrics(fontSize: 8.0, iconSize: 48.0),
+            materials: ModernHybridTheme.definition.materials
+        )
+        ThemeRegistry.shared.registerCustomThemes([customTheme])
+        defer {
+            ThemeRegistry.shared.unregisterAllCustomThemes()
+        }
+        
+        let statusMenu = StatusMenu(currentThemeId: ModernHybridTheme.id)
+        var receivedThemeId: String?
+        var receivedLegacyStyle: ThemeStyle?
+        
+        statusMenu.onThemeIdChanged = { themeId in
+            receivedThemeId = themeId
+        }
+        statusMenu.onThemeChanged = { legacyStyle in
+            receivedLegacyStyle = legacyStyle
+        }
+        
+        guard let statusItem = Mirror(reflecting: statusMenu).children.first(where: { $0.label == "statusItem" })?.value as? NSStatusItem,
+              let menu = statusItem.menu,
+              let themeItem = menu.items.first(where: { $0.title == TaskbarStrings.StatusMenu.themeMenu }),
+              let themeSubmenu = themeItem.submenu,
+              let customMenuItem = themeSubmenu.items.first(where: { $0.title == "Neon Matrix Custom" }),
+              let action = customMenuItem.action,
+              let target = customMenuItem.target else {
+            Issue.record("Failed to find custom theme menu item")
+            return
+        }
+        
+        _ = (target as AnyObject).perform(action, with: customMenuItem)
+        
+        #expect(receivedThemeId == "custom-neon-matrix")
+        #expect(receivedLegacyStyle == nil, "Custom themes must not invoke legacy onThemeChanged with fallback modernHybrid")
+        #expect(statusMenu.currentThemeId == "custom-neon-matrix")
+        
+        // Verify state is checked in the updated menu
+        let updatedThemeItem = statusItem.menu?.items.first(where: { $0.title == TaskbarStrings.StatusMenu.themeMenu })
+        let updatedCustomItem = updatedThemeItem?.submenu?.items.first(where: { $0.title == "Neon Matrix Custom" })
+        #expect(updatedCustomItem?.state == .on)
+    }
 }
