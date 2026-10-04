@@ -17,12 +17,20 @@ Designed for peak responsiveness, ~0.0% idle CPU, and rock-solid stability using
   - Click minimized window button $\rightarrow$ Restores and focuses the window.
   - Right-click $\rightarrow$ Context menu with Minimize/Restore, Close Window, and Quit Application.
 - **Button Overflow Handling:** When window density is high, buttons shrink gracefully down to `minButtonWidth` (80pt default), after which an interactive overflow chevron (`»`) appears with a popup menu to activate hidden windows.
-- **Data-Driven Theme Registry:**
-  - Pure token-based theme architecture (`ThemeDefinition`) decoupling colors, metrics, and visual materials into structured `Codable` models (`ThemePalette`, `ThemeMetrics`, `ThemeMaterials`).
-  - Supports importing and exporting JSON theme definitions at runtime.
+- **Pinned Applications / Quick Launch Bar:**
+  - Compact square buttons rendered between the Start button and window task buttons across all monitors.
+  - One-click launch for closed apps or instant raise/focus for running applications.
+  - Subtle running indicator dot at the bottom center reflecting active window presence.
+  - Right-click task buttons to toggle "Pin to Taskbar" / "Unpin from Taskbar" in real time.
+- **Data-Driven Theming & Preset Expansion:**
+  - Pure token-based theme architecture (`ThemeDefinition`) decoupling colors, metrics, and visual materials into structured `Codable` models.
   - **Modern Hybrid:** Native macOS frosted glass vibrancy (`NSVisualEffectView`), subtle rounded pill buttons, and `SF Pro` system typography.
   - **Retro Classic:** Windows 95/98 style with `#C0C0C0` solid background, 3D raised/sunken beveled borders, and classic typography.
-  - Switchable on-the-fly via the menu bar status icon.
+  - **Windows XP Luna:** Iconic royal blue taskbar with signature emerald green Start button and gold accents.
+  - **Dark Minimal:** Pitch black `#121212` background, subtle borders, and cyan `#00BCD4` active accent indicator.
+  - **User Custom Theme Engine:** Discovers and validates `*.json` themes in `~/.config/taskbar/themes/` with live reload and export tools in the Status Menu.
+- **High-DPI & Multi-Resolution Icon Sanitization:**
+  - Filters corrupt legacy low-resolution bitmaps (<64px) from third-party app bundles (e.g. Electron / Antigravity) when high-resolution representations exist, guaranteeing crisp bilinear anti-aliasing across mixed-DPI displays.
 - **Screen Space Reservation via AX Nudger (`WorkAreaEnforcer`):** Maximized windows (from native zoom, Rectangle, Raycast, etc.) are actively clamped so their bottom edges (status bars, terminal prompts, input boxes) remain visible above the bar.
 - **Configurable System Dock Replacement & Safety:** Safely hides the system Dock during execution with user-configurable autohide reveal delays (1000s Permanently Hidden, 1.5s Deliberate Hover, 1.0s, 0.5s, 0.0s). Restores original settings automatically on quit, `SIGINT`/`SIGTERM` signals, or via `./scripts/restore-dock.sh`.
 - **Full-Screen Space Suppression:** Taskbar panels automatically hide on native macOS full-screen spaces (keynote presentations, full-screen video, games).

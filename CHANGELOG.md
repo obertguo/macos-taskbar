@@ -4,6 +4,53 @@ All notable changes to **Taskbar** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-10-04
+
+### Personalization & Quick Launch
+
+Version `0.2.0` introduces comprehensive personalization options and a persistent Quick Launch bar across all connected displays. This includes modularized built-in themes, new Windows XP Luna and Dark Minimal presets, user custom JSON theming from disk, pinned application shortcuts with running state indicators, and multi-resolution icon sanitization.
+
+#### Added
+- **Pinned Applications & Quick Launch Bar:**
+  - Compact square buttons rendered between the Start button and window task buttons across all monitors.
+  - One-click launch for closed applications and instant raise/focus for running applications.
+  - Dynamic running status indicator dot rendered at the bottom center of pinned buttons, adapting to the active theme.
+  - In-place view recycling for `PinnedButton` subviews, eliminating mouse tracking flicker and heap churn.
+  - Full multi-display synchronization via `ScreenManager` when apps are pinned, unpinned, or reordered.
+- **Context Menu Pinning UX:**
+  - Right-click dynamic `TaskButton` to toggle "Pin to Taskbar" / "Unpin from Taskbar" in real time.
+  - Right-click `PinnedButton` to access "Open <App>", "Unpin from Taskbar", and "Quit <App>".
+- **Modular Theming & Preset Expansion:**
+  - Refactored monolithic theme definitions into dedicated, single-responsibility files under `Sources/TaskbarCore/Config/Theme/Presets/`.
+  - **Windows XP Luna (`windows-xp-luna`):** Classic royal blue gradient taskbar, signature emerald green Start button with gold accents, sunken darker royal blue active buttons, and sky-blue hover highlights.
+  - **Dark Minimal (`dark-minimal`):** Pitch black `#121212` background, subtle borders, flat minimal hover states, and cyan `#00BCD4` active accent indicator.
+- **External User Custom Theme Engine (`ThemeFileLoader`):**
+  - Auto-discovers and validates external `*.json` themes from `~/.config/taskbar/themes/`.
+  - Dynamic Status Menu integration displaying discovered themes in real-time with checkmarks.
+  - On-demand "Reload Themes from Disk" action with automatic fallback for pruned files.
+  - "Export Current Theme as JSON..." tool supporting disk export and custom sharing.
+  - Resilient JSON decoder rejecting empty/colliding preset IDs and gracefully ignoring corrupted files without crashing.
+- **Multi-Resolution Icon Sanitization (`IconCache`):**
+  - High-DPI icon preparation filtering out corrupt legacy 1x bitmaps (<64px) from third-party app bundles (e.g. Electron / Antigravity) when high-resolution representations exist.
+  - Forces AppKit to downsample from pristine high-resolution bitmaps with smooth bilinear anti-aliasing on non-Retina displays.
+  - Dimension-aware cache keys ensuring proper icon scaling when `settings.iconSize` is modified.
+- **New Test Suites & Expanded Coverage (95 Tests Total):**
+  - `ThemePresetsTests` (10 tests) & `ThemeExpansionIntegrationTests` (2 tests) verifying presets and multi-screen propagation.
+  - `ThemeFileLoaderTests` (8 tests) & `StatusMenuThemeTests` (3 tests) validating custom theme lifecycles and dynamic menus.
+  - `PinnedAppTests` (9 tests) & `PinnedAppsIntegrationTests` (8 tests) validating domain models, layout, recycling, and context menus.
+
+#### Changed
+- **Settings Persistence & Backward Compatibility:**
+  - Extended `Settings` with `pinnedApps: [PinnedApp]`, defaulting to Finder, Safari, and Terminal for seamless backward compatibility with older v0.1.x preferences.
+
+#### Fixed
+- **macOS Window Minimization Subrole Morphing:**
+  - Resolved an issue where minimized Cocoa windows temporarily morph their accessibility subrole to `AXDialog`, preventing dropped window buttons during Dock minimization.
+- **Observer Notification Coalescing:**
+  - Added `needsReconcileAgain` latching in `AppTracker` to prevent dropping notifications arriving during in-flight snapshot reconciliations.
+
+---
+
 ## [0.1.1] - 2026-10-04
 
 ### Automated Test Harness, Performance Optimization & Theme Registry
