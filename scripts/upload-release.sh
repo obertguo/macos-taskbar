@@ -46,14 +46,6 @@ for arg in "$@"; do
     fi
 done
 
-# Fail fast if build configuration is missing
-if [[ ! -f "${BUILD_CONFIG}" ]]; then
-    echo "Error: Required build configuration file '${BUILD_CONFIG}' is missing!" >&2
-    exit 1
-fi
-# shellcheck source=/dev/null
-source "${BUILD_CONFIG}"
-
 # Fail fast if GitLab configuration file is missing and env vars not exported
 if [[ ! -f "${GITLAB_CONFIG}" ]]; then
     if [[ -z "${GITLAB_PROJECT_ID:-}" || -z "${GITLAB_TOKEN:-}" ]]; then
