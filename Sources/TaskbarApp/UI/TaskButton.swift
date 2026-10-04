@@ -164,7 +164,7 @@ public final class TaskButton: NSView {
             BevelDrawing.drawRaisedBevel(in: bounds)
         }
         
-        let iconSize = TaskbarConstants.Layout.iconSize
+        let iconSize = CGFloat(theme.iconSize)
         let iconOffset: CGFloat = isDown ? 1.0 : 0.0
         let iconX = bounds.minX + TaskbarConstants.Layout.taskButtonIconMarginRetro + iconOffset
         let iconY = bounds.midY - (iconSize / 2.0) - iconOffset
@@ -174,21 +174,23 @@ public final class TaskButton: NSView {
         if showTitle {
             let textX = iconX + iconSize + TaskbarConstants.Layout.taskButtonIconMarginRetro
             let maxTextW = max(0, bounds.maxX - textX - TaskbarConstants.Layout.taskButtonIconMarginRetro)
-            let textY = bounds.midY - 7.0 - iconOffset
             
             let isDimmed = windowInfo.isMinimized || windowInfo.isAppHidden
             let textColor = isDimmed ? NSColor(rgba: RGBAColor.retroShadow) : NSColor.black
+            
+            let font = NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: isFocusedWindow ? .bold : .regular)
+            let textY = bounds.midY - (font.ascender / 2.0) - iconOffset
             
             let para = NSMutableParagraphStyle()
             para.lineBreakMode = .byTruncatingTail
             
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: isFocusedWindow ? .bold : .regular),
+                .font: font,
                 .foregroundColor: textColor,
                 .paragraphStyle: para
             ]
             let str = NSAttributedString(string: windowInfo.displayTitle, attributes: attrs)
-            str.draw(in: NSRect(x: textX, y: textY, width: maxTextW, height: 15))
+            str.draw(in: NSRect(x: textX, y: textY, width: maxTextW, height: font.pointSize + 5.0))
         }
     }
     
@@ -216,7 +218,7 @@ public final class TaskButton: NSView {
         path.lineWidth = 1.0
         path.stroke()
         
-        let iconSize = TaskbarConstants.Layout.iconSize
+        let iconSize = CGFloat(theme.iconSize)
         let iconX = bounds.minX + TaskbarConstants.Layout.taskButtonIconMarginHybrid
         let iconY = bounds.midY - (iconSize / 2.0)
         let icon = IconCache.shared.icon(for: windowInfo.bundleID, pid: windowInfo.pid)
@@ -228,9 +230,11 @@ public final class TaskButton: NSView {
         )
         
         if showTitle {
-            let textX = iconX + iconSize + 5.0
+            let textX = iconX + iconSize + TaskbarConstants.Layout.taskButtonIconMarginHybrid
             let maxTextW = max(0, bounds.maxX - textX - TaskbarConstants.Layout.taskButtonIconMarginHybrid)
-            let textY = bounds.midY - 7.0
+            
+            let font = NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: isFocusedWindow ? .bold : .medium)
+            let textY = bounds.midY - (font.ascender / 2.0)
             
             let para = NSMutableParagraphStyle()
             para.lineBreakMode = .byTruncatingTail
@@ -238,12 +242,12 @@ public final class TaskButton: NSView {
             let textColor = (isFocusedWindow ? NSColor(rgba: theme.textPressedColor) : NSColor(rgba: theme.textColor)).withAlphaComponent(alphaMultiplier)
             
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: isFocusedWindow ? .bold : .medium),
+                .font: font,
                 .foregroundColor: textColor,
                 .paragraphStyle: para
             ]
             let str = NSAttributedString(string: windowInfo.displayTitle, attributes: attrs)
-            str.draw(in: NSRect(x: textX, y: textY, width: maxTextW, height: 15))
+            str.draw(in: NSRect(x: textX, y: textY, width: maxTextW, height: font.pointSize + 5.0))
         }
     }
 }

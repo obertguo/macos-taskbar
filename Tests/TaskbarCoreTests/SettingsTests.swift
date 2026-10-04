@@ -12,6 +12,8 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(defaults.minButtonWidth, TaskbarConstants.Layout.defaultMinButtonWidth)
         XCTAssertEqual(defaults.buttonSpacing, TaskbarConstants.Layout.defaultButtonSpacing)
         XCTAssertEqual(defaults.titleVisibilityThreshold, TaskbarConstants.Layout.defaultTitleVisibilityThreshold)
+        XCTAssertEqual(defaults.fontSize, TaskbarConstants.Layout.defaultFontSize)
+        XCTAssertEqual(defaults.iconSize, TaskbarConstants.Layout.defaultIconSize)
         XCTAssertEqual(defaults.launcherAction, .spotlight)
         XCTAssertTrue(defaults.enableAXNudger)
         XCTAssertTrue(defaults.hideSystemDock)
@@ -25,6 +27,8 @@ final class SettingsTests: XCTestCase {
             minButtonWidth: 32.0,
             buttonSpacing: 3.0,
             titleVisibilityThreshold: 45.0,
+            fontSize: 12.0,
+            iconSize: 20.0,
             launcherAction: .raycast,
             enableAXNudger: false,
             hideSystemDock: false
@@ -45,11 +49,15 @@ final class SettingsTests: XCTestCase {
         
         settings.themeStyle = .retroClassic
         settings.barHeight = 36.0
+        settings.fontSize = 13.0
+        settings.iconSize = 18.0
         settings.save(to: testDefaults)
         
         let reloaded = Settings.load(from: testDefaults)
         XCTAssertEqual(reloaded.themeStyle, .retroClassic)
         XCTAssertEqual(reloaded.barHeight, 36.0)
+        XCTAssertEqual(reloaded.fontSize, 13.0)
+        XCTAssertEqual(reloaded.iconSize, 18.0)
     }
     
     func testTaskbarStringsAndPresets() {
@@ -65,5 +73,13 @@ final class SettingsTests: XCTestCase {
         // Ensure buttonWidthPresets contains the defaultMinButtonWidth
         let widths = TaskbarConstants.Layout.buttonWidthPresets.map { $0.width }
         XCTAssertTrue(widths.contains(TaskbarConstants.Layout.defaultMinButtonWidth))
+        
+        // Ensure fontSizePresets contains the defaultFontSize
+        let fontSizes = TaskbarConstants.Layout.fontSizePresets.map { $0.size }
+        XCTAssertTrue(fontSizes.contains(TaskbarConstants.Layout.defaultFontSize))
+        
+        // Ensure iconSizePresets contains the defaultIconSize
+        let iconSizes = TaskbarConstants.Layout.iconSizePresets.map { $0.size }
+        XCTAssertTrue(iconSizes.contains(TaskbarConstants.Layout.defaultIconSize))
     }
 }

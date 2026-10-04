@@ -9,12 +9,16 @@ public final class StatusMenu {
     private var currentStyle: ThemeStyle
     private var minButtonWidth: Double
     private var barHeight: Double
+    private var fontSize: Double
+    private var iconSize: Double
     private var isNudgerEnabled: Bool
     private var isDockHidden: Bool
     
     public var onThemeChanged: ((ThemeStyle) -> Void)?
     public var onMinButtonWidthChanged: ((Double) -> Void)?
     public var onBarHeightChanged: ((Double) -> Void)?
+    public var onFontSizeChanged: ((Double) -> Void)?
+    public var onIconSizeChanged: ((Double) -> Void)?
     public var onLauncherTriggered: (() -> Void)?
     public var onNudgerToggled: ((Bool) -> Void)?
     public var onHideDockToggled: ((Bool) -> Void)?
@@ -25,12 +29,16 @@ public final class StatusMenu {
         currentStyle: ThemeStyle,
         minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth,
         barHeight: Double = TaskbarConstants.Layout.defaultBarHeight,
+        fontSize: Double = TaskbarConstants.Layout.defaultFontSize,
+        iconSize: Double = TaskbarConstants.Layout.defaultIconSize,
         isNudgerEnabled: Bool = true,
         isDockHidden: Bool = true
     ) {
         self.currentStyle = currentStyle
         self.minButtonWidth = minButtonWidth
         self.barHeight = barHeight
+        self.fontSize = fontSize
+        self.iconSize = iconSize
         self.isNudgerEnabled = isNudgerEnabled
         self.isDockHidden = isDockHidden
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -50,6 +58,16 @@ public final class StatusMenu {
     
     public func updateBarHeight(_ height: Double) {
         self.barHeight = height
+        setupMenu()
+    }
+    
+    public func updateFontSize(_ size: Double) {
+        self.fontSize = size
+        setupMenu()
+    }
+    
+    public func updateIconSize(_ size: Double) {
+        self.iconSize = size
         setupMenu()
     }
     
@@ -95,10 +113,22 @@ public final class StatusMenu {
             item.state = (style == currentStyle) ? .on : .off
             themeSubmenu.addItem(item)
         }
-        
         let themeParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.themeMenu, action: nil, keyEquivalent: "")
         themeParentItem.submenu = themeSubmenu
         menu.addItem(themeParentItem)
+        
+        // Taskbar Height Menu
+        let heightSubmenu = NSMenu(title: TaskbarStrings.StatusMenu.barHeightMenu)
+        for preset in TaskbarConstants.Layout.barHeightPresets {
+            let item = NSMenuItem(title: preset.title, action: #selector(handleHeightSelection(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = preset.height
+            item.state = (abs(preset.height - barHeight) < 1.0) ? .on : .off
+            heightSubmenu.addItem(item)
+        }
+        let heightParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.barHeightMenu, action: nil, keyEquivalent: "")
+        heightParentItem.submenu = heightSubmenu
+        menu.addItem(heightParentItem)
         
         // Button Width / Overflow Threshold Menu
         let widthSubmenu = NSMenu(title: TaskbarStrings.StatusMenu.buttonWidthMenu)
@@ -113,18 +143,31 @@ public final class StatusMenu {
         widthParentItem.submenu = widthSubmenu
         menu.addItem(widthParentItem)
         
-        // Taskbar Height Menu
-        let heightSubmenu = NSMenu(title: TaskbarStrings.StatusMenu.barHeightMenu)
-        for preset in TaskbarConstants.Layout.barHeightPresets {
-            let item = NSMenuItem(title: preset.title, action: #selector(handleHeightSelection(_:)), keyEquivalent: "")
+        // Font Size Menu
+        let fontSubmenu = NSMenu(title: TaskbarStrings.StatusMenu.fontSizeMenu)
+        for preset in TaskbarConstants.Layout.fontSizePresets {
+            let item = NSMenuItem(title: preset.title, action: #selector(handleFontSizeSelection(_:)), keyEquivalent: "")
             item.target = self
-            item.representedObject = preset.height
-            item.state = (abs(preset.height - barHeight) < 1.0) ? .on : .off
-            heightSubmenu.addItem(item)
+            item.representedObject = preset.size
+            item.state = (abs(preset.size - fontSize) < 0.5) ? .on : .off
+            fontSubmenu.addItem(item)
         }
-        let heightParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.barHeightMenu, action: nil, keyEquivalent: "")
-        heightParentItem.submenu = heightSubmenu
-        menu.addItem(heightParentItem)
+        let fontParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.fontSizeMenu, action: nil, keyEquivalent: "")
+        fontParentItem.submenu = fontSubmenu
+        menu.addItem(fontParentItem)
+        
+        // Icon Size Menu
+        let iconSubmenu = NSMenu(title: TaskbarStrings.StatusMenu.iconSizeMenu)
+        for preset in TaskbarConstants.Layout.iconSizePresets {
+            let item = NSMenuItem(title: preset.title, action: #selector(handleIconSizeSelection(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = preset.size
+            item.state = (abs(preset.size - iconSize) < 0.5) ? .on : .off
+            iconSubmenu.addItem(item)
+        }
+        let iconParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.iconSizeMenu, action: nil, keyEquivalent: "")
+        iconParentItem.submenu = iconSubmenu
+        menu.addItem(iconParentItem)
         
         // Start Launcher item
         let startItem = NSMenuItem(
@@ -163,6 +206,7 @@ public final class StatusMenu {
             keyEquivalent: ""
         )
         restoreDockItem.target = self
+        restoreDockItem.state = isDockHidden ? .on : .off
         menu.addItem(restoreDockItem)
         
         menu.addItem(NSMenuItem.separator())
@@ -200,6 +244,22 @@ public final class StatusMenu {
             barHeight = height
             setupMenu()
             onBarHeightChanged?(height)
+        }
+    }
+    
+    @objc private func handleFontSizeSelection(_ sender: NSMenuItem) {
+        if let size = sender.representedObject as? Double {
+            fontSize = size
+            setupMenu()
+            onFontSizeChanged?(size)
+        }
+    }
+    
+    @objc private func handleIconSizeSelection(_ sender: NSMenuItem) {
+        if let size = sender.representedObject as? Double {
+            iconSize = size
+            setupMenu()
+            onIconSizeChanged?(size)
         }
     }
     

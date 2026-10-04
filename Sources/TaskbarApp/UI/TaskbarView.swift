@@ -181,9 +181,7 @@ public final class TaskbarView: NSView {
         
         let padY = TaskbarConstants.Layout.taskbarVerticalPadding
         let btnH = max(TaskbarConstants.Layout.minimumButtonHeight, bounds.height - (padY * 2))
-        let startBtnW: CGFloat = (theme.style == .retroClassic)
-            ? TaskbarConstants.Layout.startButtonWidthRetro
-            : TaskbarConstants.Layout.startButtonWidthHybrid
+        let startBtnW = startButton.preferredWidth()
         startButton.frame = NSRect(
             x: TaskbarConstants.Layout.startButtonLeadingMargin,
             y: padY,

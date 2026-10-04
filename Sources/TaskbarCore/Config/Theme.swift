@@ -47,13 +47,18 @@ public struct ThemeDefinition: Equatable, Sendable {
     public let bevelShadow: RGBAColor?
     public let bevelDarkShadow: RGBAColor?
     
-    // Typography
+    // Typography & Metrics
     public let textColor: RGBAColor
     public let textPressedColor: RGBAColor
     public let fontSize: Double
     public let fontBold: Bool
+    public let iconSize: Double
 
-    public static func forStyle(_ style: ThemeStyle) -> ThemeDefinition {
+    public static func forStyle(
+        _ style: ThemeStyle,
+        fontSize: Double = TaskbarConstants.Layout.defaultFontSize,
+        iconSize: Double = TaskbarConstants.Layout.defaultIconSize
+    ) -> ThemeDefinition {
         switch style {
         case .modernHybrid:
             return ThemeDefinition(
@@ -73,8 +78,9 @@ public struct ThemeDefinition: Equatable, Sendable {
                 bevelDarkShadow: nil,
                 textColor: RGBAColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.95),
                 textPressedColor: .white,
-                fontSize: 11.0,
-                fontBold: false
+                fontSize: fontSize,
+                fontBold: false,
+                iconSize: iconSize
             )
             
         case .retroClassic:
@@ -95,8 +101,9 @@ public struct ThemeDefinition: Equatable, Sendable {
                 bevelDarkShadow: .retroDarkShadow,
                 textColor: .black,
                 textPressedColor: .black,
-                fontSize: 11.0,
-                fontBold: true
+                fontSize: fontSize,
+                fontBold: true,
+                iconSize: iconSize
             )
         }
     }

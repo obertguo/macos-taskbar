@@ -90,7 +90,7 @@ public final class OverflowButton: NSView {
         }
         
         // Draw double chevron "»"
-        let font = NSFont.boldSystemFont(ofSize: 11)
+        let font = NSFont.boldSystemFont(ofSize: CGFloat(theme.fontSize))
         let textColor = isPressed ? NSColor(rgba: theme.textPressedColor) : NSColor(rgba: theme.textColor)
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font,
@@ -124,7 +124,7 @@ public final class OverflowButton: NSView {
         path.lineWidth = 1.0
         path.stroke()
         
-        let font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        let font = NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: .semibold)
         let textColor = isPressed ? NSColor(rgba: theme.textPressedColor) : NSColor(rgba: theme.textColor)
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font,

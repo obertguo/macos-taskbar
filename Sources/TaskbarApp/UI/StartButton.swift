@@ -32,6 +32,19 @@ public final class StartButton: NSView {
         fatalError("init(coder:) has not been implemented")
     }
     
+    /// Computes minimum width required to render the Start icon and text cleanly without clipping.
+    public func preferredWidth() -> CGFloat {
+        let weight: NSFont.Weight = (theme.style == .retroClassic) ? .bold : .medium
+        let font = NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: weight)
+        let textWidth = (TaskbarStrings.StartButton.title as NSString).size(withAttributes: [.font: font]).width
+        let iconWidth: CGFloat = (theme.style == .retroClassic) ? 13.0 : 10.0
+        let baseMin = (theme.style == .retroClassic)
+            ? TaskbarConstants.Layout.startButtonWidthRetro
+            : TaskbarConstants.Layout.startButtonWidthHybrid
+        let padding: CGFloat = (theme.style == .retroClassic) ? 17.0 : 24.0
+        return max(baseMin, ceil(textWidth + iconWidth + padding))
+    }
+    
     public override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let trackingArea = trackingArea {

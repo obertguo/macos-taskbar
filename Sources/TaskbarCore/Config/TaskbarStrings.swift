@@ -63,6 +63,12 @@ public enum TaskbarStrings {
         /// Title for the Taskbar Height submenu.
         public static let barHeightMenu = "Taskbar Height"
         
+        /// Title for the Font Size submenu.
+        public static let fontSizeMenu = "Font Size"
+        
+        /// Title for the Icon Size submenu.
+        public static let iconSizeMenu = "Icon Size"
+        
         /// Menu item to launch the configured start launcher (Spotlight, Raycast, etc.).
         public static let openStartLauncher = "Open Start Launcher"
         
@@ -96,6 +102,20 @@ public enum TaskbarStrings {
         public static let barHeightMedium = "34 pt (Medium)"
         public static let barHeightLarge = "38 pt (Large)"
         public static let barHeightSpacious = "44 pt (Spacious)"
+        
+        // Font Size Presets
+        public static let fontSizeSmall = "10 pt (Small)"
+        public static let fontSizeStandard = "11 pt (Default - Standard)"
+        public static let fontSizeMedium = "12 pt (Medium)"
+        public static let fontSizeLarge = "13 pt (Large)"
+        public static let fontSizeExtraLarge = "14 pt (Extra Large)"
+        
+        // Icon Size Presets
+        public static let iconSizeCompact = "14 pt (Compact)"
+        public static let iconSizeStandard = "16 pt (Default - Standard)"
+        public static let iconSizeMedium = "18 pt (Medium)"
+        public static let iconSizeLarge = "20 pt (Large)"
+        public static let iconSizeExtraLarge = "24 pt (Extra Large)"
     }
     
     // MARK: - Theme Display Names

@@ -13,7 +13,11 @@ public final class ScreenManager {
     public init(settings: Settings, store: WindowStore) {
         self.settings = settings
         self.store = store
-        self.currentTheme = ThemeDefinition.forStyle(settings.themeStyle)
+        self.currentTheme = ThemeDefinition.forStyle(
+            settings.themeStyle,
+            fontSize: settings.fontSize,
+            iconSize: settings.iconSize
+        )
         
         NotificationCenter.default.addObserver(
             self,
@@ -43,7 +47,11 @@ public final class ScreenManager {
     
     public func updateSettings(_ newSettings: Settings) {
         self.settings = newSettings
-        self.currentTheme = ThemeDefinition.forStyle(newSettings.themeStyle)
+        self.currentTheme = ThemeDefinition.forStyle(
+            newSettings.themeStyle,
+            fontSize: newSettings.fontSize,
+            iconSize: newSettings.iconSize
+        )
         
         WorkAreaEnforcer.shared.barHeight = CGFloat(newSettings.barHeight)
         WorkAreaEnforcer.shared.isEnabled = newSettings.enableAXNudger
@@ -77,10 +85,40 @@ public final class ScreenManager {
         }
     }
     
+    public func updateFontSize(_ fontSize: Double) {
+        settings.fontSize = fontSize
+        settings.save()
+        currentTheme = ThemeDefinition.forStyle(
+            settings.themeStyle,
+            fontSize: fontSize,
+            iconSize: settings.iconSize
+        )
+        for panel in panels.values {
+            panel.applyTheme(currentTheme)
+        }
+    }
+    
+    public func updateIconSize(_ iconSize: Double) {
+        settings.iconSize = iconSize
+        settings.save()
+        currentTheme = ThemeDefinition.forStyle(
+            settings.themeStyle,
+            fontSize: settings.fontSize,
+            iconSize: iconSize
+        )
+        for panel in panels.values {
+            panel.applyTheme(currentTheme)
+        }
+    }
+    
     public func updateThemeStyle(_ style: ThemeStyle) {
         settings.themeStyle = style
         settings.save()
-        currentTheme = ThemeDefinition.forStyle(style)
+        currentTheme = ThemeDefinition.forStyle(
+            style,
+            fontSize: settings.fontSize,
+            iconSize: settings.iconSize
+        )
         
         for panel in panels.values {
             panel.applyTheme(currentTheme)

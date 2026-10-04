@@ -56,8 +56,14 @@ public enum TaskbarConstants {
         /// Vertical offset in points from the taskbar top edge when popping up the overflow menu.
         public static let overflowMenuVerticalOffset: CGFloat = 2.0
         
-        /// Width and height in points for rendering application and window icons.
+        /// Width and height in points for rendering application and window icons (fallback/default).
         public static let iconSize: CGFloat = 16.0
+        
+        /// Default font size in points for button labels and UI typography.
+        public static let defaultFontSize: Double = 11.0
+        
+        /// Default width and height in points for application and window icons.
+        public static let defaultIconSize: Double = 16.0
         
         /// Horizontal margin between icon and text in Retro Classic buttons.
         public static let taskButtonIconMarginRetro: CGFloat = 4.0
@@ -84,6 +90,24 @@ public enum TaskbarConstants {
             (TaskbarStrings.Presets.barHeightMedium, 34.0),
             (TaskbarStrings.Presets.barHeightLarge, 38.0),
             (TaskbarStrings.Presets.barHeightSpacious, 44.0)
+        ]
+        
+        /// Preset configurations for UI font size in settings menu.
+        public static let fontSizePresets: [(title: String, size: Double)] = [
+            (TaskbarStrings.Presets.fontSizeSmall, 10.0),
+            (TaskbarStrings.Presets.fontSizeStandard, 11.0),
+            (TaskbarStrings.Presets.fontSizeMedium, 12.0),
+            (TaskbarStrings.Presets.fontSizeLarge, 13.0),
+            (TaskbarStrings.Presets.fontSizeExtraLarge, 14.0)
+        ]
+        
+        /// Preset configurations for window icon size in settings menu.
+        public static let iconSizePresets: [(title: String, size: Double)] = [
+            (TaskbarStrings.Presets.iconSizeCompact, 14.0),
+            (TaskbarStrings.Presets.iconSizeStandard, 16.0),
+            (TaskbarStrings.Presets.iconSizeMedium, 18.0),
+            (TaskbarStrings.Presets.iconSizeLarge, 20.0),
+            (TaskbarStrings.Presets.iconSizeExtraLarge, 24.0)
         ]
     }
     

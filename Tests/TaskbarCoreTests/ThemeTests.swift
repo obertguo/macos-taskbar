@@ -10,14 +10,18 @@ final class ThemeTests: XCTestCase {
         XCTAssertTrue(theme.useTranslucency)
         XCTAssertFalse(theme.is3DBeveled)
         XCTAssertEqual(theme.buttonCornerRadius, 4.0)
+        XCTAssertEqual(theme.fontSize, TaskbarConstants.Layout.defaultFontSize)
+        XCTAssertEqual(theme.iconSize, TaskbarConstants.Layout.defaultIconSize)
     }
     
     func testRetroClassicTheme() {
-        let theme = ThemeDefinition.forStyle(.retroClassic)
+        let theme = ThemeDefinition.forStyle(.retroClassic, fontSize: 13.0, iconSize: 20.0)
         XCTAssertEqual(theme.style, .retroClassic)
         XCTAssertFalse(theme.useTranslucency)
         XCTAssertTrue(theme.is3DBeveled)
         XCTAssertEqual(theme.buttonCornerRadius, 0.0)
         XCTAssertEqual(theme.backgroundColor, .retroGray)
+        XCTAssertEqual(theme.fontSize, 13.0)
+        XCTAssertEqual(theme.iconSize, 20.0)
     }
 }

@@ -54,6 +54,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             currentStyle: settings.themeStyle,
             minButtonWidth: settings.minButtonWidth,
             barHeight: settings.barHeight,
+            fontSize: settings.fontSize,
+            iconSize: settings.iconSize,
             isNudgerEnabled: settings.enableAXNudger,
             isDockHidden: settings.hideSystemDock
         )
@@ -75,6 +77,18 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             self.settings.save()
             self.screenManager?.updateBarHeight(newHeight)
             self.appTracker?.scheduleReconcile(delay: 0.05)
+        }
+        statusMenu.onFontSizeChanged = { [weak self] newSize in
+            guard let self = self else { return }
+            self.settings.fontSize = newSize
+            self.settings.save()
+            self.screenManager?.updateFontSize(newSize)
+        }
+        statusMenu.onIconSizeChanged = { [weak self] newSize in
+            guard let self = self else { return }
+            self.settings.iconSize = newSize
+            self.settings.save()
+            self.screenManager?.updateIconSize(newSize)
         }
         statusMenu.onNudgerToggled = { [weak self] enabled in
             guard let self = self else { return }

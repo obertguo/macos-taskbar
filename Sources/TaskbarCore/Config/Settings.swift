@@ -27,6 +27,8 @@ public struct Settings: Codable, Sendable, Equatable {
     public var minButtonWidth: Double
     public var buttonSpacing: Double
     public var titleVisibilityThreshold: Double
+    public var fontSize: Double
+    public var iconSize: Double
     public var launcherAction: LauncherAction
     public var enableAXNudger: Bool
     public var hideSystemDock: Bool
@@ -38,6 +40,8 @@ public struct Settings: Codable, Sendable, Equatable {
         minButtonWidth: TaskbarConstants.Layout.defaultMinButtonWidth,
         buttonSpacing: TaskbarConstants.Layout.defaultButtonSpacing,
         titleVisibilityThreshold: TaskbarConstants.Layout.defaultTitleVisibilityThreshold,
+        fontSize: TaskbarConstants.Layout.defaultFontSize,
+        iconSize: TaskbarConstants.Layout.defaultIconSize,
         launcherAction: .spotlight,
         enableAXNudger: true,
         hideSystemDock: true
@@ -50,6 +54,8 @@ public struct Settings: Codable, Sendable, Equatable {
         minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth,
         buttonSpacing: Double = TaskbarConstants.Layout.defaultButtonSpacing,
         titleVisibilityThreshold: Double = TaskbarConstants.Layout.defaultTitleVisibilityThreshold,
+        fontSize: Double = TaskbarConstants.Layout.defaultFontSize,
+        iconSize: Double = TaskbarConstants.Layout.defaultIconSize,
         launcherAction: LauncherAction = .spotlight,
         enableAXNudger: Bool = true,
         hideSystemDock: Bool = true
@@ -60,9 +66,32 @@ public struct Settings: Codable, Sendable, Equatable {
         self.minButtonWidth = minButtonWidth
         self.buttonSpacing = buttonSpacing
         self.titleVisibilityThreshold = titleVisibilityThreshold
+        self.fontSize = fontSize
+        self.iconSize = iconSize
         self.launcherAction = launcherAction
         self.enableAXNudger = enableAXNudger
         self.hideSystemDock = hideSystemDock
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case themeStyle, barHeight, maxButtonWidth, minButtonWidth
+        case buttonSpacing, titleVisibilityThreshold, fontSize, iconSize
+        case launcherAction, enableAXNudger, hideSystemDock
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.themeStyle = try container.decodeIfPresent(ThemeStyle.self, forKey: .themeStyle) ?? .modernHybrid
+        self.barHeight = try container.decodeIfPresent(Double.self, forKey: .barHeight) ?? TaskbarConstants.Layout.defaultBarHeight
+        self.maxButtonWidth = try container.decodeIfPresent(Double.self, forKey: .maxButtonWidth) ?? TaskbarConstants.Layout.defaultMaxButtonWidth
+        self.minButtonWidth = try container.decodeIfPresent(Double.self, forKey: .minButtonWidth) ?? TaskbarConstants.Layout.defaultMinButtonWidth
+        self.buttonSpacing = try container.decodeIfPresent(Double.self, forKey: .buttonSpacing) ?? TaskbarConstants.Layout.defaultButtonSpacing
+        self.titleVisibilityThreshold = try container.decodeIfPresent(Double.self, forKey: .titleVisibilityThreshold) ?? TaskbarConstants.Layout.defaultTitleVisibilityThreshold
+        self.fontSize = try container.decodeIfPresent(Double.self, forKey: .fontSize) ?? TaskbarConstants.Layout.defaultFontSize
+        self.iconSize = try container.decodeIfPresent(Double.self, forKey: .iconSize) ?? TaskbarConstants.Layout.defaultIconSize
+        self.launcherAction = try container.decodeIfPresent(LauncherAction.self, forKey: .launcherAction) ?? .spotlight
+        self.enableAXNudger = try container.decodeIfPresent(Bool.self, forKey: .enableAXNudger) ?? true
+        self.hideSystemDock = try container.decodeIfPresent(Bool.self, forKey: .hideSystemDock) ?? true
     }
     
     private static let userDefaultsKey = "com.taskbar.settings"
