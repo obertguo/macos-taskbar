@@ -1,4 +1,4 @@
-// Sources/TaskbarCore/Config/Theme.swift
+// Sources/TaskbarCore/Config/Theme/ThemeDefinition.swift
 
 import Foundation
 
@@ -40,6 +40,10 @@ public struct ThemePalette: Codable, Equatable, Sendable {
     public let bevelHighlight: RGBAColor?
     public let bevelShadow: RGBAColor?
     public let bevelDarkShadow: RGBAColor?
+    public let startButtonNormal: RGBAColor?
+    public let startButtonHover: RGBAColor?
+    public let startButtonPressed: RGBAColor?
+    public let startButtonText: RGBAColor?
 
     public init(
         backgroundColor: RGBAColor,
@@ -53,7 +57,11 @@ public struct ThemePalette: Codable, Equatable, Sendable {
         buttonBorderPressed: RGBAColor,
         bevelHighlight: RGBAColor? = nil,
         bevelShadow: RGBAColor? = nil,
-        bevelDarkShadow: RGBAColor? = nil
+        bevelDarkShadow: RGBAColor? = nil,
+        startButtonNormal: RGBAColor? = nil,
+        startButtonHover: RGBAColor? = nil,
+        startButtonPressed: RGBAColor? = nil,
+        startButtonText: RGBAColor? = nil
     ) {
         self.backgroundColor = backgroundColor
         self.topBorderColor = topBorderColor
@@ -67,6 +75,10 @@ public struct ThemePalette: Codable, Equatable, Sendable {
         self.bevelHighlight = bevelHighlight
         self.bevelShadow = bevelShadow
         self.bevelDarkShadow = bevelDarkShadow
+        self.startButtonNormal = startButtonNormal
+        self.startButtonHover = startButtonHover
+        self.startButtonPressed = startButtonPressed
+        self.startButtonText = startButtonText
     }
 }
 
@@ -108,10 +120,17 @@ public struct ThemeDefinition: Codable, Equatable, Sendable {
     public let metrics: ThemeMetrics
     public let materials: ThemeMaterials
     
-    // Legacy & convenience accessors for seamless AppKit view consumption
+    // Style enum mapping for backward compatibility and fast categorization
     public var style: ThemeStyle {
-        (id == ThemeDefinition.retroClassic.id) ? .retroClassic : .modernHybrid
+        switch id {
+        case RetroClassicTheme.id: return .retroClassic
+        case WindowsXPLunaTheme.id: return .windowsXPLuna
+        case DarkMinimalTheme.id: return .darkMinimal
+        default: return .modernHybrid
+        }
     }
+    
+    // Convenience token accessors
     public var useTranslucency: Bool { materials.useTranslucency }
     public var backgroundColor: RGBAColor { palette.backgroundColor }
     public var topBorderColor: RGBAColor? { palette.topBorderColor }
@@ -166,59 +185,22 @@ public struct ThemeDefinition: Codable, Equatable, Sendable {
         )
     }
     
-    // Built-in Static Presets
-    public static let modernHybrid = ThemeDefinition(
-        id: "modern-hybrid",
-        displayName: TaskbarStrings.Themes.modernHybrid,
-        isCustom: false,
-        palette: ThemePalette(
-            backgroundColor: .clear,
-            topBorderColor: RGBAColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.15),
-            textNormal: RGBAColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.95),
-            textPressed: .white,
-            buttonNormal: RGBAColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.08),
-            buttonHover: RGBAColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.16),
-            buttonPressed: RGBAColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.28),
-            buttonBorderNormal: RGBAColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.12),
-            buttonBorderPressed: RGBAColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 0.6)
-        ),
-        metrics: ThemeMetrics(
-            buttonCornerRadius: 4.0,
-            is3DBeveled: false,
-            fontBold: false,
-            fontSize: TaskbarConstants.Layout.defaultFontSize,
-            iconSize: TaskbarConstants.Layout.defaultIconSize
-        ),
-        materials: ThemeMaterials(useTranslucency: true)
-    )
+    // Static Built-in Presets
+    public static var modernHybrid: ThemeDefinition {
+        ModernHybridTheme.definition
+    }
 
-    public static let retroClassic = ThemeDefinition(
-        id: "retro-classic",
-        displayName: TaskbarStrings.Themes.retroClassic,
-        isCustom: false,
-        palette: ThemePalette(
-            backgroundColor: .retroGray,
-            topBorderColor: .white,
-            textNormal: .black,
-            textPressed: .black,
-            buttonNormal: .retroGray,
-            buttonHover: .retroGray,
-            buttonPressed: .retroLightGray,
-            buttonBorderNormal: .retroDarkShadow,
-            buttonBorderPressed: .black,
-            bevelHighlight: .white,
-            bevelShadow: .retroShadow,
-            bevelDarkShadow: .retroDarkShadow
-        ),
-        metrics: ThemeMetrics(
-            buttonCornerRadius: 0.0,
-            is3DBeveled: true,
-            fontBold: true,
-            fontSize: TaskbarConstants.Layout.defaultFontSize,
-            iconSize: TaskbarConstants.Layout.defaultIconSize
-        ),
-        materials: ThemeMaterials(useTranslucency: false)
-    )
+    public static var retroClassic: ThemeDefinition {
+        RetroClassicTheme.definition
+    }
+
+    public static var windowsXPLuna: ThemeDefinition {
+        WindowsXPLunaTheme.definition
+    }
+
+    public static var darkMinimal: ThemeDefinition {
+        DarkMinimalTheme.definition
+    }
     
     /// Factory helper mapping style string/id to definition.
     public static func forStyle(
@@ -231,6 +213,10 @@ public struct ThemeDefinition: Codable, Equatable, Sendable {
             return modernHybrid.withCustomMetrics(fontSize: fontSize, iconSize: iconSize)
         case .retroClassic:
             return retroClassic.withCustomMetrics(fontSize: fontSize, iconSize: iconSize)
+        case .windowsXPLuna:
+            return windowsXPLuna.withCustomMetrics(fontSize: fontSize, iconSize: iconSize)
+        case .darkMinimal:
+            return darkMinimal.withCustomMetrics(fontSize: fontSize, iconSize: iconSize)
         }
     }
 }

@@ -5,11 +5,15 @@ import Foundation
 public enum ThemeStyle: String, Codable, Sendable, CaseIterable {
     case modernHybrid
     case retroClassic
+    case windowsXPLuna
+    case darkMinimal
     
     public var displayName: String {
         switch self {
         case .modernHybrid: return TaskbarStrings.Themes.modernHybrid
         case .retroClassic: return TaskbarStrings.Themes.retroClassic
+        case .windowsXPLuna: return TaskbarStrings.Themes.windowsXPLuna
+        case .darkMinimal: return TaskbarStrings.Themes.darkMinimal
         }
     }
 }
@@ -25,15 +29,19 @@ public struct Settings: Codable, Sendable, Equatable {
     
     public var themeStyle: ThemeStyle {
         get {
-            if activeThemeId == ThemeDefinition.retroClassic.id {
-                return .retroClassic
+            switch activeThemeId {
+            case ThemeDefinition.retroClassic.id: return .retroClassic
+            case ThemeDefinition.windowsXPLuna.id: return .windowsXPLuna
+            case ThemeDefinition.darkMinimal.id: return .darkMinimal
+            default: return .modernHybrid
             }
-            return .modernHybrid
         }
         set {
             switch newValue {
             case .modernHybrid: activeThemeId = ThemeDefinition.modernHybrid.id
             case .retroClassic: activeThemeId = ThemeDefinition.retroClassic.id
+            case .windowsXPLuna: activeThemeId = ThemeDefinition.windowsXPLuna.id
+            case .darkMinimal: activeThemeId = ThemeDefinition.darkMinimal.id
             }
         }
     }
@@ -138,7 +146,12 @@ public struct Settings: Codable, Sendable, Equatable {
         if let themeId = try container.decodeIfPresent(String.self, forKey: .activeThemeId) {
             self.activeThemeId = themeId
         } else if let style = try container.decodeIfPresent(ThemeStyle.self, forKey: .themeStyle) {
-            self.activeThemeId = (style == .retroClassic) ? ThemeDefinition.retroClassic.id : ThemeDefinition.modernHybrid.id
+            switch style {
+            case .modernHybrid: self.activeThemeId = ThemeDefinition.modernHybrid.id
+            case .retroClassic: self.activeThemeId = ThemeDefinition.retroClassic.id
+            case .windowsXPLuna: self.activeThemeId = ThemeDefinition.windowsXPLuna.id
+            case .darkMinimal: self.activeThemeId = ThemeDefinition.darkMinimal.id
+            }
         } else {
             self.activeThemeId = ThemeDefinition.modernHybrid.id
         }

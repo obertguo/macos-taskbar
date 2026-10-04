@@ -144,10 +144,9 @@ public final class TaskButton: NSView {
     public override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         
-        switch theme.style {
-        case .retroClassic:
+        if theme.is3DBeveled {
             drawRetro(dirtyRect)
-        case .modernHybrid:
+        } else {
             drawHybrid(dirtyRect)
         }
     }

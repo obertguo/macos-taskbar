@@ -1,4 +1,4 @@
-// Sources/TaskbarCore/Config/ThemeRegistry.swift
+// Sources/TaskbarCore/Config/Theme/ThemeRegistry.swift
 
 import Foundation
 
@@ -16,6 +16,8 @@ public final class ThemeRegistry: @unchecked Sendable {
     private func registerBuiltIns() {
         register(theme: ThemeDefinition.modernHybrid)
         register(theme: ThemeDefinition.retroClassic)
+        register(theme: ThemeDefinition.windowsXPLuna)
+        register(theme: ThemeDefinition.darkMinimal)
     }
     
     public func register(theme: ThemeDefinition) {

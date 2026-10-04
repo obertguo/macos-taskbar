@@ -120,7 +120,7 @@ public final class ScreenManager {
     }
     
     public func updateThemeStyle(_ style: ThemeStyle) {
-        updateTheme(themeId: (style == .retroClassic) ? ThemeDefinition.retroClassic.id : ThemeDefinition.modernHybrid.id)
+        updateTheme(themeId: ThemeDefinition.forStyle(style).id)
     }
     
     @objc private func handleScreenParametersChanged() {

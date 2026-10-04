@@ -135,5 +135,11 @@ public enum TaskbarStrings {
         
         /// User-facing display name for the Retro Classic Windows 95 theme.
         public static let retroClassic = "Retro Classic"
+        
+        /// User-facing display name for the Windows XP Luna theme.
+        public static let windowsXPLuna = "Windows XP Luna"
+        
+        /// User-facing display name for the Dark Minimal theme.
+        public static let darkMinimal = "Dark Minimal"
     }
 }

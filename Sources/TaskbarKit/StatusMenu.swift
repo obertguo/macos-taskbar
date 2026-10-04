@@ -56,13 +56,13 @@ public final class StatusMenu {
     
     public func updateStyle(_ style: ThemeStyle) {
         self.currentStyle = style
-        self.currentThemeId = (style == .retroClassic) ? ThemeDefinition.retroClassic.id : ThemeDefinition.modernHybrid.id
+        self.currentThemeId = ThemeDefinition.forStyle(style).id
         setupMenu()
     }
     
     public func updateThemeId(_ themeId: String) {
         self.currentThemeId = themeId
-        self.currentStyle = (themeId == ThemeDefinition.retroClassic.id) ? .retroClassic : .modernHybrid
+        self.currentStyle = ThemeRegistry.shared.theme(for: themeId).style
         setupMenu()
     }
     
@@ -260,16 +260,17 @@ public final class StatusMenu {
     @objc private func handleThemeSelection(_ sender: NSMenuItem) {
         if let themeId = sender.representedObject as? String {
             self.currentThemeId = themeId
-            let style = (themeId == ThemeDefinition.retroClassic.id) ? ThemeStyle.retroClassic : ThemeStyle.modernHybrid
-            self.currentStyle = style
+            let theme = ThemeRegistry.shared.theme(for: themeId)
+            self.currentStyle = theme.style
             setupMenu()
             onThemeIdChanged?(themeId)
-            onThemeChanged?(style)
+            onThemeChanged?(theme.style)
         } else if let style = sender.representedObject as? ThemeStyle {
             self.currentStyle = style
-            self.currentThemeId = (style == .retroClassic) ? ThemeDefinition.retroClassic.id : ThemeDefinition.modernHybrid.id
+            let theme = ThemeDefinition.forStyle(style)
+            self.currentThemeId = theme.id
             setupMenu()
-            onThemeIdChanged?(currentThemeId)
+            onThemeIdChanged?(theme.id)
             onThemeChanged?(style)
         }
     }
