@@ -40,10 +40,15 @@ public final class TestFixtureApp: @unchecked Sendable {
     public static func terminateApp(appName: String = "TextEdit", bundleIdentifier: String = "com.apple.TextEdit") {
         for app in NSWorkspace.shared.runningApplications where app.bundleIdentifier == bundleIdentifier {
             app.terminate()
+            if !app.isTerminated {
+                app.forceTerminate()
+            }
         }
         let script = """
         if application "\(appName)" is running then
-            tell application "\(appName)" to quit saving no
+            try
+                tell application "\(appName)" to quit saving no
+            end try
         end if
         """
         let process = Process()
@@ -66,7 +71,9 @@ public final class TestFixtureApp: @unchecked Sendable {
         let script = """
         tell application "TextEdit"
             activate
-            close every document saving no
+            try
+                close every document saving no
+            end try
             make new document with properties {name:"\(documentTitle)"}
         end tell
         """

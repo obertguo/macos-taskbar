@@ -111,6 +111,7 @@ check_accessibility() {
 # 3. Cleanup Dangling Fixtures
 cleanup_fixtures() {
     osascript -e "if application \"${TEST_FIXTURE_APP}\" is running then tell application \"${TEST_FIXTURE_APP}\" to quit saving no" 2>/dev/null || true
+    pkill -9 -x "${TEST_FIXTURE_APP}" 2>/dev/null || true
 }
 
 # Run pre-flight checks
