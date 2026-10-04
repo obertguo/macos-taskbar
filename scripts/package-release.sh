@@ -9,17 +9,15 @@
 # ==============================================================================
 set -euo pipefail
 
-# Locate project directories
+# Locate project directories and load common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-CONFIG_FILE="${PROJECT_ROOT}/config/build.env"
-DIST_DIR="${PROJECT_ROOT}/dist"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/common.sh"
 
-# Fail fast if configuration file is missing
-if [[ ! -f "${CONFIG_FILE}" ]]; then
-    echo "Error: Required configuration file '${CONFIG_FILE}' is missing!" >&2
-    exit 1
-fi
+load_build_env
+
+CONFIG_FILE="${BUILD_CONFIG_FILE}"
+DIST_DIR="${PROJECT_ROOT}/dist"
 
 BUMP_TYPE="none"
 SKIP_TESTS=false

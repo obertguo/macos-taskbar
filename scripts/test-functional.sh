@@ -1,39 +1,15 @@
 #!/usr/bin/env bash
 # scripts/test-functional.sh
 # Automated functional, edge-case, and stress testing harness for Taskbar.
-# Configuration and thresholds are sourced dynamically from config/build.env.
+# Configuration and thresholds are sourced dynamically via scripts/common.sh.
 set -euo pipefail
 
-# ANSI color codes
-BOLD="\033[1m"
-GREEN="\033[0;32m"
-YELLOW="\033[0;33m"
-RED="\033[0;31m"
-CYAN="\033[0;36m"
-NC="\033[0m"
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-
-# Fail fast if configuration file is missing
-CONFIG_FILE="${PROJECT_ROOT}/config/build.env"
-if [[ ! -f "${CONFIG_FILE}" ]]; then
-    echo -e "${RED}Error: Required configuration file '${CONFIG_FILE}' is missing!${NC}" >&2
-    echo "Please provide config/build.env before running test-functional.sh." >&2
-    exit 1
-fi
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/common.sh"
 
 # Source single-source-of-truth configuration
-# shellcheck source=/dev/null
-source "${CONFIG_FILE}"
-
-# Configuration variables with fallbacks
-APP_NAME="${APP_NAME:-Taskbar}"
-MIN_MACOS_VERSION="${MIN_MACOS_VERSION:-14.0}"
-TEST_MAX_RSS_MB="${TEST_MAX_RSS_MB:-45.0}"
-TEST_MAX_CPU_PERCENT="${TEST_MAX_CPU_PERCENT:-2.0}"
-TEST_AX_AUTH_TIMEOUT_SECONDS="${TEST_AX_AUTH_TIMEOUT_SECONDS:-15}"
-TEST_FIXTURE_APP="${TEST_FIXTURE_APP:-TextEdit}"
+load_build_env
 
 # Default test mode
 MODE="all"
@@ -81,27 +57,17 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            echo -e "${RED}Error: Unknown option '$1'${NC}" >&2
+            log_error "Unknown option '$1'"
             usage
             exit 1
             ;;
     esac
 done
 
-echo -e "${BOLD}${CYAN}======================================================${NC}"
-echo -e "${BOLD}${CYAN}   ${APP_NAME} Automated Test Runner (Mode: ${MODE})       ${NC}"
-echo -e "${BOLD}${CYAN}======================================================${NC}"
+log_header "${APP_NAME} Automated Test Runner (Mode: ${MODE})"
 
 # 1. Pre-flight Checks: macOS Version against MIN_MACOS_VERSION from build.env
-CURRENT_OS_VERSION=$(sw_vers -productVersion)
-CURRENT_MAJOR=$(echo "${CURRENT_OS_VERSION}" | cut -d. -f1)
-MIN_MAJOR=$(echo "${MIN_MACOS_VERSION}" | cut -d. -f1)
-
-if [[ "${CURRENT_MAJOR}" -lt "${MIN_MAJOR}" ]]; then
-    echo -e "${RED}Error: ${APP_NAME} requires macOS ${MIN_MACOS_VERSION} or later (detected macOS ${CURRENT_OS_VERSION}).${NC}" >&2
-    exit 1
-fi
-echo -e "${GREEN}✓ OS check passed:${NC} macOS ${CURRENT_OS_VERSION} (required: >= ${MIN_MACOS_VERSION})"
+check_min_macos_version "${MIN_MACOS_VERSION}"
 
 # 2. Pre-flight Checks: Accessibility Permissions
 check_accessibility() {
@@ -111,7 +77,7 @@ check_accessibility() {
     
     if [[ "${is_trusted}" != "true" ]]; then
         echo -e "${YELLOW}NOT GRANTED${NC}"
-        echo -e "${YELLOW}==> Prompting for Accessibility permission in System Settings...${NC}"
+        log_warn "Prompting for Accessibility permission in System Settings..."
         
         # Trigger macOS System Settings prompt
         swift -e '
@@ -128,17 +94,18 @@ check_accessibility() {
             waited=$((waited + 1))
             is_trusted=$(osascript -e 'tell application "System Events" to return UI elements enabled' 2>/dev/null || echo "false")
             if [[ "${is_trusted}" == "true" ]]; then
-                echo -e "\n${GREEN}✓ Accessibility permission granted!${NC}"
+                echo ""
+                log_success "Accessibility permission granted!"
                 return 0
             fi
             echo -n "."
         done
         echo ""
-        echo -e "${RED}Error: Accessibility permissions not granted within ${TEST_AX_AUTH_TIMEOUT_SECONDS} seconds.${NC}" >&2
-        echo -e "${RED}Please grant permissions in System Settings > Privacy & Security > Accessibility.${NC}" >&2
+        log_error "Accessibility permissions not granted within ${TEST_AX_AUTH_TIMEOUT_SECONDS} seconds."
+        echo "Please grant permissions in System Settings > Privacy & Security > Accessibility." >&2
         exit 1
     fi
-    echo -e "${GREEN}✓ GRANTED${NC}"
+    log_success "Accessibility permissions GRANTED"
 }
 
 # 3. Cleanup Dangling Fixtures
@@ -158,17 +125,8 @@ trap cleanup_fixtures EXIT
 cd "${PROJECT_ROOT}"
 
 # 4. Measure Baseline Memory
-get_taskbar_rss_kb() {
-    local pid
-    pid=$(pgrep -x "${APP_NAME}" || pgrep -x "${APP_NAME}App" || echo "")
-    if [[ -n "${pid}" ]]; then
-        ps -o rss= -p "${pid}" | tr -d ' '
-    else
-        echo "0"
-    fi
-}
-
-BASELINE_RSS=$(get_taskbar_rss_kb)
+APP_PID=$(find_app_pid "${APP_NAME}")
+BASELINE_RSS=$(get_process_rss_kb "${APP_PID}")
 
 # 5. Run Test Target
 START_TIME=$(date +%s)
@@ -176,28 +134,28 @@ FAILED=0
 
 case "${MODE}" in
     quick)
-        echo -e "\n${BOLD}==> Running Quick Window Lifecycle Suite (TC-FUNC-*)...${NC}"
+        log_info "Running Quick Window Lifecycle Suite (TC-FUNC-*)..."
         swift test --filter WindowLifecycleIntegrationTests || FAILED=1
         ;;
     edge-cases)
-        echo -e "\n${BOLD}==> Running Edge Cases Suite (TC-EDGE-*)...${NC}"
+        log_info "Running Edge Cases Suite (TC-EDGE-*)..."
         swift test --filter EdgeCasesIntegrationTests || FAILED=1
         ;;
     stress)
-        echo -e "\n${BOLD}==> Running Stress & Capacity Suite (TC-STRESS-*, TC-PERF-*)...${NC}"
+        log_info "Running Stress & Capacity Suite (TC-STRESS-*, TC-PERF-*)..."
         swift test --filter StressIntegrationTests || FAILED=1
         ;;
     all)
-        echo -e "\n${BOLD}==> Running Core Unit Tests (TC-UNIT-*)...${NC}"
+        log_info "Running Core Unit Tests (TC-UNIT-*)..."
         swift test --filter TaskbarCoreTests || FAILED=1
         
-        echo -e "\n${BOLD}==> Running Edge Cases Suite (TC-EDGE-*)...${NC}"
+        log_info "Running Edge Cases Suite (TC-EDGE-*)..."
         swift test --filter EdgeCasesIntegrationTests || FAILED=1
         
-        echo -e "\n${BOLD}==> Running Stress Suite (TC-STRESS-*)...${NC}"
+        log_info "Running Stress Suite (TC-STRESS-*)..."
         swift test --filter StressIntegrationTests || FAILED=1
         
-        echo -e "\n${BOLD}==> Running Functional Lifecycle Suite (TC-FUNC-*)...${NC}"
+        log_info "Running Functional Lifecycle Suite (TC-FUNC-*)..."
         swift test --filter WindowLifecycleIntegrationTests || FAILED=1
         ;;
 esac
@@ -206,11 +164,10 @@ END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
 
 # 6. Memory & Performance Verification
-POST_RSS=$(get_taskbar_rss_kb)
+APP_PID=$(find_app_pid "${APP_NAME}")
+POST_RSS=$(get_process_rss_kb "${APP_PID}")
 
-echo -e "\n${BOLD}${CYAN}======================================================${NC}"
-echo -e "${BOLD}${CYAN}   Test Execution Summary                            ${NC}"
-echo -e "${BOLD}${CYAN}======================================================${NC}"
+log_header "Test Execution Summary"
 echo -e "Mode:          ${BOLD}${MODE}${NC}"
 echo -e "Duration:      ${DURATION}s"
 
@@ -221,21 +178,20 @@ if [[ "${BASELINE_RSS}" != "0" ]]; then
     
     # Assert Peak RSS < TEST_MAX_RSS_MB
     if (( $(echo "${POST_MB} > ${TEST_MAX_RSS_MB}" | bc -l) )); then
-        echo -e "${RED}✗ Memory Warning: RSS exceeded ${TEST_MAX_RSS_MB} MB threshold (${POST_MB} MB)${NC}" >&2
+        log_error "Memory Warning: RSS exceeded ${TEST_MAX_RSS_MB} MB threshold (${POST_MB} MB)"
         FAILED=1
     else
-        echo -e "${GREEN}✓ Memory Bound: RSS is within ${TEST_MAX_RSS_MB} MB bound${NC}"
+        log_success "Memory Bound: RSS is within ${TEST_MAX_RSS_MB} MB bound"
     fi
     
     # Sample CPU usage
-    local_pid=$(pgrep -x "${APP_NAME}" || pgrep -x "${APP_NAME}App" || echo "")
-    if [[ -n "${local_pid}" ]]; then
-        CPU_USAGE=$(ps -o %cpu= -p "${local_pid}" | tr -d ' ' || echo "0.0")
+    if [[ -n "${APP_PID}" ]]; then
+        CPU_USAGE=$(get_process_cpu_percent "${APP_PID}")
         echo -e "${APP_NAME} CPU:   ${CPU_USAGE}%"
         if (( $(echo "${CPU_USAGE} > ${TEST_MAX_CPU_PERCENT}" | bc -l) )); then
-            echo -e "${YELLOW}⚠ CPU Notice: ${APP_NAME} CPU during test was ${CPU_USAGE}% (threshold: ${TEST_MAX_CPU_PERCENT}%)${NC}"
+            log_warn "${APP_NAME} CPU during test was ${CPU_USAGE}% (threshold: ${TEST_MAX_CPU_PERCENT}%)"
         else
-            echo -e "${GREEN}✓ Idle CPU: CPU usage is well within bounds (${CPU_USAGE}% <= ${TEST_MAX_CPU_PERCENT}%)${NC}"
+            log_success "Idle CPU: CPU usage is well within bounds (${CPU_USAGE}% <= ${TEST_MAX_CPU_PERCENT}%)"
         fi
     fi
 fi

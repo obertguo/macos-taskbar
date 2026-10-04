@@ -2,19 +2,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-CONFIG_FILE="${PROJECT_ROOT}/config/build.env"
-
-# Fail fast if configuration file is missing
-if [[ ! -f "${CONFIG_FILE}" ]]; then
-    echo "Error: Required configuration file '${CONFIG_FILE}' is missing!" >&2
-    echo "Please provide a valid config/build.env file before building." >&2
-    exit 1
-fi
-
-# Source configuration
 # shellcheck source=/dev/null
-source "${CONFIG_FILE}"
+source "${SCRIPT_DIR}/common.sh"
+
+load_build_env
 
 # Fail fast if any required setting is empty
 REQUIRED_VARS=("APP_NAME" "BUNDLE_ID" "APP_VERSION" "BUILD_NUMBER" "MIN_MACOS_VERSION" "INSTALL_DIR")
@@ -83,4 +74,4 @@ cat <<EOF > "${INFO_PLIST_FILE}"
 </plist>
 EOF
 
-echo "==> Successfully synchronized config/build.env -> BuildConfiguration.swift & Info.plist"
+log_success "Successfully synchronized config/build.env -> BuildConfiguration.swift & Info.plist"

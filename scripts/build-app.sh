@@ -1,24 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Locate project root directory
+# Locate project root directory and load common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/common.sh"
 
-# Fail fast if configuration file is missing
-CONFIG_FILE="${PROJECT_ROOT}/config/build.env"
-if [[ ! -f "${CONFIG_FILE}" ]]; then
-    echo "Error: Required configuration file '${CONFIG_FILE}' is missing!" >&2
-    echo "Please provide config/build.env before running build-app.sh." >&2
-    exit 1
-fi
+# Sourcing build configuration
+load_build_env
 
 # Synchronize BuildConfiguration.swift and Info.plist from build.env
 "${SCRIPT_DIR}/generate-config.sh"
-
-# Sourcing build configuration
-# shellcheck source=/dev/null
-source "${CONFIG_FILE}"
 
 INSTALL_FLAG=false
 BUILD_CONFIG="release"

@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Locate project directories
+# Locate project directories and load common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-CONFIG_DIR="${PROJECT_ROOT}/config"
-BUILD_CONFIG="${CONFIG_DIR}/build.env"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/common.sh"
+
+load_build_env
+
 GITLAB_CONFIG="${CONFIG_DIR}/gitlab.env"
 DIST_DIR="${PROJECT_ROOT}/dist"
 
