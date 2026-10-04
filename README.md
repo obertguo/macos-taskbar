@@ -10,13 +10,16 @@ Designed for peak responsiveness, ~0.0% idle CPU, and rock-solid stability using
 
 - **Multi-Display & Spaces Aware:** Every connected display gets its own dedicated taskbar showing only windows physically residing on that display on the active Space.
 - **1-to-1 Window Task Buttons:** Every open standard window gets a dedicated button displaying its application icon and window title.
+- **In-Place View Recycling:** Updates reuse existing button subviews in place, eliminating transient memory allocations, heap churn, and mouse tracking area flicker.
 - **Windows-Style Click Interactions:**
   - Click unfocused window button $\rightarrow$ Raises and focuses the window.
   - Click already-focused window button $\rightarrow$ Minimizes the window.
   - Click minimized window button $\rightarrow$ Restores and focuses the window.
   - Right-click $\rightarrow$ Context menu with Minimize/Restore, Close Window, and Quit Application.
 - **Button Overflow Handling:** When window density is high, buttons shrink gracefully down to `minButtonWidth` (80pt default), after which an interactive overflow chevron (`»`) appears with a popup menu to activate hidden windows.
-- **Dual Visual Styles (Hybrid & Retro):**
+- **Data-Driven Theme Registry:**
+  - Pure token-based theme architecture (`ThemeDefinition`) decoupling colors, metrics, and visual materials into structured `Codable` models (`ThemePalette`, `ThemeMetrics`, `ThemeMaterials`).
+  - Supports importing and exporting JSON theme definitions at runtime.
   - **Modern Hybrid:** Native macOS frosted glass vibrancy (`NSVisualEffectView`), subtle rounded pill buttons, and `SF Pro` system typography.
   - **Retro Classic:** Windows 95/98 style with `#C0C0C0` solid background, 3D raised/sunken beveled borders, and classic typography.
   - Switchable on-the-fly via the menu bar status icon.
@@ -25,6 +28,7 @@ Designed for peak responsiveness, ~0.0% idle CPU, and rock-solid stability using
 - **Full-Screen Space Suppression:** Taskbar panels automatically hide on native macOS full-screen spaces (keynote presentations, full-screen video, games).
 - **Status Menu Customization:** Adjust Theme, Taskbar Height (26–44pt), Button Width / Overflow Threshold (28–120pt), Font Size (10–14pt), and Icon Size (14–24pt) dynamically without restarting.
 - **Minimalist Start Button:** Quick-launches your preferred application launcher (Spotlight via Command+Space keystroke, Raycast, or custom path).
+- **Unified Diagnostic Logging:** Apple unified `os.Logger` integration categorized across `Lifecycle`, `Tracking`, `WorkArea`, `Dock`, and `UI` subsystems for low-overhead production diagnostics.
 
 ---
 
@@ -40,8 +44,24 @@ Designed for peak responsiveness, ~0.0% idle CPU, and rock-solid stability using
 # Build release bundle, sign, and install to ~/Applications/Taskbar.app
 ./scripts/build-app.sh --install
 
-# Or run automated unit tests
+# Or run automated test suites
 swift test
+```
+
+### Automated Testing & Benchmarks
+Taskbar includes a 3-tier test harness with automated memory and CPU benchmarking:
+```bash
+# Fast functional window lifecycle checks
+./scripts/test-functional.sh --quick
+
+# Edge-case suites (0x0 frames, sheets, debounce, multi-screen)
+./scripts/test-functional.sh --edge-cases
+
+# Stress & capacity suite (100-window burst, chevron overflow, button recycling)
+./scripts/test-functional.sh --stress
+
+# Run all test suites + resident memory (<45 MB RSS) and CPU benchmarks
+./scripts/test-functional.sh --all
 ```
 
 ### Packaging & Publishing Releases
@@ -72,24 +92,29 @@ If the Dock ever remains hidden (e.g., following a force kill during development
 
 For in-depth guides intended for human developers and AI coding agents:
 
-- [**Changelog & Release Notes**](CHANGELOG.md): Release history and feature log for v0.1.0.
-- [**Architecture & Concurrency Guide**](docs/v0.1.0/ARCHITECTURE.md): Threading model, AX concurrency, non-blocking UI, and data flow.
-- [**Build & Release Guide**](docs/v0.1.0/BUILD_AND_RELEASE.md): Xcode configuration, code signing identities, and release packaging.
-- [**Configuration Reference**](docs/v0.1.0/CONFIGURATION.md): Centralized build settings (`config/build.env`) and runtime user preferences (`Settings.swift`).
-- [**Testing & Verification**](docs/v0.1.0/TESTING.md): Unit test specifications, mock window system harness, and manual verification checklists.
-- [**Codebase Conventions & Best Practices**](docs/v0.1.0/CONVENTIONS.md): Architectural boundaries, threading invariants, constants management, and safety protocols.
+- [**Changelog & Release Notes**](CHANGELOG.md): Release history and feature log for v0.1.1.
+- [**Architecture & Concurrency Guide**](docs/v0.1.1/ARCHITECTURE.md): SPM target hierarchy (`TaskbarCore`, `TaskbarKit`, `TaskbarApp`), threading model, AX concurrency, and view recycling.
+- [**Build & Release Guide**](docs/v0.1.1/BUILD_AND_RELEASE.md): Compilation, code signing, installation, testing, and release packaging.
+- [**Configuration Reference**](docs/v0.1.1/CONFIGURATION.md): Centralized build settings (`config/build.env`), common shell utilities, and JSON theme specifications.
+- [**Testing & Verification Guide**](docs/v0.1.1/TESTING.md): 3-tier testing pyramid, fixture automation, runner modes, and resource benchmarking.
+- [**Test Specifications Catalog**](docs/v0.1.1/TEST_SPECIFICATIONS.md): Complete test taxonomy (`TC-FUNC-*`, `TC-EDGE-*`, `TC-STRESS-*`, `TC-PERF-*`, `TC-UNIT-*`) with requirement traceability.
+- [**Codebase Conventions & Best Practices**](docs/v0.1.1/CONVENTIONS.md): Architectural boundaries, threading invariants, constants management, and safety protocols.
 
 ---
 
 ## Engineering Principles
 
-1. **Performance First:**
+1. **Modular Architecture & Strict Decoupling:**
+   - **`TaskbarCore`:** Pure Swift models, geometry math, layout solvers, logging, and data-driven theme registry. Zero AppKit/AX dependencies.
+   - **`TaskbarKit`:** AppKit engine, AX thread, observer mechanics, and view recycling.
+   - **`TaskbarApp`:** Minimal executable wrapper.
+2. **Performance First:**
    - Pure event-driven updates via `NSWorkspace` and `AXObserver` notifications; zero background polling timers.
+   - In-place view recycling (`buttonMap`) eliminates subview allocation thrashing during window changes.
    - Dedicated background AX thread with timeouts (~0.3s) ensures hung third-party apps never freeze the UI.
-   - 16x16 application icons are cached per bundle identifier.
-   - Target footprint: <40 MB RAM, ~0.0% idle CPU.
-2. **Pragmatic Extensibility (No Over-Engineering):**
-   - Pure Swift value types (`struct`) for models and settings.
-   - Clean, direct AppKit drawing without bloated abstraction layers.
+   - Application icons cached in memory per bundle identifier.
+   - Target footprint: $< 45\text{ MB}$ RSS under load, $\sim 0.0\%$ idle CPU.
+3. **Single Source of Truth:**
+   - All build parameters, OS minimums, and test thresholds reside in [`config/build.env`](config/build.env).
+   - Shell scripts share utilities, error traps, and colors via [`scripts/common.sh`](scripts/common.sh).
    - All layout dimensions, timeouts, and strings are centralized in [`TaskbarConstants.swift`](Sources/TaskbarCore/Config/TaskbarConstants.swift) and [`TaskbarStrings.swift`](Sources/TaskbarCore/Config/TaskbarStrings.swift).
-   - Architectural invariants documented in [`CONVENTIONS.md`](docs/v0.1.0/CONVENTIONS.md).
