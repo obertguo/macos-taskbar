@@ -8,7 +8,8 @@ let package = Package(
     ],
     products: [
         .executable(name: "TaskbarApp", targets: ["TaskbarApp"]),
-        .library(name: "TaskbarCore", targets: ["TaskbarCore"])
+        .library(name: "TaskbarCore", targets: ["TaskbarCore"]),
+        .library(name: "TaskbarKit", targets: ["TaskbarKit"])
     ],
     targets: [
         .target(
@@ -16,9 +17,18 @@ let package = Package(
             dependencies: [],
             path: "Sources/TaskbarCore"
         ),
+        .target(
+            name: "TaskbarKit",
+            dependencies: ["TaskbarCore"],
+            path: "Sources/TaskbarKit",
+            linkerSettings: [
+                .linkedFramework("AppKit"),
+                .linkedFramework("ApplicationServices")
+            ]
+        ),
         .executableTarget(
             name: "TaskbarApp",
-            dependencies: ["TaskbarCore"],
+            dependencies: ["TaskbarCore", "TaskbarKit"],
             path: "Sources/TaskbarApp",
             linkerSettings: [
                 .linkedFramework("AppKit"),
@@ -29,6 +39,11 @@ let package = Package(
             name: "TaskbarCoreTests",
             dependencies: ["TaskbarCore"],
             path: "Tests/TaskbarCoreTests"
+        ),
+        .testTarget(
+            name: "TaskbarIntegrationTests",
+            dependencies: ["TaskbarKit", "TaskbarCore"],
+            path: "Tests/TaskbarIntegrationTests"
         )
     ]
 )

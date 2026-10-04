@@ -4,6 +4,7 @@ import AppKit
 import Darwin
 import Dispatch
 import TaskbarCore
+import TaskbarKit
 
 // Install C atexit() hook for fail-safe Dock restoration
 atexit {

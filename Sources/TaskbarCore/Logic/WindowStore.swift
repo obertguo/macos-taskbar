@@ -99,6 +99,11 @@ public final class WindowStore: @unchecked Sendable {
         windows.count
     }
     
+    /// Returns all tracked windows across all screens sorted by stable open order.
+    public var allWindows: [WindowInfo] {
+        windows.values.sorted { $0.openOrder < $1.openOrder }
+    }
+    
     public func window(forKey key: WindowKey) -> WindowInfo? {
         windows[key]
     }

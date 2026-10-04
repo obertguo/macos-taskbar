@@ -175,6 +175,16 @@ public final class TaskbarView: NSView {
         layoutComponents()
     }
     
+    /// Returns the active TaskButton associated with a WindowKey.
+    public func button(forKey key: WindowKey) -> TaskButton? {
+        buttonMap[key]
+    }
+    
+    /// Returns the count of buttons currently hidden due to overflow.
+    public var overflowCount: Int {
+        taskButtons.filter { $0.isHidden }.count
+    }
+    
     private func layoutComponents() {
         visualEffectView.frame = bounds
         
