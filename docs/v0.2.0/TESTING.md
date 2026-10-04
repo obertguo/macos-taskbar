@@ -55,7 +55,7 @@ All test cases are formally specified in [`docs/v0.2.0/TEST_SPECIFICATIONS.md`](
 - `WindowStoreTests`: Window ordering, display assignment, sync snapshot reconciliation, full-screen transitions (4 test cases).
 - `ScreenAssignmentTests`: Primary/secondary monitor boundary partitioning (3 test cases).
 
-### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 27 Tests)
+### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 28 Tests)
 - **Window Lifecycle Suite (`WindowLifecycleIntegrationTests.swift` — 7 Tests):**
   - `TC-FUNC-001`: Window creation and store discovery within $\le 3\text{s}$.
   - `TC-FUNC-002`: Window minimization state tracking via AX notification.
@@ -64,11 +64,12 @@ All test cases are formally specified in [`docs/v0.2.0/TEST_SPECIFICATIONS.md`](
   - `TC-FUNC-005`: Dynamic window title mutation reflection.
   - `TC-FUNC-006`: Window close event teardown and button cleanup.
   - `TC-FUNC-007`: Application termination and observer cleanup.
-- **Edge Cases Suite (`EdgeCasesIntegrationTests.swift` — 4 Tests):**
+- **Edge Cases Suite (`EdgeCasesIntegrationTests.swift` — 5 Tests):**
   - `TC-EDGE-001`: Zero-size (0x0) frame filtering for minimized Chromium/Electron windows.
   - `TC-EDGE-002`: Modal sheet and system dialog subrole rejection (`AXSheet`, `AXDialog`).
   - `TC-EDGE-003`: Rapid title churn and 50ms debounce coalescing under 25-event bursts.
   - `TC-EDGE-004`: Multi-screen boundary coordinate partitioning.
+  - `TC-EDGE-005`: Full-screen window resize debounce and animation settle clamping.
 - **Stress & Capacity Suite (`StressIntegrationTests.swift` — 3 Tests):**
   - `TC-STRESS-001`: 100-window high-density window store burst.
   - `TC-STRESS-002`: TaskbarView overflow chevron activation when buttons reach `minButtonWidth`.

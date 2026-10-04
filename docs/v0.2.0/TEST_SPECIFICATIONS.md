@@ -119,6 +119,7 @@ This document provides the canonical specification catalog and requirements trac
 - **[TC-EDGE-002] Modal Sheet & System Dialog Rejection:** Elements with subrole `AXSheet` or non-minimized `AXDialog` are excluded from `WindowFilter.shouldInclude`.
 - **[TC-EDGE-003] Rapid Title Churn Coalescing:** Burst of 25 title mutations within 10ms is coalesced by `Debouncer` into a single UI update.
 - **[TC-EDGE-004] Dual-Monitor Coordinate Partitioning:** Windows are strictly assigned to displays based on center-point intersection against screen bounds.
+- **[TC-EDGE-005] Full-Screen Window Resize Debounce & Animation Settle:** Rapid window maximize and resize bursts coalescing move and resize events preserve the resize flag across debounce generations and settle clamped above the taskbar boundary without requiring application defocus or app switching.
 
 ---
 
@@ -159,7 +160,7 @@ This document provides the canonical specification catalog and requirements trac
 | **Window Focus & Multi-Display** | `TC-FUNC-004` | `WindowLifecycleIntegrationTests` |
 | **Window Teardown & Quitting** | `TC-FUNC-006`, `TC-FUNC-007` | `WindowLifecycleIntegrationTests` |
 | **Edge-Case Filtering** | `TC-EDGE-001`, `TC-EDGE-002` | `EdgeCasesIntegrationTests` |
-| **Event Debounce & Multi-Monitor** | `TC-EDGE-003`, `TC-EDGE-004` | `EdgeCasesIntegrationTests` |
+| **Event Debounce, Multi-Monitor & Settle** | `TC-EDGE-003`, `TC-EDGE-004`, `TC-EDGE-005` | `EdgeCasesIntegrationTests` |
 | **View Recycling & Overflow** | `TC-STRESS-001`, `TC-STRESS-002`, `TC-PERF-001` | `StressIntegrationTests` |
 | **Pinned Quick Launch Bar** | `TC-PIN-001`, `TC-PIN-002`, `TC-PIN-003` | `PinnedAppsIntegrationTests` |
 | **Context Menus & Multi-Screen Sync** | `TC-PIN-004`, `TC-PIN-005` | `PinnedAppsIntegrationTests` |

@@ -133,4 +133,58 @@ struct EdgeCasesIntegrationTests {
         let assignedSecondary = ScreenAssignment.assignScreen(for: winSecondaryFrame, across: [primaryScreen, secondaryScreen])
         #expect(assignedSecondary == 2, "Window should be assigned to secondary screen (ID 2)")
     }
+    
+    @Test("TC-EDGE-005: Full-screen window resize debounce and animation settle clamping")
+    func testFullScreenWindowResizeDebounceAndSettle() async throws {
+        let fixture = try await TestFixtureApp.launchTextEdit(documentTitle: "NudgeTestDoc")
+        defer { fixture.terminate() }
+        
+        guard let win = fixture.windowElement(index: 1),
+              let pid = fixture.runningApp?.processIdentifier else {
+            Issue.record("Failed to resolve fixture window element or process ID")
+            return
+        }
+        
+        let mainDisplay = CGMainDisplayID()
+        let screenBounds = CGDisplayBounds(mainDisplay)
+        let barHeight: CGFloat = 30.0
+        let screenDesc = ScreenDescriptor(id: UInt32(mainDisplay), frame: screenBounds, isPrimary: true)
+        
+        WorkAreaEnforcer.shared.configure(
+            isEnabled: true,
+            barHeight: barHeight,
+            screens: [screenDesc]
+        )
+        defer {
+            WorkAreaEnforcer.shared.removeWindow(winID: win.windowID)
+        }
+        
+        // Expand window bounds to fill entire screen vertically (overlapping taskbar by barHeight)
+        let expandScript = """
+        tell application "TextEdit"
+            set bounds of window 1 to {0, 25, \(Int(screenBounds.width)), \(Int(screenBounds.height))}
+        end tell
+        """
+        _ = try? fixture.runAppleScript(expandScript)
+        try await Task.sleep(nanoseconds: 200_000_000)
+        
+        // Simulate rapid resize notification followed immediately by move/reconcile notification
+        WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: win, pid: pid, isResize: true)
+        WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: win, pid: pid, isResize: false)
+        
+        // Allow Pass 1 and Pass 2 animation settle passes to execute
+        try await Task.sleep(nanoseconds: 600_000_000)
+        
+        // Window should settle clamped at or above taskbarTop without requiring app switch or defocus
+        guard let clampedFrame = win.frame else {
+            Issue.record("Failed to read window frame after nudger settle")
+            return
+        }
+        
+        let taskbarTopY = screenBounds.maxY - barHeight
+        #expect(
+            clampedFrame.maxY <= taskbarTopY + WorkAreaMath.overlapThreshold,
+            "Window bottom (\(clampedFrame.maxY)) must not overlap taskbar top (\(taskbarTopY))"
+        )
+    }
 }

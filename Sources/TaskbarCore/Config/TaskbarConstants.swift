@@ -168,7 +168,7 @@ public enum TaskbarConstants {
         public static let nudgeRecursionWindow: TimeInterval = 0.6
         
         /// Maximum permitted nudge attempts within the recursion window before backing off.
-        public static let maxNudgeAttempts: Int = 2
+        public static let maxNudgeAttempts: Int = 3
         
         /// Global timeout in seconds for Accessibility API IPC queries to prevent UI hangs.
         public static let axTimeout: Float = 0.3

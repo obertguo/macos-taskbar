@@ -72,15 +72,36 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
         }
         lock.unlock()
         
-        // Settle debounce: allows window manager animations (e.g. titlebar double-click zoom)
-        // and mouse drag operations to coalesce before evaluating clamping
+        // Pass 1: Quick settle debounce allows fast mouse dragging/resizing to coalesce
         DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + TaskbarConstants.Timing.windowDragSettleDebounce) { [element] in
             AXThread.shared.async {
                 let enforcer = WorkAreaEnforcer.shared
-                let (currentGen, wasResized) = enforcer.lock.withLock {
-                    (enforcer.generationCounters[winID], enforcer.windowWasResizedInDebounce.removeValue(forKey: winID) ?? false)
+                let (isCurrent, wasResized) = enforcer.lock.withLock { () -> (Bool, Bool) in
+                    guard enforcer.generationCounters[winID] == generation else {
+                        return (false, false)
+                    }
+                    let wasResized = enforcer.windowWasResizedInDebounce[winID] ?? false
+                    return (true, wasResized)
                 }
-                guard currentGen == generation else { return }
+                guard isCurrent else { return }
+                enforcer.evaluateAndClamp(element: element, pid: pid, winID: winID, isResize: wasResized || isResize)
+            }
+        }
+        
+        // Pass 2: Settle verification pass ensures window manager animations (e.g. titlebar zoom,
+        // snap-to-edge, or window tiling) that take ~250-300ms to complete are evaluated once settled,
+        // recovering from any mid-animation frame checks or AppKit completion resets.
+        DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + TaskbarConstants.Timing.windowDragSettleDebounce + TaskbarConstants.Timing.windowZoomAnimationSettleDelay) { [element] in
+            AXThread.shared.async {
+                let enforcer = WorkAreaEnforcer.shared
+                let (isCurrent, wasResized) = enforcer.lock.withLock { () -> (Bool, Bool) in
+                    guard enforcer.generationCounters[winID] == generation else {
+                        return (false, false)
+                    }
+                    let wasResized = enforcer.windowWasResizedInDebounce.removeValue(forKey: winID) ?? false
+                    return (true, wasResized)
+                }
+                guard isCurrent else { return }
                 enforcer.evaluateAndClamp(element: element, pid: pid, winID: winID, isResize: wasResized || isResize)
             }
         }
@@ -157,29 +178,6 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
         guard element.isSizeSettable else { return }
         
         _ = element.setSize(clampedFrame.size)
-        
-        // Follow-up settle verification:
-        // AppKit's native zoom animation can take ~200ms to complete. If AppKit's completion
-        // handler overwrites the frame with its full un-nudged bounds, this verification pass
-        // ensures the window settles cleanly at the taskbar boundary.
-        DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + TaskbarConstants.Timing.windowZoomAnimationSettleDelay) { [element] in
-            AXThread.shared.async {
-                let enforcer = WorkAreaEnforcer.shared
-                guard enforcer.isEnabled else { return }
-                guard !element.isMinimized, !element.isFullScreen else { return }
-                guard let finalFrame = element.frame else { return }
-                
-                let (activeScreens, barH) = enforcer.lock.withLock { (enforcer._screens, enforcer._barHeight) }
-                if let reClamped = WorkAreaMath.clampedFrameForWindow(
-                    finalFrame,
-                    across: activeScreens,
-                    taskbarHeight: barH,
-                    allowNonMaximized: false
-                ) {
-                    _ = element.setSize(reClamped.size)
-                }
-            }
-        }
     }
     
     /// Cleans up state when a window is closed/destroyed.
