@@ -250,6 +250,14 @@ flowchart TD
    If screen descriptors have not yet been populated by `ScreenManager`, `evaluateAndClamp` dynamically queries `NSScreen.screens` to resolve physical display bounds.
 5. **Application-Level Move/Resize Listening:**
    `AXAppObserver` registers `kAXWindowResizedNotification` and `kAXWindowMovedNotification` at the application level as well as the window level. Newly opened windows in Electron and Chromium apps that omit `kAXWindowCreatedNotification` are automatically registered and observed upon first movement or resize.
+6. **In-Flight Resize Debounce Protection:**
+   When an active resize debounce burst is in-flight (`windowWasResizedInDebounce[winID] == true`), passive move or periodic window reconciliation events (`!isResize`) arriving within the settle window are ignored. This prevents `generationCounters[winID]` from incrementing prematurely, ensuring that Pass 1 (150ms) and Pass 2 (400ms) execution are not cancelled before clamping occurs.
+7. **TCC Authorization Polling & Dynamic Observer Attachment:**
+   On ad-hoc rebuilt binaries where TCC cdhash trust verification is asynchronous at startup, `AppTracker` polls authorization for up to 30 seconds via a background task. As soon as permission is confirmed, all running applications are immediately tracked. Furthermore, `handleAppActivated` dynamically attaches observers to active applications upon focus, guaranteeing immediate window maximize responsiveness.
+8. **Resilient Window Observer Registration:**
+   `AXAppObserver` only marks a window as observed (`observedWindows.insert(winID)`) if at least one core AX notification registration succeeds, allowing transparent retry on subsequent events rather than silently abandoning registration.
+9. **Startup Configuration Precedence:**
+   `WorkAreaEnforcer.shared.configure` is executed prior to `ScreenManager` display panel instantiation, guaranteeing accurate custom taskbar height reservation from the moment of launch.
 
 ---
 

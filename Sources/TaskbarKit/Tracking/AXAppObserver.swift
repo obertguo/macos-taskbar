@@ -79,12 +79,17 @@ public final class AXAppObserver: @unchecked Sendable {
         guard let observer = observer else { return }
         let winID = winElement.windowID
         guard !observedWindows.contains(winID) else { return }
-        observedWindows.insert(winID)
-        observedWindowElements[winID] = winElement
-        
         let selfPointer = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
+        var attachedAny = false
         for notif in windowNotifications {
-            AXObserverAddNotification(observer, winElement, notif, selfPointer)
+            let err = AXObserverAddNotification(observer, winElement, notif, selfPointer)
+            if err == .success || err == .notificationAlreadyRegistered {
+                attachedAny = true
+            }
+        }
+        if attachedAny {
+            observedWindows.insert(winID)
+            observedWindowElements[winID] = winElement
         }
     }
     

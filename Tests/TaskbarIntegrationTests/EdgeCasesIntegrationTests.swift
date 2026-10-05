@@ -6,7 +6,7 @@ import CoreGraphics
 import TaskbarCore
 import TaskbarKit
 
-@Suite("Edge Cases Integration Suite")
+@Suite("Edge Cases Integration Suite", .serialized)
 @MainActor
 struct EdgeCasesIntegrationTests {
     
@@ -139,7 +139,7 @@ struct EdgeCasesIntegrationTests {
         let fixture = try await TestFixtureApp.launchTextEdit(documentTitle: "NudgeTestDoc")
         defer { fixture.terminate() }
         
-        guard let win = fixture.windowElement(index: 1),
+        guard let win = await fixture.waitForWindowElement(index: 1),
               let pid = fixture.runningApp?.processIdentifier else {
             Issue.record("Failed to resolve fixture window element or process ID")
             return
@@ -191,6 +191,65 @@ struct EdgeCasesIntegrationTests {
         #expect(
             finalFrame.maxY <= taskbarTopY + WorkAreaMath.overlapThreshold,
             "Window bottom (\(finalFrame.maxY)) must not overlap taskbar top (\(taskbarTopY))"
+        )
+    }
+    
+    @Test("TC-EDGE-006: Immediate initial maximize nudging with custom bar height without defocus")
+    func testInitialMaximizeNudgingWithCustomBarHeight() async throws {
+        let fixture = try await TestFixtureApp.launchTextEdit(documentTitle: "InitialMaximizeDoc")
+        defer { fixture.terminate() }
+        
+        guard let win = await fixture.waitForWindowElement(index: 1),
+              let pid = fixture.runningApp?.processIdentifier else {
+            Issue.record("Failed to resolve fixture window element or process ID")
+            return
+        }
+        
+        let mainDisplay = CGMainDisplayID()
+        let screenBounds = CGDisplayBounds(mainDisplay)
+        let customBarHeight: CGFloat = 40.0
+        let screenDesc = ScreenDescriptor(id: UInt32(mainDisplay), frame: screenBounds, isPrimary: true)
+        
+        WorkAreaEnforcer.shared.configure(
+            isEnabled: true,
+            barHeight: customBarHeight,
+            screens: [screenDesc]
+        )
+        defer {
+            WorkAreaEnforcer.shared.removeWindow(winID: win.windowID)
+        }
+        
+        // Maximize window bounds to cover full screen height
+        let expandScript = """
+        tell application "TextEdit"
+            set bounds of window 1 to {0, 25, \(Int(screenBounds.width)), \(Int(screenBounds.height))}
+        end tell
+        """
+        _ = try? fixture.runAppleScript(expandScript)
+        try await Task.sleep(nanoseconds: 200_000_000)
+        
+        // Simulate initial maximize notification sequence: resize followed by rapid move/reconcile events
+        WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: win, pid: pid, isResize: true)
+        WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: win, pid: pid, isResize: false)
+        
+        var clampedFrame: CGRect?
+        let taskbarTopY = screenBounds.maxY - customBarHeight
+        for _ in 0..<15 {
+            if let frame = win.frame, frame.maxY <= taskbarTopY + WorkAreaMath.overlapThreshold {
+                clampedFrame = frame
+                break
+            }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        
+        guard let finalFrame = clampedFrame ?? win.frame else {
+            Issue.record("Failed to read window frame after initial maximize nudger settle")
+            return
+        }
+        
+        #expect(
+            finalFrame.maxY <= taskbarTopY + WorkAreaMath.overlapThreshold,
+            "Window bottom (\(finalFrame.maxY)) must clamp above 40pt custom taskbar top (\(taskbarTopY)) on initial maximize without defocusing"
         )
     }
 }

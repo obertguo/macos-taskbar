@@ -58,7 +58,7 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
     }
     
     private func logNudge(_ msg: String) {
-        TaskbarLogger.workArea.debug("\(msg, privacy: .public)")
+        TaskbarLogger.workArea.info("\(msg, privacy: .public)")
     }
     
     public func updateScreens(_ screens: [ScreenDescriptor]) {
@@ -102,6 +102,14 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
         let generation: UInt64
         
         lock.lock()
+        // If an active resize debounce burst is currently in-flight for this window, do not allow
+        // a passive move or window reconcile to cancel or push out the resize settle passes.
+        if !isResize, windowWasResizedInDebounce[winID] == true {
+            lock.unlock()
+            logNudge("handleMovedOrResized ignoring passive move/reconcile while resize debounce in-flight for winID \(winID)")
+            return
+        }
+        
         let nextGen = (generationCounters[winID] ?? 0) &+ 1
         generationCounters[winID] = nextGen
         generation = nextGen
@@ -159,7 +167,7 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
                     guard enforcer.generationCounters[winID] == generation else {
                         return (false, false)
                     }
-                    let wasResized = enforcer.windowWasResizedInDebounce[winID] ?? false
+                    let wasResized = enforcer.windowWasResizedInDebounce.removeValue(forKey: winID) ?? false
                     return (true, wasResized)
                 }
                 enforcer.logNudge("Pass 3 winID: \(winID), gen: \(generation), isCurrent: \(isCurrent), wasResized: \(wasResized)")

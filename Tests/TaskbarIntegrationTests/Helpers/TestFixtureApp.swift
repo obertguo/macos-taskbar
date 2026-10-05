@@ -56,6 +56,26 @@ public final class TestFixtureApp: @unchecked Sendable {
         process.arguments = ["-e", script]
         try? process.run()
         process.waitUntilExit()
+
+        let deadline = Date().addingTimeInterval(1.0)
+        while Date() < deadline {
+            if !NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == bundleIdentifier }) {
+                break
+            }
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+    }
+
+    /// Polls until the window element at index is available via Accessibility API.
+    public func waitForWindowElement(index: Int = 1, timeoutSeconds: Double = 3.0) async -> AXUIElement? {
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
+        while Date() < deadline {
+            if let win = windowElement(index: index) {
+                return win
+            }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        return windowElement(index: index)
     }
 
     /// Launches the application and creates an empty untitled document window.
@@ -79,8 +99,8 @@ public final class TestFixtureApp: @unchecked Sendable {
         """
         _ = try fixture.runAppleScript(script)
         
-        // Give macOS WindowServer time to register the window
-        try await Task.sleep(nanoseconds: 400_000_000)
+        // Give macOS WindowServer and AX time to register the window
+        _ = await fixture.waitForWindowElement(index: 1, timeoutSeconds: 3.0)
         return fixture
     }
     

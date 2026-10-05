@@ -13,6 +13,8 @@ public final class AppTracker {
     private var isRefreshing = false
     private var needsReconcileAgain = false
     private var pendingDebounceWorkItem: DispatchWorkItem?
+    private var permissionPollTask: Task<Void, Never>?
+    private var trackingAttemptedPIDs: Set<pid_t> = []
     
     public init(store: WindowStore) {
         self.store = store
@@ -32,7 +34,11 @@ public final class AppTracker {
     }
     
     public func startTrackingAllRunningApps() {
-        guard AccessibilityPermission.isGranted() else { return }
+        guard AccessibilityPermission.isGranted() else {
+            schedulePermissionCheck()
+            return
+        }
+        stopPermissionCheck()
         
         let runningApps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
         for app in runningApps {
@@ -42,8 +48,34 @@ public final class AppTracker {
         scheduleReconcile(delay: 0.0)
     }
     
+    private func schedulePermissionCheck() {
+        guard permissionPollTask == nil else { return }
+        permissionPollTask = Task { @MainActor [weak self] in
+            for attempt in 1...60 {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                guard !Task.isCancelled, let self = self else { return }
+                if AccessibilityPermission.isGranted() {
+                    TaskbarLogger.lifecycle.info("Accessibility permission granted on poll attempt \(attempt). Initializing app tracking.")
+                    self.stopPermissionCheck()
+                    self.trackingAttemptedPIDs.removeAll()
+                    self.startTrackingAllRunningApps()
+                    return
+                }
+            }
+            guard !Task.isCancelled, let self = self else { return }
+            TaskbarLogger.lifecycle.info("Accessibility permission polling timed out after 60 attempts.")
+            self.stopPermissionCheck()
+        }
+    }
+    
+    private func stopPermissionCheck() {
+        permissionPollTask?.cancel()
+        permissionPollTask = nil
+    }
+    
     private func trackApp(_ pid: pid_t) {
-        guard observers[pid] == nil else { return }
+        guard observers[pid] == nil, !trackingAttemptedPIDs.contains(pid) else { return }
+        trackingAttemptedPIDs.insert(pid)
         
         AXThread.shared.async { [weak self] in
             let observer = AXAppObserver(pid: pid) { [weak self] in
@@ -61,6 +93,7 @@ public final class AppTracker {
     }
     
     private func untrackApp(_ pid: pid_t) {
+        trackingAttemptedPIDs.remove(pid)
         if let observer = observers.removeValue(forKey: pid) {
             observer.invalidate()
         }
@@ -82,7 +115,12 @@ public final class AppTracker {
     
     @objc private func handleAppActivated(_ notification: Notification) {
         guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
-        store.setFrontmostPID(app.processIdentifier)
+        let pid = app.processIdentifier
+        store.setFrontmostPID(pid)
+        if observers[pid] == nil {
+            trackingAttemptedPIDs.remove(pid)
+            trackApp(pid)
+        }
         scheduleReconcile(delay: TaskbarConstants.Timing.frameRenderDebounce)
     }
     
@@ -119,7 +157,11 @@ public final class AppTracker {
     }
     
     private func reconcileWindows() {
-        guard AccessibilityPermission.isGranted() else { return }
+        guard AccessibilityPermission.isGranted() else {
+            schedulePermissionCheck()
+            return
+        }
+        stopPermissionCheck()
         if isRefreshing {
             needsReconcileAgain = true
             return
@@ -238,17 +280,20 @@ public final class AppTracker {
     }
     
     public func stopTracking() {
+        stopPermissionCheck()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         
         for observer in observers.values {
             observer.invalidate()
         }
         observers.removeAll()
+        trackingAttemptedPIDs.removeAll()
         pendingDebounceWorkItem?.cancel()
         pendingDebounceWorkItem = nil
     }
     
     deinit {
+        permissionPollTask?.cancel()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 }

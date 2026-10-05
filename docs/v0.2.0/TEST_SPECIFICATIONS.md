@@ -133,6 +133,19 @@ This document provides the canonical specification catalog and requirements trac
   - **Automated Verification:** `TC-EDGE-005` in `EdgeCasesIntegrationTests.swift`
   - **Pass/Fail Criteria:** `clampedFrame.maxY <= screenBounds.maxY - barHeight + overlapThreshold`.
 
+- **[TC-EDGE-006] Immediate Initial Maximize Clamping Under Custom Bar Height Without Defocus:**
+  - **Category:** Edge Cases / Window Clamping & In-Flight Debounce Protection
+  - **Preconditions:** Window fixture open and tracked; taskbar configured with custom bar height (e.g. 40pt).
+  - **Stimulus / Action:**
+    1. Maximize window bounds to cover full screen height.
+    2. Dispatch initial maximize notification sequence: resize notification followed immediately by rapid move/reconcile events.
+    3. Evaluate settled window frame without defocusing the application or switching apps.
+  - **Expected Outcome:**
+    1. In-flight resize debounce bursts are not cancelled or deferred by passive move/reconcile events.
+    2. Window bottom clamps immediately above custom taskbar top edge (`screenBounds.maxY - customBarHeight`).
+  - **Automated Verification:** `TC-EDGE-006` in `EdgeCasesIntegrationTests.swift`
+  - **Pass/Fail Criteria:** `finalFrame.maxY <= screenBounds.maxY - customBarHeight + overlapThreshold`.
+
 ---
 
 ### 2.3 Stress & Performance (`TC-STRESS-*` & `TC-PERF-*`)
@@ -191,7 +204,7 @@ This document provides the canonical specification catalog and requirements trac
 | **Window Focus & Multi-Display** | `TC-FUNC-004` | `WindowLifecycleIntegrationTests` |
 | **Window Teardown & Quitting** | `TC-FUNC-006`, `TC-FUNC-007` | `WindowLifecycleIntegrationTests` |
 | **Edge-Case Filtering** | `TC-EDGE-001`, `TC-EDGE-002` | `EdgeCasesIntegrationTests` |
-| **Event Debounce, Multi-Monitor & Settle** | `TC-EDGE-003`, `TC-EDGE-004`, `TC-EDGE-005` | `EdgeCasesIntegrationTests` |
+| **Event Debounce, Multi-Monitor & Settle** | `TC-EDGE-003`, `TC-EDGE-004`, `TC-EDGE-005`, `TC-EDGE-006` | `EdgeCasesIntegrationTests` |
 | **View Recycling & Overflow** | `TC-STRESS-001`, `TC-STRESS-002`, `TC-PERF-001` | `StressIntegrationTests` |
 | **Pinned Quick Launch Bar** | `TC-PIN-001`, `TC-PIN-002`, `TC-PIN-003` | `PinnedAppsIntegrationTests` |
 | **Context Menus & Multi-Screen Sync** | `TC-PIN-004`, `TC-PIN-005` | `PinnedAppsIntegrationTests` |

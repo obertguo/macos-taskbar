@@ -2,6 +2,41 @@
 
 All notable changes to **Taskbar** will be documented in this file.
 
+## [0.2.3] - 2026-10-05
+
+### Initial Maximize Clamping & TCC Authorization Hardening
+
+Version `0.2.3` is a targeted patch release that resolves initial window maximize clamping failures and hardens Accessibility tracking against macOS TCC authorization races and rapid event clobbering.
+
+#### Fixed
+- **In-Flight Resize Debounce Protection (`WorkAreaEnforcer`):**
+  - Resolved an issue where maximizing an application window immediately after app launch or rebuild failed to clamp above the taskbar boundary, requiring an application defocus or window switch to re-trigger nudging.
+  - Added protection in `handleWindowMovedOrResized` to ignore passive move (`AXWindowMoved`) or periodic 16ms window reconciliation events (`reconcileWindows()`) while a resize debounce burst is in-flight. This prevents `generationCounters[winID]` from incrementing prematurely and cancelling in-flight Pass 1 (150ms) and Pass 2 (400ms) animation settle clamping passes.
+  - Cleaned up active debounce tracking flags upon Pass 3 settle completion.
+  - Promoted work area nudger log events to `.info` level for transparent production diagnostics.
+- **TCC / Accessibility Authorization Polling & Dynamic Observer Attachment (`AppTracker`):**
+  - Resolved an issue on rebuilt ad-hoc binaries (`codesign --sign -`) where asynchronous TCC code directory hash (`cdhash`) verification on launch millisecond 0 caused `startTrackingAllRunningApps()` to bail out without retry when authorization was not immediately ready.
+  - Added a background authorization polling task in `AppTracker` that checks authorization every 500ms for up to 30 seconds upon launch, automatically tracking all running applications as soon as authorization is confirmed.
+  - Added dynamic observer attachment in `handleAppActivated` to immediately attach missing observers whenever an application is activated or brought to focus.
+  - Added `trackingAttemptedPIDs` cache to prevent redundant AXThread attachment attempts on non-accessible background processes.
+- **Resilient Window Observer Registration (`AXAppObserver`):**
+  - Updated `observeWindow` to only insert `winID` into `observedWindows` if at least one core AX notification successfully registers, enabling transparent retry on subsequent events rather than permanently abandoning registration.
+- **Startup Configuration Precedence (`AppDelegate`):**
+  - Re-ordered startup initialization to configure `WorkAreaEnforcer.shared.configure` with persisted custom bar height before `ScreenManager` creates and initializes display panels.
+- **Test Harness Hardening & Fixture Process Drain (`TestFixtureApp`):**
+  - Added `waitForWindowElement(index:timeoutSeconds:)` in `TestFixtureApp` to dynamically poll up to 3.0 seconds for window elements in the AX hierarchy, eliminating test timing flakiness across CPU bursts and screensaver wake.
+  - Added process teardown draining in `TestFixtureApp.terminateApp` to ensure previous fixture instances are fully unhooked before launching a new fixture.
+
+#### Added
+- **Integration Test `TC-EDGE-006` (`EdgeCasesIntegrationTests`):**
+  - Added `testInitialMaximizeNudgingWithCustomBarHeight` asserting immediate initial maximize clamping with custom 40pt bar height without defocusing or app switching.
+  - Enforced `.serialized` suite execution on `EdgeCasesIntegrationTests` to prevent concurrent fixture collisions.
+  - Total test count expanded to 104 tests (71 unit + 33 integration) across 18 test suites passing at 100%.
+- **Technical Postmortem & Analysis Document:**
+  - Added `plans/v0.2.0/initial_maximize_nudger_and_tcc_race_analysis.md` documenting comprehensive root-cause analysis, reproduction mechanisms, and architectural solutions.
+
+---
+
 ## [0.2.2] - 2026-10-04
 
 ### Custom Theme Activation & Layout Metric Adoption

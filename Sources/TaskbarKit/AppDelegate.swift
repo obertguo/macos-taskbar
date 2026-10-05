@@ -33,16 +33,19 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             DockController.shared.hideDock(delay: settings.dockHideDelay)
         }
         
+        // Configure WorkAreaEnforcer for reserving taskbar space before panels or tracking initialize
+        WorkAreaEnforcer.shared.configure(
+            isEnabled: settings.enableAXNudger,
+            barHeight: CGFloat(settings.barHeight),
+            screens: []
+        )
+        
         // Initialize multi-screen manager
         let screenManager = ScreenManager(settings: settings, store: store)
         self.screenManager = screenManager
         
-        // Configure WorkAreaEnforcer for reserving taskbar space
-        WorkAreaEnforcer.shared.configure(
-            isEnabled: settings.enableAXNudger,
-            barHeight: CGFloat(settings.barHeight),
-            screens: screenManager.screenDescriptors()
-        )
+        // Update WorkAreaEnforcer with initialized screen descriptors
+        WorkAreaEnforcer.shared.updateScreens(screenManager.screenDescriptors())
         
         // Initialize AppTracker for live window tracking
         let appTracker = AppTracker(store: store)
