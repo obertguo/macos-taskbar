@@ -130,6 +130,14 @@ Users can define custom themes by placing `*.json` files into `~/.config/taskbar
 }
 ```
 
+### Materials & Translucency Options (`materials`):
+
+| Property | Type | Default | Description & Supported Options |
+|---|---|---|---|
+| `useTranslucency` | `Boolean` | `true` | When `true`, enables dynamic macOS vibrancy via `NSVisualEffectView`. When `false`, renders an opaque solid fill from `palette.backgroundColor`. |
+| `material` | `String` | `"underWindowBackground"` | AppKit material preset governing blur tint and saturation. Case-insensitive and hyphen-tolerant.<br/>- `"hudWindow"` / `"hud"`: High-contrast Heads-Up Display dark blur.<br/>- `"windowBackground"` / `"window"`: Standard macOS window backdrop vibrancy.<br/>- `"underWindowBackground"`: Subtle under-window backdrop (default).<br/>- `"menu"`: Menu vibrancy.<br/>- `"popover"`: Translucent popover bubble vibrancy.<br/>- `"sidebar"`: macOS Finder/Mail sidebar material.<br/>- `"headerView"` / `"header"`: Window header/toolbar material.<br/>- `"sheet"`: Modal sheet vibrancy.<br/>- `"selection"`: Highlight selection vibrancy.<br/>- `"titlebar"`: Window titlebar material.<br/>- `"toolTip"` / `"tooltip"`: Tooltip material.<br/>- `"contentBackground"`: Scrollable container content vibrancy.<br/>- `"underPageBackground"`: Under-page document backdrop.<br/>- `"fullScreenUI"` / `"fullscreen"`: Full-screen overlay translucency. |
+| `blendingMode` | `String` | `"behindWindow"` | AppKit blending mode determining what pixels are sampled and blurred.<br/>- `"behindWindow"` / `"behind"`: Samples desktop wallpaper and windows beneath Taskbar.<br/>- `"withinWindow"` / `"within"`: Blurs views and background colors within the Taskbar window itself. |
+
 ### Loading & Live Reload:
 1. Discovered automatically when Taskbar launches.
 2. Selectable from the **Theme** menu in the Status Menu bar.

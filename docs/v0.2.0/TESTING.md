@@ -51,15 +51,15 @@ All test cases are formally specified in [`docs/v0.2.0/TEST_SPECIFICATIONS.md`](
 - `ButtonLayoutTests`: Spacious, compressing, icon-only, overflow width calculations, and custom title visibility thresholds (6 test cases).
 - `WindowFilterTests`: Normal app inclusion, modal sheet rejection, 0x0 minimized preservation, system overlay exclusion (5 test cases).
 - `ThemePresetsTests`: Modern Hybrid, Retro Classic, Windows XP Luna, and Dark Minimal presets, JSON round-trips, and contrast checks (7 test cases).
-- `ThemeTests`: Theme definition properties, JSON serialization round-trips, and theme registry built-ins (5 test cases).
-- `ThemeFileLoaderTests`: Directory discovery, custom JSON deserialization, missing defaults tolerance, non-JSON filtering, built-in ID collision rejection, corrupted JSON resilience, export routines, and registry synchronization (8 test cases).
+- `ThemeTests`: Theme definition properties, JSON serialization round-trips, ThemeMaterials material/blendingMode decoding, and theme registry built-ins (6 test cases).
+- `ThemeFileLoaderTests`: Directory discovery, custom JSON deserialization with material/blendingMode, missing defaults tolerance, non-JSON filtering, built-in ID collision rejection, corrupted JSON resilience, export routines, and registry synchronization (9 test cases).
 - `PinnedAppTests`: PinnedApp model serialization, missing fields fallback, duplicate pin rejection, unpinning, reordering boundary checks, and UserDefaults storage (9 test cases).
 - `SettingsTests`: Default values, serialization, UserDefaults persistence, backward compatibility with v0.1 payloads, strings, and presets (6 test cases).
 - `WindowStoreTests`: Window ordering, display assignment, sync snapshot reconciliation, full-screen transitions (4 test cases).
 - `ScreenAssignmentTests`: Primary/secondary monitor boundary partitioning (3 test cases).
 - `TaskbarCoreTests`: Build configuration sanity checks (1 test case).
 
-### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 30 Tests)
+### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 32 Tests)
 - **Window Lifecycle Suite (`WindowLifecycleIntegrationTests.swift` — 7 Tests):**
   - `TC-FUNC-001`: Window creation and store discovery within $\le 3\text{s}$.
   - `TC-FUNC-002`: Window minimization state tracking via AX notification.
@@ -87,10 +87,12 @@ All test cases are formally specified in [`docs/v0.2.0/TEST_SPECIFICATIONS.md`](
   - `ScreenManager` multi-display synchronization of pin and unpin actions across all panels.
   - `IconCache` bundle ID and fallback resolution.
   - `IconCache` multi-resolution icon preparation sanitizing legacy 1x corrupt assets.
-- **Theme Expansion Suite (`ThemeExpansionIntegrationTests.swift` — 3 Tests):**
+- **Theme Expansion Suite (`ThemeExpansionIntegrationTests.swift` — 5 Tests):**
   - Dynamic switching to Windows XP Luna and Dark Minimal presets across all display panels.
   - `ThemeFileLoader` discovery of valid custom JSON and graceful handling of corrupted JSON files.
   - `ScreenManager` dynamic application of custom JSON themes and preservation of custom layout metrics (`barHeight`, `minButtonWidth`, `buttonSpacing`, `fontSize`, `iconSize`).
+  - `VisualEffectMapping` resolution of AppKit materials and blending modes with normalization, hyphen tolerance, and safe fallbacks.
+  - `ScreenManager` and `TaskbarView` dynamic adoption of custom `material` and `blendingMode` across all display panels.
 - **Status Menu Theme Suite (`StatusMenuThemeTests.swift` — 4 Tests):**
   - Submenu structure validating built-in presets and disk action items.
   - Dynamic menu item updates when custom themes are registered.

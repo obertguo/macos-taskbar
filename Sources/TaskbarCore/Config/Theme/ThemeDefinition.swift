@@ -141,18 +141,28 @@ public struct ThemeMetrics: Codable, Equatable, Sendable {
 
 public struct ThemeMaterials: Codable, Equatable, Sendable {
     public let useTranslucency: Bool
+    public let material: String?
+    public let blendingMode: String?
 
-    public init(useTranslucency: Bool = true) {
+    public init(
+        useTranslucency: Bool = true,
+        material: String? = nil,
+        blendingMode: String? = nil
+    ) {
         self.useTranslucency = useTranslucency
+        self.material = material
+        self.blendingMode = blendingMode
     }
     
     private enum CodingKeys: String, CodingKey {
-        case useTranslucency
+        case useTranslucency, material, blendingMode
     }
     
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.useTranslucency = try container.decodeIfPresent(Bool.self, forKey: .useTranslucency) ?? true
+        self.material = try container.decodeIfPresent(String.self, forKey: .material)
+        self.blendingMode = try container.decodeIfPresent(String.self, forKey: .blendingMode)
     }
 }
 
@@ -201,6 +211,8 @@ public struct ThemeDefinition: Codable, Equatable, Sendable {
     
     // Convenience token accessors
     public var useTranslucency: Bool { materials.useTranslucency }
+    public var material: String? { materials.material }
+    public var blendingMode: String? { materials.blendingMode }
     public var backgroundColor: RGBAColor { palette.backgroundColor }
     public var topBorderColor: RGBAColor? { palette.topBorderColor }
     public var buttonCornerRadius: Double { metrics.buttonCornerRadius }

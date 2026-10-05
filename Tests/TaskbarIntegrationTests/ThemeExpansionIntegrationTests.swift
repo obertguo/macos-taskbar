@@ -136,4 +136,90 @@ struct ThemeExpansionIntegrationTests {
             #expect(panel.taskbarView.theme.iconSize == 32.0)
         }
     }
+    
+    @Test("VisualEffectMapping resolves materials and blending modes with normalization and safe fallbacks")
+    func testVisualEffectMappingResolvesSupportedMaterialsAndBlendingModes() {
+        // Material mapping checks
+        #expect(VisualEffectMapping.resolveMaterial("hudWindow") == .hudWindow)
+        #expect(VisualEffectMapping.resolveMaterial("HUD") == .hudWindow)
+        #expect(VisualEffectMapping.resolveMaterial("hud-window") == .hudWindow)
+        #expect(VisualEffectMapping.resolveMaterial("windowBackground") == .windowBackground)
+        #expect(VisualEffectMapping.resolveMaterial("window-background") == .windowBackground)
+        #expect(VisualEffectMapping.resolveMaterial("window") == .windowBackground)
+        #expect(VisualEffectMapping.resolveMaterial("popover") == .popover)
+        #expect(VisualEffectMapping.resolveMaterial("sidebar") == .sidebar)
+        #expect(VisualEffectMapping.resolveMaterial("menu") == .menu)
+        #expect(VisualEffectMapping.resolveMaterial("headerView") == .headerView)
+        #expect(VisualEffectMapping.resolveMaterial("sheet") == .sheet)
+        #expect(VisualEffectMapping.resolveMaterial("selection") == .selection)
+        #expect(VisualEffectMapping.resolveMaterial("titlebar") == .titlebar)
+        #expect(VisualEffectMapping.resolveMaterial("toolTip") == .toolTip)
+        #expect(VisualEffectMapping.resolveMaterial("tooltip") == .toolTip)
+        #expect(VisualEffectMapping.resolveMaterial("contentBackground") == .contentBackground)
+        #expect(VisualEffectMapping.resolveMaterial("underPageBackground") == .underPageBackground)
+        #expect(VisualEffectMapping.resolveMaterial("fullScreenUI") == .fullScreenUI)
+        #expect(VisualEffectMapping.resolveMaterial("fullscreen") == .fullScreenUI)
+        #expect(VisualEffectMapping.resolveMaterial(nil) == .underWindowBackground)
+        #expect(VisualEffectMapping.resolveMaterial("") == .underWindowBackground)
+        #expect(VisualEffectMapping.resolveMaterial("invalid-material") == .underWindowBackground)
+        
+        // Blending mode mapping checks
+        #expect(VisualEffectMapping.resolveBlendingMode("withinWindow") == .withinWindow)
+        #expect(VisualEffectMapping.resolveBlendingMode("within") == .withinWindow)
+        #expect(VisualEffectMapping.resolveBlendingMode("within-window") == .withinWindow)
+        #expect(VisualEffectMapping.resolveBlendingMode("behindWindow") == .behindWindow)
+        #expect(VisualEffectMapping.resolveBlendingMode("behind") == .behindWindow)
+        #expect(VisualEffectMapping.resolveBlendingMode(nil) == .behindWindow)
+        #expect(VisualEffectMapping.resolveBlendingMode("") == .behindWindow)
+        #expect(VisualEffectMapping.resolveBlendingMode("opaque") == .behindWindow)
+    }
+    
+    @Test("ScreenManager dynamically applies custom material and blending mode to display panels")
+    func testScreenManagerAndTaskbarViewDynamicMaterialAndBlendingModeAdoption() {
+        let hudTheme = ThemeDefinition(
+            id: "custom-hud-translucent",
+            displayName: "HUD Translucent",
+            isCustom: true,
+            palette: ModernHybridTheme.definition.palette,
+            metrics: ModernHybridTheme.definition.metrics,
+            materials: ThemeMaterials(
+                useTranslucency: true,
+                material: "hudWindow",
+                blendingMode: "withinWindow"
+            )
+        )
+        ThemeRegistry.shared.registerCustomThemes([hudTheme])
+        defer { ThemeRegistry.shared.unregisterAllCustomThemes() }
+        
+        let settings = Settings(activeThemeId: ModernHybridTheme.id)
+        let store = WindowStore()
+        let manager = ScreenManager(settings: settings, store: store)
+        defer { manager.closeAll() }
+        
+        // Initial state is Modern Hybrid (default material and blendingMode)
+        for panel in manager.allPanels {
+            #expect(panel.currentMaterial == .underWindowBackground)
+            #expect(panel.currentBlendingMode == .behindWindow)
+            #expect(panel.taskbarView.currentMaterial == .underWindowBackground)
+            #expect(panel.taskbarView.currentBlendingMode == .behindWindow)
+        }
+        
+        // Switch to custom HUD theme
+        manager.updateTheme(themeId: "custom-hud-translucent")
+        for panel in manager.allPanels {
+            #expect(panel.taskbarView.theme.id == "custom-hud-translucent")
+            #expect(panel.currentMaterial == .hudWindow)
+            #expect(panel.currentBlendingMode == .withinWindow)
+            #expect(panel.taskbarView.currentMaterial == .hudWindow)
+            #expect(panel.taskbarView.currentBlendingMode == .withinWindow)
+        }
+        
+        // Switch back to Modern Hybrid
+        manager.updateTheme(themeId: ModernHybridTheme.id)
+        for panel in manager.allPanels {
+            #expect(panel.taskbarView.theme.id == ModernHybridTheme.id)
+            #expect(panel.currentMaterial == .underWindowBackground)
+            #expect(panel.currentBlendingMode == .behindWindow)
+        }
+    }
 }

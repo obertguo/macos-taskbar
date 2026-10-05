@@ -86,8 +86,8 @@ public final class TaskbarView: NSView {
     private func setupViews() {
         wantsLayer = true
         
-        visualEffectView.blendingMode = .behindWindow
-        visualEffectView.material = .underWindowBackground
+        visualEffectView.blendingMode = VisualEffectMapping.resolveBlendingMode(theme.blendingMode)
+        visualEffectView.material = VisualEffectMapping.resolveMaterial(theme.material)
         visualEffectView.state = .active
         visualEffectView.autoresizingMask = [.width, .height]
         visualEffectView.frame = bounds
@@ -417,10 +417,22 @@ public final class TaskbarView: NSView {
         btn.onClick?()
     }
     
+    /// Current material applied to the underlying visual effect view.
+    public var currentMaterial: NSVisualEffectView.Material {
+        visualEffectView.material
+    }
+    
+    /// Current blending mode applied to the underlying visual effect view.
+    public var currentBlendingMode: NSVisualEffectView.BlendingMode {
+        visualEffectView.blendingMode
+    }
+    
     private func applyTheme() {
         startButton.theme = theme
         overflowButton.theme = theme
         visualEffectView.isHidden = !theme.useTranslucency
+        visualEffectView.material = VisualEffectMapping.resolveMaterial(theme.material)
+        visualEffectView.blendingMode = VisualEffectMapping.resolveBlendingMode(theme.blendingMode)
         
         for btn in pinnedButtons {
             btn.theme = theme

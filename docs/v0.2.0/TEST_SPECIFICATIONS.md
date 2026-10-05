@@ -169,6 +169,16 @@ This document provides the canonical specification catalog and requirements trac
     3. Verify `ScreenManager` applies theme and adopts custom layout dimensions (`barHeight`, `minButtonWidth`, `maxButtonWidth`, `buttonSpacing`, `fontSize`, `iconSize`).
   - **Automated Verification:** `testCustomThemeSelectionDoesNotRevertToModernHybrid` in `StatusMenuThemeTests.swift` & `testScreenManagerDynamicCustomThemeSwitching` in `ThemeExpansionIntegrationTests.swift`.
   - **Pass/Fail Criteria:** Custom theme ID retained, status menu checkmark remains active, and layout metrics reflect theme configuration.
+- **[TC-THEME-006] Dynamic Material & Blending Mode Adoption:**
+  - **Category:** Theming / Translucency & Vibrancy
+  - **Preconditions:** Theme JSON specifies `materials` with `material` and `blendingMode` tokens.
+  - **Stimulus / Action:**
+    1. Parse and validate `ThemeMaterials` decodes custom material and blending mode strings.
+    2. Map tokens through `VisualEffectMapping` with normalization and safe fallbacks.
+    3. Apply custom theme to `ScreenManager` and verify all panels adopt the target `NSVisualEffectView.Material` and `NSVisualEffectView.BlendingMode`.
+    4. Switch back to Modern Hybrid and verify properties revert to `.underWindowBackground` and `.behindWindow`.
+  - **Automated Verification:** `testVisualEffectMappingResolvesSupportedMaterialsAndBlendingModes` & `testScreenManagerAndTaskbarViewDynamicMaterialAndBlendingModeAdoption` in `ThemeExpansionIntegrationTests.swift`.
+  - **Pass/Fail Criteria:** Underlying `visualEffectView` properties on all display panels immediately match theme material and blending mode.
 
 ---
 
@@ -187,5 +197,5 @@ This document provides the canonical specification catalog and requirements trac
 | **Context Menus & Multi-Screen Sync** | `TC-PIN-004`, `TC-PIN-005` | `PinnedAppsIntegrationTests` |
 | **Multi-Resolution Icon Sanitizer** | `TC-PIN-006` | `PinnedAppsIntegrationTests` |
 | **Expanded Presets (Luna & Dark)** | `TC-THEME-001`, `TC-THEME-002` | `ThemeExpansionIntegrationTests` |
-| **Custom JSON Theme Loader** | `TC-THEME-003`, `TC-THEME-004`, `TC-THEME-005` | `ThemeExpansionIntegrationTests`, `StatusMenuThemeTests` |
+| **Custom JSON Theme Loader** | `TC-THEME-003`, `TC-THEME-004`, `TC-THEME-005`, `TC-THEME-006` | `ThemeExpansionIntegrationTests`, `StatusMenuThemeTests` |
 | **Memory Bound (< 45 MB RSS)** | `TC-PERF-001` | `scripts/test-functional.sh --all` |

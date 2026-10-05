@@ -82,6 +82,14 @@ public final class TaskbarPanel: NSPanel {
         taskbarView.theme = theme
     }
     
+    public var currentMaterial: NSVisualEffectView.Material {
+        taskbarView.currentMaterial
+    }
+    
+    public var currentBlendingMode: NSVisualEffectView.BlendingMode {
+        taskbarView.currentBlendingMode
+    }
+    
     public func updateButtonWidths(minWidth: Double, maxWidth: Double) {
         taskbarView.minButtonWidth = minWidth
         taskbarView.maxButtonWidth = maxWidth

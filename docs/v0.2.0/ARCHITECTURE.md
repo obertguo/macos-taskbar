@@ -295,3 +295,10 @@ flowchart LR
   2. Updates `WorkAreaEnforcer.shared.barHeight` so maximized windows clamp to the new taskbar height.
   3. Calls `refreshPanels()` to resize panels across all connected displays.
   4. Synchronizes Status Menu checkmarks and submenus (`barHeight`, `fontSize`, `iconSize`, `minButtonWidth`).
+
+### 9.3 Dynamic Visual Effect Materials & Blending Modes (`ThemeMaterials`)
+- **AppKit Vibrancy Decoupling:** In `TaskbarCore`, `ThemeMaterials` decodes `useTranslucency`, optional `material: String?`, and optional `blendingMode: String?` without coupling the core data layer to AppKit.
+- **Dynamic Resolution (`VisualEffectMapping`):** `TaskbarKit` normalizes and resolves theme tokens to native AppKit visual effect properties:
+  - `NSVisualEffectView.Material`: `"hudWindow"`, `"windowBackground"`, `"popover"`, `"sidebar"`, `"menu"`, `"headerView"`, `"sheet"`, `"selection"`, `"titlebar"`, `"toolTip"`, `"contentBackground"`, `"underPageBackground"`, `"fullScreenUI"`, defaulting safely to `.underWindowBackground`.
+  - `NSVisualEffectView.BlendingMode`: `"behindWindow"` (samples desktop wallpaper and underlying windows) or `"withinWindow"` (samples content within the taskbar window itself), defaulting to `.behindWindow`.
+- **Runtime Application:** `TaskbarView.applyTheme()` dynamically updates `visualEffectView.material`, `visualEffectView.blendingMode`, and `visualEffectView.isHidden` across all display panels immediately upon theme selection without requiring an application restart.

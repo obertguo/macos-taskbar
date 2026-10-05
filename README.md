@@ -68,7 +68,7 @@ Taskbar includes a 3-tier test harness with automated memory and CPU benchmarkin
 # Stress & capacity suite (100-window burst, chevron overflow, button recycling)
 ./scripts/test-functional.sh --stress
 
-# Run all test suites (99 tests) + resident memory (<45 MB RSS) and CPU benchmarks
+# Run all test suites (103 tests) + resident memory (<45 MB RSS) and CPU benchmarks
 ./scripts/test-functional.sh --all
 ```
 
@@ -104,7 +104,7 @@ For in-depth guides intended for human developers and AI coding agents:
 - [**Architecture & Concurrency Guide**](docs/v0.2.0/ARCHITECTURE.md): SPM target hierarchy (`TaskbarCore`, `TaskbarKit`, `TaskbarApp`), threading model, AX concurrency, view recycling, work area clamping, focus isolation, and custom theme engine.
 - [**Build & Release Guide**](docs/v0.2.0/BUILD_AND_RELEASE.md): Compilation, code signing, installation, testing, and release packaging.
 - [**Configuration Reference**](docs/v0.2.0/CONFIGURATION.md): Centralized build settings (`config/build.env`), common shell utilities, and JSON theme specifications.
-- [**Testing & Verification Guide**](docs/v0.2.0/TESTING.md): 3-tier testing pyramid, fixture automation, runner modes, and resource benchmarking across 99 tests.
+- [**Testing & Verification Guide**](docs/v0.2.0/TESTING.md): 3-tier testing pyramid, fixture automation, runner modes, and resource benchmarking across 103 tests.
 - [**Test Specifications Catalog**](docs/v0.2.0/TEST_SPECIFICATIONS.md): Complete test taxonomy (`TC-FUNC-*`, `TC-EDGE-*`, `TC-STRESS-*`, `TC-PERF-*`, `TC-PIN-*`, `TC-THEME-*`, `TC-UNIT-*`) with requirement traceability.
 - [**Codebase Conventions & Best Practices**](docs/v0.2.0/CONVENTIONS.md): Architectural boundaries, threading invariants, constants management, and safety protocols.
 

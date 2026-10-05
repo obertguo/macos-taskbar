@@ -107,4 +107,26 @@ final class ThemeTests: XCTestCase {
         registry.unregister(themeId: "nord-frost")
         XCTAssertEqual(registry.theme(for: "nord-frost").id, "modern-hybrid")
     }
+    
+    func testThemeMaterialsDecodingWithMaterialAndBlendingMode() throws {
+        let json = """
+        {
+            "useTranslucency": true,
+            "material": "hudWindow",
+            "blendingMode": "withinWindow"
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let materials = try JSONDecoder().decode(ThemeMaterials.self, from: data)
+        XCTAssertTrue(materials.useTranslucency)
+        XCTAssertEqual(materials.material, "hudWindow")
+        XCTAssertEqual(materials.blendingMode, "withinWindow")
+        
+        // Roundtrip encode / decode
+        let encoded = try JSONEncoder().encode(materials)
+        let roundtrip = try JSONDecoder().decode(ThemeMaterials.self, from: encoded)
+        XCTAssertEqual(roundtrip, materials)
+        XCTAssertEqual(roundtrip.material, "hudWindow")
+        XCTAssertEqual(roundtrip.blendingMode, "withinWindow")
+    }
 }

@@ -202,4 +202,43 @@ final class ThemeFileLoaderTests: XCTestCase {
         XCTAssertEqual(reloaded.count, 0)
         XCTAssertFalse(ThemeRegistry.shared.customThemes.contains(where: { $0.id == "solarized-custom" }))
     }
+    
+    func testDiscoverCustomThemeWithMaterialAndBlendingMode() throws {
+        let json = """
+        {
+            "id": "translucent-hud",
+            "displayName": "Translucent HUD",
+            "isCustom": true,
+            "palette": {
+                "backgroundColor": { "red": 0.0, "green": 0.0, "blue": 0.0, "alpha": 0.0 },
+                "textNormal": { "red": 1.0, "green": 1.0, "blue": 1.0, "alpha": 1.0 },
+                "textPressed": { "red": 1.0, "green": 1.0, "blue": 1.0, "alpha": 1.0 },
+                "buttonNormal": { "red": 0.2, "green": 0.2, "blue": 0.2, "alpha": 0.5 },
+                "buttonHover": { "red": 0.3, "green": 0.3, "blue": 0.3, "alpha": 0.6 },
+                "buttonPressed": { "red": 0.4, "green": 0.4, "blue": 0.4, "alpha": 0.7 },
+                "buttonBorderNormal": { "red": 0.5, "green": 0.5, "blue": 0.5, "alpha": 0.5 },
+                "buttonBorderPressed": { "red": 0.0, "green": 0.5, "blue": 1.0, "alpha": 0.8 }
+            },
+            "materials": {
+                "useTranslucency": true,
+                "material": "hudWindow",
+                "blendingMode": "withinWindow"
+            }
+        }
+        """
+        let fileURL = tempDirectory.appendingPathComponent("translucent-hud.json")
+        try json.write(to: fileURL, atomically: true, encoding: .utf8)
+        
+        let loader = ThemeFileLoader(directory: tempDirectory)
+        let themes = loader.discoverCustomThemes()
+        
+        XCTAssertEqual(themes.count, 1)
+        guard let theme = themes.first else { return }
+        XCTAssertEqual(theme.id, "translucent-hud")
+        XCTAssertTrue(theme.useTranslucency)
+        XCTAssertEqual(theme.material, "hudWindow")
+        XCTAssertEqual(theme.blendingMode, "withinWindow")
+        XCTAssertEqual(theme.materials.material, "hudWindow")
+        XCTAssertEqual(theme.materials.blendingMode, "withinWindow")
+    }
 }
