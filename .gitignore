@@ -4,7 +4,8 @@ build/
 *.xcodeproj
 *.xcworkspace
 .swiftpm/
-references/
+personal-references/
+/references/
 dist/
 
 # Sensitive environment configuration files

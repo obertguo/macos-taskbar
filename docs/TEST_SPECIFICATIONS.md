@@ -1,4 +1,4 @@
-# Taskbar Test Specifications & Traceability Catalog (v0.2.0)
+# Taskbar Test Specifications & Traceability Catalog
 
 This document provides the canonical specification catalog and requirements traceability matrix for the **Taskbar** testing suite. All automated regression, functional, edge-case, and performance tests adhere to these specifications.
 

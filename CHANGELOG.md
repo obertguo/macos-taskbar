@@ -82,7 +82,7 @@ Version `0.2.1` is a targeted patch release that resolves multi-display window a
 - **Test Infrastructure & Specifications:**
   - Added integration test `TC-FUNC-004` validating single-window focus targeting without raising background windows.
   - Added integration test `TC-EDGE-005` validating full-screen window resize debounce and multi-pass animation settle clamping.
-  - Updated test specifications and documentation in `docs/v0.2.0/TEST_SPECIFICATIONS.md` and `docs/v0.2.0/TESTING.md` (97 tests total passing at 100%).
+  - Updated test specifications and documentation in `docs/TEST_SPECIFICATIONS.md` and `docs/TESTING.md` (97 tests total passing at 100%).
 
 ---
 

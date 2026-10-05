@@ -1,6 +1,6 @@
-# Taskbar Testing Guide (v0.2.0)
+# Taskbar Testing Guide
 
-This guide documents the automated testing infrastructure, test execution modes, test fixture architecture, and performance verification standards for **Taskbar** v0.2.0.
+This guide documents the automated testing infrastructure, test execution modes, test fixture architecture, and performance verification standards for **Taskbar**.
 
 ---
 
@@ -18,7 +18,7 @@ Taskbar employs a 3-tier testing strategy ensuring 100% test coverage across cor
 
 ## 2. Test Execution Quickstart
 
-The primary interface for test execution is the fail-fast orchestration script [`scripts/test-functional.sh`](../../scripts/test-functional.sh).
+The primary interface for test execution is the fail-fast orchestration script [`scripts/test-functional.sh`](../scripts/test-functional.sh).
 
 ### Available Modes:
 
@@ -43,9 +43,9 @@ swift test
 
 ## 3. Test Suites & Taxonomy
 
-All test cases are formally specified in [`docs/v0.2.0/TEST_SPECIFICATIONS.md`](TEST_SPECIFICATIONS.md).
+All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SPECIFICATIONS.md).
 
-### 3.1 Core Unit Tests (`Tests/TaskbarCoreTests/` — 69 Tests)
+### 3.1 Core Unit Tests (`Tests/TaskbarCoreTests/` — 71 Tests)
 - `WorkAreaMathTests`: Clamping math, vertical maximization checks, multi-monitor coordinates, subpixel overlap tolerances (10 test cases).
 - `ClickPolicyTests`: Taskbar click dispatch rules across unfocused, focused, minimized, hidden, and frontmost windows (5 test cases).
 - `ButtonLayoutTests`: Spacious, compressing, icon-only, overflow width calculations, and custom title visibility thresholds (6 test cases).

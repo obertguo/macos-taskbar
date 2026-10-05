@@ -1,6 +1,6 @@
-# Taskbar Architecture & Design Document (v0.2.0)
+# Taskbar Architecture & Design Document
 
-This document provides a comprehensive technical breakdown of **Taskbar** architecture for the `v0.2.0` release ("Personalization & Quick Launch"). It details the modular theming engine, built-in presets, external JSON theme loader, pinned applications bar, multi-resolution icon sanitization, view recycling, observer lifecycle hardening, and multi-display synchronization.
+This document provides a comprehensive technical breakdown of **Taskbar** architecture. It details the modular theming engine, built-in presets, external JSON theme loader, pinned applications bar, multi-resolution icon sanitization, view recycling, observer lifecycle hardening, work area clamping, focus isolation, and multi-display synchronization.
 
 ---
 

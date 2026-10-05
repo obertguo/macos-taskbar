@@ -1,4 +1,4 @@
-# Codebase Best Practices & Conventions (v0.2.0)
+# Codebase Best Practices & Conventions
 
 This document establishes the official architectural standards, coding conventions, concurrency rules, and engineering best practices for the `Taskbar` codebase.
 
@@ -25,12 +25,12 @@ The repository is structured into three modular Swift targets:
 
 ### Single Source of Truth
 - **Build & Threshold Constants:**
-  - Governed by [`config/build.env`](../../config/build.env) and exposed via [`BuildConfiguration.swift`](../../Sources/TaskbarCore/Config/BuildConfiguration.swift).
+  - Governed by [`config/build.env`](../config/build.env) and exposed via [`BuildConfiguration.swift`](../Sources/TaskbarCore/Config/BuildConfiguration.swift).
   - Test harness thresholds (`TEST_MAX_RSS_MB`, `TEST_MAX_CPU_PERCENT`, `TEST_FIXTURE_APP`) must never be hardcoded in scripts.
 - **Layout & Debounce Constants:**
-  - All constants must be declared and documented in [`TaskbarConstants.swift`](../../Sources/TaskbarCore/Config/TaskbarConstants.swift) under their respective category (`Layout`, `WorkArea`, `Debounce`, `Themes`, `Dock`, `Accessibility`, `Launcher`).
+  - All constants must be declared and documented in [`TaskbarConstants.swift`](../Sources/TaskbarCore/Config/TaskbarConstants.swift) under their respective category (`Layout`, `WorkArea`, `Debounce`, `Themes`, `Dock`, `Accessibility`, `Launcher`).
 - **User-Facing Strings:**
-  - All UI strings, menu item titles, glyphs, and preset names reside in [`TaskbarStrings.swift`](../../Sources/TaskbarCore/Config/TaskbarStrings.swift).
+  - All UI strings, menu item titles, glyphs, and preset names reside in [`TaskbarStrings.swift`](../Sources/TaskbarCore/Config/TaskbarStrings.swift).
 
 ---
 
@@ -68,7 +68,7 @@ The repository is structured into three modular Swift targets:
   - Application icons are loaded once per bundle identifier/path, sanitized to eliminate corrupt legacy low-res bitmaps ($< 64\text{px}$) when high-resolution representations exist, and cached in memory.
   - Never fetch icons synchronously from disk inside drawing routines.
 - **Data-Driven Theming & Callback Invariant:**
-  - Avoid hardcoded theme colors or border drawing inside buttons. All visual tokens are resolved through [`ThemeRegistry`](../../Sources/TaskbarCore/Config/ThemeRegistry.swift) using `ThemePalette`, `ThemeMetrics`, and `ThemeMaterials`.
+  - Avoid hardcoded theme colors or border drawing inside buttons. All visual tokens are resolved through [`ThemeRegistry`](../Sources/TaskbarCore/Config/ThemeRegistry.swift) using `ThemePalette`, `ThemeMetrics`, and `ThemeMaterials`.
   - **Theme Callback Invariant:** Never dispatch legacy `onThemeChanged(ThemeStyle)` for custom themes. Because custom themes do not map to built-in enum cases, legacy callbacks evaluate to `.modernHybrid`, which clobbers user preferences. All theme lifecycle events must flow through `onThemeIdChanged(String)`.
 
 ---
@@ -95,4 +95,4 @@ Any feature that modifies macOS system preferences (such as hiding or reposition
    - POSIX process signals (`SIGINT`, `SIGTERM`, `SIGHUP`)
    - C standard library `atexit` handlers
    - Menu bar status item ("Restore System Dock Now")
-   - Standalone shell script ([`scripts/restore-dock.sh`](../../scripts/restore-dock.sh))
+   - Standalone shell script ([`scripts/restore-dock.sh`](../scripts/restore-dock.sh))

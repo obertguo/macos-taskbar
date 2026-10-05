@@ -1,6 +1,6 @@
-# Build & Release Guide (v0.2.0)
+# Build & Release Guide
 
-This document describes how to compile, bundle, codesign, verify, test, install, package, and publish `Taskbar.app` for version `0.2.0`.
+This document describes how to compile, bundle, codesign, verify, test, install, package, and publish `Taskbar.app`.
 
 ---
 
@@ -37,18 +37,18 @@ macOS Transparency, Consent, and Control (TCC) enforces that Accessibility permi
      ```
 
 ### Build Script Auto-Detection
-[`scripts/build-app.sh`](../../scripts/build-app.sh) automatically searches Keychain for an Apple Development certificate. If located, it signs with it; otherwise, it cleanly falls back to ad-hoc signing (`-`).
+[`scripts/build-app.sh`](../scripts/build-app.sh) automatically searches Keychain for an Apple Development certificate. If located, it signs with it; otherwise, it cleanly falls back to ad-hoc signing (`-`).
 
 ---
 
 ## 3. Configuration & Single Source of Truth
 
-Build and bundle metadata is centralized in [`config/build.env`](../../config/build.env):
+Build and bundle metadata is centralized in [`config/build.env`](../config/build.env):
 ```bash
 APP_NAME="Taskbar"
 BUNDLE_ID="com.local.taskbar"
-APP_VERSION="0.2.0"
-BUILD_NUMBER="3"
+APP_VERSION="0.2.3"
+BUILD_NUMBER="6"
 MIN_MACOS_VERSION="14.0"
 INSTALL_DIR="~/Applications"
 SIGN_IDENTITY="auto"
@@ -88,7 +88,7 @@ Before packaging any release, run the automated test harness:
 ```
 
 Requirements for release readiness:
-- 100% test pass rate across all 18 test suites (99 tests total).
+- 100% test pass rate across all 18 test suites (104 tests total).
 - Resident memory $< 45\text{ MB}$ RSS.
 - Idle CPU $\sim 0.0\%$.
 
@@ -96,17 +96,18 @@ Requirements for release readiness:
 
 ## 6. Packaging & Distribution Artifacts
 
-The packaging script [`scripts/package-release.sh`](../../scripts/package-release.sh) automates the generation of release artifacts:
+The packaging script [`scripts/package-release.sh`](../scripts/package-release.sh) automates the generation of release artifacts:
 
 ```bash
 # Package current version into dist/
 ./scripts/package-release.sh
 
 # Or bump version and package atomically:
-./scripts/package-release.sh --patch  # 0.2.1 -> 0.2.2 (Build 5)
+./scripts/package-release.sh --patch  # e.g. 0.2.2 -> 0.2.3
+./scripts/package-release.sh --minor  # e.g. 0.2.0 -> 0.3.0
 ```
 
 ### Generated Artifacts in `dist/`:
-- `Taskbar-v0.2.0.dmg`: Drag-and-drop macOS disk image with Applications folder shortcut.
-- `Taskbar-v0.2.0.zip`: Standalone compressed zip archive of `Taskbar.app`.
+- `Taskbar-v<VERSION>.dmg`: Drag-and-drop macOS disk image with Applications folder shortcut.
+- `Taskbar-v<VERSION>.zip`: Standalone compressed zip archive of `Taskbar.app`.
 - `SHA256SUMS.txt`: Cryptographic checksums for release integrity verification.

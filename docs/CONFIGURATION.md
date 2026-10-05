@@ -1,19 +1,19 @@
-# Taskbar Configuration & Theming Guide (v0.2.0)
+# Taskbar Configuration & Theming Guide
 
-This document describes the build configuration, runtime settings persistence, user custom theme JSON schema, and pinned applications configuration in **Taskbar** v0.2.0.
+This document describes the build configuration, runtime settings persistence, user custom theme JSON schema, and pinned applications configuration in **Taskbar**.
 
 ---
 
 ## 1. Build & Test Configuration (`config/build.env`)
 
-All build metadata, packaging properties, and test benchmarks are governed by [`config/build.env`](../../config/build.env) as the single source of truth.
+All build metadata, packaging properties, and test benchmarks are governed by [`config/build.env`](../config/build.env) as the single source of truth.
 
 ```env
 # Build and Packaging Configuration
 APP_NAME="Taskbar"
 BUNDLE_ID="com.local.taskbar"
-APP_VERSION="0.2.0"
-BUILD_NUMBER="3"
+APP_VERSION="0.2.3"
+BUILD_NUMBER="6"
 MIN_MACOS_VERSION="14.0"
 INSTALL_DIR="~/Applications"
 
@@ -33,8 +33,8 @@ TEST_FIXTURE_APP="TextEdit"
 |---|---|---|---|
 | `APP_NAME` | Product display name and process name. | `"Taskbar"` | `build-app.sh`, `package-release.sh`, `test-functional.sh` |
 | `BUNDLE_ID` | macOS bundle identifier and `UserDefaults` domain. | `"com.local.taskbar"` | `generate-config.sh`, `BuildConfiguration.swift` |
-| `APP_VERSION` | Semantic release version (X.Y.Z). | `"0.2.0"` | `generate-config.sh`, `package-release.sh`, `Info.plist` |
-| `BUILD_NUMBER` | Monotonically increasing build integer. | `"3"` | `generate-config.sh`, `Info.plist` |
+| `APP_VERSION` | Semantic release version (X.Y.Z). | `"0.2.3"` | `generate-config.sh`, `package-release.sh`, `Info.plist` |
+| `BUILD_NUMBER` | Monotonically increasing build integer. | `"6"` | `generate-config.sh`, `Info.plist` |
 | `MIN_MACOS_VERSION` | Minimum supported macOS version. | `"14.0"` | `generate-config.sh`, `test-functional.sh` |
 | `INSTALL_DIR` | Destination directory for `--install` flag. | `"~/Applications"` | `build-app.sh` |
 | `SIGN_IDENTITY` | Codesigning certificate identity (`"auto"` searches Keychain). | `"auto"` | `build-app.sh` |

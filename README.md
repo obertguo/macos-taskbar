@@ -101,12 +101,12 @@ If the Dock ever remains hidden (e.g., following a force kill during development
 For in-depth guides intended for human developers and AI coding agents:
 
 - [**Changelog & Release Notes**](CHANGELOG.md): Complete release history and feature logs.
-- [**Architecture & Concurrency Guide**](docs/v0.2.0/ARCHITECTURE.md): SPM target hierarchy (`TaskbarCore`, `TaskbarKit`, `TaskbarApp`), threading model, AX concurrency, view recycling, work area clamping, focus isolation, and custom theme engine.
-- [**Build & Release Guide**](docs/v0.2.0/BUILD_AND_RELEASE.md): Compilation, code signing, installation, testing, and release packaging.
-- [**Configuration Reference**](docs/v0.2.0/CONFIGURATION.md): Centralized build settings (`config/build.env`), common shell utilities, and JSON theme specifications.
-- [**Testing & Verification Guide**](docs/v0.2.0/TESTING.md): 3-tier testing pyramid, fixture automation, runner modes, and resource benchmarking across 104 tests.
-- [**Test Specifications Catalog**](docs/v0.2.0/TEST_SPECIFICATIONS.md): Complete test taxonomy (`TC-FUNC-*`, `TC-EDGE-*`, `TC-STRESS-*`, `TC-PERF-*`, `TC-PIN-*`, `TC-THEME-*`, `TC-UNIT-*`) with requirement traceability.
-- [**Codebase Conventions & Best Practices**](docs/v0.2.0/CONVENTIONS.md): Architectural boundaries, threading invariants, constants management, and safety protocols.
+- [**Architecture & Concurrency Guide**](docs/ARCHITECTURE.md): SPM target hierarchy (`TaskbarCore`, `TaskbarKit`, `TaskbarApp`), threading model, AX concurrency, view recycling, work area clamping, focus isolation, and custom theme engine.
+- [**Build & Release Guide**](docs/BUILD_AND_RELEASE.md): Compilation, code signing, installation, testing, and release packaging.
+- [**Configuration Reference**](docs/CONFIGURATION.md): Centralized build settings (`config/build.env`), common shell utilities, and JSON theme specifications.
+- [**Testing & Verification Guide**](docs/TESTING.md): 3-tier testing pyramid, fixture automation, runner modes, and resource benchmarking across 104 tests.
+- [**Test Specifications Catalog**](docs/TEST_SPECIFICATIONS.md): Complete test taxonomy (`TC-FUNC-*`, `TC-EDGE-*`, `TC-STRESS-*`, `TC-PERF-*`, `TC-PIN-*`, `TC-THEME-*`, `TC-UNIT-*`) with requirement traceability.
+- [**Codebase Conventions & Best Practices**](docs/CONVENTIONS.md): Architectural boundaries, threading invariants, constants management, and safety protocols.
 
 ---
 
