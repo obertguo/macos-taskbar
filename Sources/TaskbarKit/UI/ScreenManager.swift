@@ -1,4 +1,4 @@
-// Sources/TaskbarApp/UI/ScreenManager.swift
+// Sources/TaskbarKit/UI/ScreenManager.swift
 
 import AppKit
 import TaskbarCore

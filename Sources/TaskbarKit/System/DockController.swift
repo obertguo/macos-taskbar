@@ -1,4 +1,4 @@
-// Sources/TaskbarApp/System/DockController.swift
+// Sources/TaskbarKit/System/DockController.swift
 
 import Foundation
 import TaskbarCore

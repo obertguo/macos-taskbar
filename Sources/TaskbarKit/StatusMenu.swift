@@ -1,4 +1,4 @@
-// Sources/TaskbarApp/StatusMenu.swift
+// Sources/TaskbarKit/StatusMenu.swift
 
 import AppKit
 import TaskbarCore

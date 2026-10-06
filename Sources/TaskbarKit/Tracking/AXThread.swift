@@ -1,4 +1,4 @@
-// Sources/TaskbarApp/Tracking/AXThread.swift
+// Sources/TaskbarKit/Tracking/AXThread.swift
 
 import Foundation
 

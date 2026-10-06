@@ -62,6 +62,6 @@ Verify configuration references against actual code:
 1. `plans/roadmap.md`:
    - Mark completed milestone items as `[x]`.
    - Update current status, release versions, and timeline notes.
-2. Milestone implementation plans (`plans/v0.2.0/v0.2.0_implementation_plan.md`):
+2. Milestone implementation plans (`plans/<milestone>/<milestone>_implementation_plan.md`):
    - Link all dedicated technical postmortems and analysis documents.
    - Update verification checklists with passing benchmark status.

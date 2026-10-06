@@ -1,4 +1,4 @@
-// Sources/TaskbarApp/Tracking/AXElement+Attributes.swift
+// Sources/TaskbarKit/Tracking/AXElement+Attributes.swift
 
 import ApplicationServices
 import Foundation

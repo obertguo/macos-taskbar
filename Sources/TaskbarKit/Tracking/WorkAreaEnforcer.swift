@@ -1,4 +1,4 @@
-// Sources/TaskbarApp/Tracking/WorkAreaEnforcer.swift
+// Sources/TaskbarKit/Tracking/WorkAreaEnforcer.swift
 
 @preconcurrency import ApplicationServices
 import Foundation

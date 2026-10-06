@@ -1,4 +1,4 @@
-// Sources/TaskbarApp/Actions/WindowActions.swift
+// Sources/TaskbarKit/Actions/WindowActions.swift
 
 import AppKit
 import ApplicationServices

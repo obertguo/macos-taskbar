@@ -1,4 +1,4 @@
-// Sources/TaskbarApp/UI/IconCache.swift
+// Sources/TaskbarKit/UI/IconCache.swift
 
 import AppKit
 

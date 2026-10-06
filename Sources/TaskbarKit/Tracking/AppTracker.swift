@@ -1,4 +1,4 @@
-// Sources/TaskbarApp/Tracking/AppTracker.swift
+// Sources/TaskbarKit/Tracking/AppTracker.swift
 
 import AppKit
 import ApplicationServices

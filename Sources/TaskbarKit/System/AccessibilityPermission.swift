@@ -1,4 +1,4 @@
-// Sources/TaskbarApp/System/AccessibilityPermission.swift
+// Sources/TaskbarKit/System/AccessibilityPermission.swift
 
 import ApplicationServices
 import AppKit

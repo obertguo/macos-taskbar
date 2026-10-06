@@ -1,4 +1,4 @@
-// Sources/TaskbarApp/UI/OverflowButton.swift
+// Sources/TaskbarKit/UI/OverflowButton.swift
 
 import AppKit
 import TaskbarCore

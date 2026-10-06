@@ -1,4 +1,4 @@
-// Sources/TaskbarApp/System/Launcher.swift
+// Sources/TaskbarKit/System/Launcher.swift
 
 import AppKit
 import ApplicationServices

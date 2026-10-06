@@ -1,4 +1,4 @@
-// Sources/TaskbarApp/UI/BevelDrawing.swift
+// Sources/TaskbarKit/UI/BevelDrawing.swift
 
 import AppKit
 import TaskbarCore

@@ -1,4 +1,4 @@
-// Sources/TaskbarApp/AppDelegate.swift
+// Sources/TaskbarKit/AppDelegate.swift
 
 import AppKit
 import TaskbarCore

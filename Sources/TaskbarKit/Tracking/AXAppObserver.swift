@@ -1,4 +1,4 @@
-// Sources/TaskbarApp/Tracking/AXAppObserver.swift
+// Sources/TaskbarKit/Tracking/AXAppObserver.swift
 
 import ApplicationServices
 import Foundation
