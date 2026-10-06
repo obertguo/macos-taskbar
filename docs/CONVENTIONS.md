@@ -69,7 +69,7 @@ The repository is structured into three modular Swift targets:
   - Never fetch icons synchronously from disk inside drawing routines.
 - **Data-Driven Theming & Callback Invariant:**
   - Avoid hardcoded theme colors or border drawing inside buttons. All visual tokens are resolved through [`ThemeRegistry`](../Sources/TaskbarCore/Config/ThemeRegistry.swift) using `ThemePalette`, `ThemeMetrics`, and `ThemeMaterials`.
-  - **Theme Callback Invariant:** Never dispatch legacy `onThemeChanged(ThemeStyle)` for custom themes. Because custom themes do not map to built-in enum cases, legacy callbacks evaluate to `.modernHybrid`, which clobbers user preferences. All theme lifecycle events must flow through `onThemeIdChanged(String)`.
+  - **Theme Callback Invariant:** All theme lifecycle events must flow exclusively through `onThemeIdChanged(String)`. The legacy enum-based callback (`onThemeChanged(ThemeStyle)`) has been retired to eliminate enum-to-theme mapping clobbering.
 
 ---
 

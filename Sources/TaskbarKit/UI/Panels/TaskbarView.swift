@@ -1,4 +1,4 @@
-// Sources/TaskbarKit/UI/TaskbarView.swift
+// Sources/TaskbarKit/UI/Panels/TaskbarView.swift
 
 import AppKit
 import TaskbarCore

@@ -352,13 +352,13 @@ Every phase must pass the entire test matrix before progressing:
 
 ## 7. Execution Checklist
 
-- [ ] **Phase A: Low Risk**
-  - [ ] A1. Retire `onThemeChanged` in `StatusMenu.swift`.
-  - [ ] A1. Update `StatusMenuThemeTests.swift`.
-  - [ ] A1. Sync `docs/ARCHITECTURE.md` and `docs/CONVENTIONS.md`.
-  - [ ] A2. Create `Sources/TaskbarKit/UI/Buttons/`, `Panels/`, `Menu/`, `Management/`.
-  - [ ] A2. Move files and update header comments.
-  - [ ] A2. Compile and verify `swift build`.
+- [x] **Phase A: Low Risk**
+  - [x] A1. Retire `onThemeChanged` in `StatusMenu.swift`.
+  - [x] A1. Update `StatusMenuThemeTests.swift`.
+  - [x] A1. Sync `docs/ARCHITECTURE.md` and `docs/CONVENTIONS.md`.
+  - [x] A2. Create `Sources/TaskbarKit/UI/Buttons/`, `Panels/`, `Menu/`, `Management/`.
+  - [x] A2. Move files and update header comments.
+  - [x] A2. Compile and verify `swift build`.
 - [ ] **Phase B: Medium Risk**
   - [ ] B1. Implement `BaseTaskbarButton.swift`.
   - [ ] B2. Refactor `TaskButton`, `PinnedButton`, `StartButton`, `OverflowButton`.

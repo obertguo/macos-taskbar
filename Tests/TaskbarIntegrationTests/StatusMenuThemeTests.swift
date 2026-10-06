@@ -97,7 +97,7 @@ struct StatusMenuThemeTests {
         #expect(reloadCalled == true)
     }
     
-    @Test("StatusMenu custom theme click notifies onThemeIdChanged without legacy modernHybrid clobber")
+    @Test("StatusMenu custom theme click notifies onThemeIdChanged cleanly")
     func testCustomThemeSelectionDoesNotRevertToModernHybrid() {
         let customTheme = ThemeDefinition(
             id: "custom-neon-matrix",
@@ -114,13 +114,9 @@ struct StatusMenuThemeTests {
         
         let statusMenu = StatusMenu(currentThemeId: ModernHybridTheme.id)
         var receivedThemeId: String?
-        var receivedLegacyStyle: ThemeStyle?
         
         statusMenu.onThemeIdChanged = { themeId in
             receivedThemeId = themeId
-        }
-        statusMenu.onThemeChanged = { legacyStyle in
-            receivedLegacyStyle = legacyStyle
         }
         
         guard let statusItem = Mirror(reflecting: statusMenu).children.first(where: { $0.label == "statusItem" })?.value as? NSStatusItem,
@@ -137,7 +133,6 @@ struct StatusMenuThemeTests {
         _ = (target as AnyObject).perform(action, with: customMenuItem)
         
         #expect(receivedThemeId == "custom-neon-matrix")
-        #expect(receivedLegacyStyle == nil, "Custom themes must not invoke legacy onThemeChanged with fallback modernHybrid")
         #expect(statusMenu.currentThemeId == "custom-neon-matrix")
         
         // Verify state is checked in the updated menu

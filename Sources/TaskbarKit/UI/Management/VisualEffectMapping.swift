@@ -1,4 +1,4 @@
-// Sources/TaskbarKit/UI/VisualEffectMapping.swift
+// Sources/TaskbarKit/UI/Management/VisualEffectMapping.swift
 
 import AppKit
 

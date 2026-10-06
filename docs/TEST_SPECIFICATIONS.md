@@ -178,7 +178,7 @@ This document provides the canonical specification catalog and requirements trac
   - **Preconditions:** Custom JSON theme registered in `ThemeRegistry`.
   - **Stimulus / Action:**
     1. Select custom theme from Status Menu.
-    2. Verify `onThemeIdChanged` receives the custom theme ID and legacy `onThemeChanged` does not fire with fallback `.modernHybrid`.
+    2. Verify `onThemeIdChanged` receives the custom theme ID without enum clobbering.
     3. Verify `ScreenManager` applies theme and adopts custom layout dimensions (`barHeight`, `minButtonWidth`, `maxButtonWidth`, `buttonSpacing`, `fontSize`, `iconSize`).
   - **Automated Verification:** `testCustomThemeSelectionDoesNotRevertToModernHybrid` in `StatusMenuThemeTests.swift` & `testScreenManagerDynamicCustomThemeSwitching` in `ThemeExpansionIntegrationTests.swift`.
   - **Pass/Fail Criteria:** Custom theme ID retained, status menu checkmark remains active, and layout metrics reflect theme configuration.

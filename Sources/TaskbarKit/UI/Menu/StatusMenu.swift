@@ -1,4 +1,4 @@
-// Sources/TaskbarKit/StatusMenu.swift
+// Sources/TaskbarKit/UI/Menu/StatusMenu.swift
 
 import AppKit
 import TaskbarCore
@@ -15,8 +15,6 @@ public final class StatusMenu {
     private var isNudgerEnabled: Bool
     private var isDockHidden: Bool
     private var dockDelay: Double
-    
-    public var onThemeChanged: ((ThemeStyle) -> Void)?
     public var onThemeIdChanged: ((String) -> Void)?
     public var onReloadThemesRequested: (() -> Void)?
     public var onOpenThemesFolderRequested: (() -> Void)?
@@ -318,16 +316,12 @@ public final class StatusMenu {
             self.currentStyle = theme.style
             setupMenu()
             onThemeIdChanged?(themeId)
-            if ThemeRegistry.shared.isBuiltIn(themeId: themeId) {
-                onThemeChanged?(theme.style)
-            }
         } else if let style = sender.representedObject as? ThemeStyle {
             self.currentStyle = style
             let theme = ThemeDefinition.forStyle(style)
             self.currentThemeId = theme.id
             setupMenu()
             onThemeIdChanged?(theme.id)
-            onThemeChanged?(style)
         }
     }
     

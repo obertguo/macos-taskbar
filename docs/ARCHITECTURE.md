@@ -73,8 +73,12 @@ The codebase adheres strictly to a three-tiered library/executable structure to 
 2. **`TaskbarKit` (Library Target):**
    - Contains all macOS system integration and UI view code:
      - **Tracking:** `AppTracker`, `AXAppObserver`, `AXThread`, `WorkAreaEnforcer`.
-     - **UI:** `ScreenManager`, `TaskbarPanel`, `TaskbarView`, `TaskButton`, `StartButton`, `PinnedButton`, `OverflowButton`, `BevelDrawing`, `IconCache`.
-     - **Actions & System:** `WindowActions`, `DockController`, `Launcher`, `AccessibilityPermission`, `StatusMenu`, `AppDelegate`.
+     - **UI Subsystems:**
+       - **Buttons:** `TaskButton`, `StartButton`, `PinnedButton`, `OverflowButton`.
+       - **Panels:** `TaskbarPanel`, `TaskbarView`, `BevelDrawing`.
+       - **Menu:** `StatusMenu`.
+       - **Management:** `ScreenManager`, `IconCache`, `VisualEffectMapping`.
+     - **Actions & System:** `WindowActions`, `DockController`, `Launcher`, `AccessibilityPermission`, `AppDelegate`.
    - Publicly exported for deterministic integration testing in `TaskbarIntegrationTests`.
 
 3. **`TaskbarApp` (Executable Target):**
@@ -281,8 +285,8 @@ flowchart LR
 ```
 
 ### 9.1 Callback Architecture & Invariant Enforcement
-- **Unified Event Flow:** In earlier iterations, `StatusMenu` invoked both `onThemeIdChanged` and legacy `onThemeChanged(ThemeStyle)`. Because custom themes are not built-in enum presets, `theme.style` evaluates to `.modernHybrid`, which inadvertently clobbered custom theme selection back to Modern Hybrid.
-- **Strict Invariant:** All theme activation flows through `onThemeIdChanged(String)`. `onThemeChanged(ThemeStyle)` is strictly guarded to only fire if `ThemeRegistry.shared.isBuiltIn(themeId:)` is true, ensuring user custom themes remain active permanently.
+- **Unified Event Flow:** All theme activation flows through `onThemeIdChanged(String)`. In earlier iterations, `StatusMenu` also invoked a legacy `onThemeChanged(ThemeStyle)` callback, which clobbered custom theme selections back to `.modernHybrid` because custom themes are not built-in enum presets.
+- **Strict Invariant:** Theme lifecycle events flow exclusively through `onThemeIdChanged(String)`. The legacy `onThemeChanged(ThemeStyle)` callback has been retired from `StatusMenu`, ensuring unified handling across built-in presets and user custom themes with zero enum clobbering.
 
 ### 9.2 Dynamic Layout Metric Adoption
 - **Extended Theme Metrics (`ThemeMetrics`):** Theme JSON definitions can optionally specify layout dimensions:

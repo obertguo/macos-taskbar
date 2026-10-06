@@ -1,4 +1,4 @@
-// Sources/TaskbarKit/UI/PinnedButton.swift
+// Sources/TaskbarKit/UI/Buttons/PinnedButton.swift
 
 import AppKit
 import TaskbarCore
