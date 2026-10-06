@@ -67,7 +67,7 @@ The codebase adheres strictly to a three-tiered library/executable structure to 
 
 1. **`TaskbarCore` (Library Target):**
    - Independent of UI view hierarchies and `NSView` lifecycles.
-   - Houses mathematical models, window filtering rules, coordinate clamping math, configuration encoders/decoders, theme definitions and presets, file-based theme discovery, pinned application domain models, thread-safe `ThemeRegistry`, and unified `TaskbarLogger`.
+   - Houses mathematical models, pure layout calculation engines (`TaskbarLayoutEngine`, `ButtonLayout`), window filtering rules, coordinate clamping math, configuration encoders/decoders, theme definitions and presets, file-based theme discovery, pinned application domain models, thread-safe `ThemeRegistry`, and unified `TaskbarLogger`.
    - 100% covered by headless unit tests in `TaskbarCoreTests`.
 
 2. **`TaskbarKit` (Library Target):**

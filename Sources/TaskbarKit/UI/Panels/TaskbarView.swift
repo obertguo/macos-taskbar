@@ -297,82 +297,36 @@ public final class TaskbarView: NSView {
     private func layoutComponents() {
         visualEffectView.frame = bounds
         
-        let padY = TaskbarConstants.Layout.taskbarVerticalPadding
-        let btnH = max(TaskbarConstants.Layout.minimumButtonHeight, bounds.height - (padY * 2))
-        let startBtnW = startButton.preferredWidth()
-        startButton.frame = NSRect(
-            x: TaskbarConstants.Layout.startButtonLeadingMargin,
-            y: padY,
-            width: startBtnW,
-            height: btnH
-        )
-        
-        var currentX = startButton.frame.maxX + TaskbarConstants.Layout.startButtonTrailingMargin
-        
-        // Layout Pinned Buttons
-        for btn in pinnedButtons {
-            btn.frame = NSRect(
-                x: currentX,
-                y: padY,
-                width: btnH,
-                height: btnH
-            )
-            currentX += btnH + TaskbarConstants.Layout.pinnedButtonSpacing
-        }
-        
-        if !pinnedButtons.isEmpty {
-            currentX += (TaskbarConstants.Layout.pinnedSectionTrailingMargin - TaskbarConstants.Layout.pinnedButtonSpacing)
-        }
-        
-        let startX = currentX
-        let totalAvailableW = max(0.0, bounds.width - startX - TaskbarConstants.Layout.taskbarTrailingMargin)
-        
-        // Initial layout calculation
-        var layout = ButtonLayout.computeLayout(
-            availableWidth: Double(totalAvailableW),
-            itemCount: taskButtons.count,
-            maxButtonWidth: maxButtonWidth,
+        let params = TaskbarLayoutParameters(
+            containerSize: bounds.size,
+            startButtonWidth: startButton.preferredWidth(),
+            pinnedItemCount: pinnedButtons.count,
+            taskItemCount: taskButtons.count,
             minButtonWidth: minButtonWidth,
-            spacing: buttonSpacing,
+            maxButtonWidth: maxButtonWidth,
+            buttonSpacing: buttonSpacing,
             titleVisibilityThreshold: titleVisibilityThreshold
         )
+        let plan = TaskbarLayoutEngine.computeLayout(params: params)
         
-        let overflowBtnW = TaskbarConstants.Layout.overflowButtonWidth
-        if layout.hasOverflow {
-            // Reserve space for the overflow chevron button on the right edge
-            let netAvailableW = max(0.0, totalAvailableW - overflowBtnW - CGFloat(buttonSpacing))
-            layout = ButtonLayout.computeLayout(
-                availableWidth: Double(netAvailableW),
-                itemCount: taskButtons.count,
-                maxButtonWidth: maxButtonWidth,
-                minButtonWidth: minButtonWidth,
-                spacing: buttonSpacing,
-                titleVisibilityThreshold: titleVisibilityThreshold
-            )
-            
+        startButton.frame = plan.startButtonFrame
+        
+        for (index, btn) in pinnedButtons.enumerated() {
+            btn.frame = plan.pinnedButtonFrames[index]
+        }
+        
+        if let overflowFrame = plan.overflowButtonFrame {
             overflowButton.isHidden = false
-            overflowButton.frame = NSRect(
-                x: bounds.width - overflowBtnW - TaskbarConstants.Layout.overflowButtonTrailingMargin,
-                y: padY,
-                width: overflowBtnW,
-                height: btnH
-            )
+            overflowButton.frame = overflowFrame
         } else {
             overflowButton.isHidden = true
         }
         
-        var taskBtnX = startX
         for (index, btn) in taskButtons.enumerated() {
-            if index < layout.visibleCount {
+            if index < plan.visibleTaskCount {
                 btn.isHidden = false
-                btn.frame = NSRect(
-                    x: taskBtnX,
-                    y: padY,
-                    width: CGFloat(layout.buttonWidth),
-                    height: btnH
-                )
-                btn.showTitle = layout.showTitle
-                taskBtnX += CGFloat(layout.buttonWidth) + CGFloat(buttonSpacing)
+                btn.frame = plan.taskButtonFrames[index]
+                btn.showTitle = plan.showTitle
             } else {
                 btn.isHidden = true
             }

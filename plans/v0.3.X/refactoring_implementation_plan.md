@@ -329,6 +329,14 @@ public enum TaskbarLayoutEngine {
   - Zero layout math remains in AppKit UI layer.
   - Drag-and-drop hit testing and slot calculation in Phase 3 can query `TaskbarLayoutEngine` directly.
 
+### Task C4: `AXAppObserver` ARC Deinit Concurrency Hardening
+- **Context:** During full functional test runs of `WindowLifecycleIntegrationTests` (`TC-FUNC-004`/`TC-FUNC-007`), concurrent delivery of C-level accessibility notifications via `axObserverCallback` on `AXThread` alongside observer invalidation/deinit on the main thread could cause `AXAppObserver` to be retained during deallocation, triggering `SIGABRT` (`Object ... deallocated with non-zero retain count`).
+- **Resolution:**
+  - Implemented an isolated `AXObserverContext: @unchecked Sendable` wrapper class holding `weak var target: AXAppObserver?`.
+  - Passed `AXObserverContext` instead of direct `AXAppObserver` unmanaged pointers as the C `refcon`.
+  - Added thread-safe locking and immediate state invalidation (`target = nil`) upon `AXAppObserver.invalidate()`.
+  - Dispatched asynchronous unmanaged pointer release to `AXThread.shared.async` after run loop source removal, ensuring no C callbacks access invalid pointer addresses.
+
 ---
 
 ## 6. Regression Mitigation & Verification Matrix
@@ -337,14 +345,14 @@ Every phase must pass the entire test matrix before progressing:
 
 | Test Suite | Associated Verification Target | Target Metric |
 |---|---|---|
-| `swift test --filter TaskbarCoreTests` | Core purity, `ButtonLayout`, `TaskbarLayoutEngineTests` | 100% pass (71 + new unit tests) |
-| `StatusMenuThemeTests` | Retirement of `onThemeChanged` without regression | 100% pass |
-| `PinnedAppsIntegrationTests` | Base button hover/press, dynamic unpin/pin, context menu | 100% pass (8 tests) |
+| `swift test --filter TaskbarCoreTests` | Core purity, `ButtonLayout`, `TaskbarLayoutEngineTests` | 100% pass (78 unit tests) |
+| `StatusMenuThemeTests` | Retirement of `onThemeChanged` without regression | 100% pass (4 tests) |
+| `PinnedAppsIntegrationTests` | Base button hover/press, dynamic unpin/pin, context menu | 100% pass (9 tests) |
 | `StressIntegrationTests` | 100-window burst, view recycling, overflow button activation | 100% pass (3 tests) |
 | `EdgeCasesIntegrationTests` | Display re-plug, space change, sleep wake, subpixel bounds | 100% pass (6 tests) |
 | `WindowLifecycleIntegrationTests` | AX observer creation, window minimization/restoration, focus | 100% pass (7 tests) |
-| `./scripts/test-functional.sh --all` | Full end-to-end automated test harness | 104+ tests, 100% pass |
-| Memory Benchmark | Resident memory footprint | $\le 45.0\text{ MB}$ RSS |
+| `./scripts/test-functional.sh --all` | Full end-to-end automated test harness | 112 tests, 100% pass |
+| Memory Benchmark | Resident memory footprint | $\le 45.0\text{ MB}$ RSS (17.84 MB measured) |
 | Idle CPU Benchmark | Steady-state processor usage | $\sim 0.0\%$ |
 | Privacy Audit | Zero personal paths in git diff or code | 0 matches |
 
@@ -363,9 +371,10 @@ Every phase must pass the entire test matrix before progressing:
   - [x] B1. Implement `BaseTaskbarButton.swift`.
   - [x] B2. Refactor `TaskButton`, `PinnedButton`, `StartButton`, `OverflowButton`.
   - [x] B2. Run integration tests for buttons and context menus.
-- [ ] **Phase C: High Risk / v0.3.0 Enabler**
-  - [ ] C1. Implement `TaskbarLayoutParameters`, `TaskbarLayoutPlan`, and `TaskbarLayoutEngine` in `TaskbarCore/Logic/`.
-  - [ ] C2. Author comprehensive unit test suite in `Tests/TaskbarCoreTests/TaskbarLayoutEngineTests.swift`.
-  - [ ] C3. Wire `TaskbarLayoutEngine` into `TaskbarView.layoutComponents()`.
-  - [ ] C3. Run full test harness `./scripts/test-functional.sh --all`.
-  - [ ] C3. Verify memory RSS $\le 45\text{ MB}$ and CPU $\sim 0.0\%$.
+- [x] **Phase C: High Risk / v0.3.0 Enabler**
+  - [x] C1. Implement `TaskbarLayoutParameters`, `TaskbarLayoutPlan`, and `TaskbarLayoutEngine` in `TaskbarCore/Logic/`.
+  - [x] C2. Author comprehensive unit test suite in `Tests/TaskbarCoreTests/TaskbarLayoutEngineTests.swift`.
+  - [x] C3. Wire `TaskbarLayoutEngine` into `TaskbarView.layoutComponents()`.
+  - [x] C4. Concurrency hardening for `AXAppObserver` deinit race condition via `AXObserverContext`.
+  - [x] C5. Run full test harness `./scripts/test-functional.sh --all`.
+  - [x] C6. Verify memory RSS $\le 45\text{ MB}$ (17.84 MB) and CPU steady state.

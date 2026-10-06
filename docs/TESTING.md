@@ -45,7 +45,8 @@ swift test
 
 All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SPECIFICATIONS.md).
 
-### 3.1 Core Unit Tests (`Tests/TaskbarCoreTests/` — 71 Tests)
+### 3.1 Core Unit Tests (`Tests/TaskbarCoreTests/` — 78 Tests)
+- `TaskbarLayoutEngineTests`: Pure geometry plan calculations, empty/pinned/standard layouts, compression, overflow reservation, and slot hit testing (7 test cases).
 - `WorkAreaMathTests`: Clamping math, vertical maximization checks, multi-monitor coordinates, subpixel overlap tolerances (10 test cases).
 - `ClickPolicyTests`: Taskbar click dispatch rules across unfocused, focused, minimized, hidden, and frontmost windows (5 test cases).
 - `ButtonLayoutTests`: Spacious, compressing, icon-only, overflow width calculations, and custom title visibility thresholds (6 test cases).

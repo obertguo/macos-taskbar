@@ -196,6 +196,15 @@ This document provides the canonical specification catalog and requirements trac
 
 ---
 
+### 2.6 Pure Layout Engine & Geometry (`TC-UNIT-*`)
+
+- **[TC-UNIT-001] Empty & Pinned-Only Taskbar Geometry:** Empty states and pinned-only states calculate correct start button and pinned item bounds without NaN or negative widths.
+- **[TC-UNIT-002] Dynamic Task Button Compression:** As available width contracts, button widths compress evenly within `[minButtonWidth, maxButtonWidth]` and hide title labels below visibility threshold.
+- **[TC-UNIT-003] Overflow Button Reservation & Slot Allocation:** When available space is insufficient for all task buttons at `minButtonWidth`, overflow space is reserved and visible vs hidden counts are accurately computed.
+- **[TC-UNIT-004] Extensible Slot Geometry for Window Grouping:** Pre-calculates geometric slots suitable for grouping multiple window items into unified bounds.
+
+---
+
 ## 3. Requirements Traceability Matrix
 
 | Feature Requirement | Specification IDs | Verification Test Target |
@@ -212,4 +221,5 @@ This document provides the canonical specification catalog and requirements trac
 | **Multi-Resolution Icon Sanitizer** | `TC-PIN-006` | `PinnedAppsIntegrationTests` |
 | **Expanded Presets (Luna & Dark)** | `TC-THEME-001`, `TC-THEME-002` | `ThemeExpansionIntegrationTests` |
 | **Custom JSON Theme Loader** | `TC-THEME-003`, `TC-THEME-004`, `TC-THEME-005`, `TC-THEME-006` | `ThemeExpansionIntegrationTests`, `StatusMenuThemeTests` |
+| **Pure Layout Engine & Slot Allocation** | `TC-UNIT-001`, `TC-UNIT-002`, `TC-UNIT-003`, `TC-UNIT-004` | `TaskbarLayoutEngineTests` |
 | **Memory Bound (< 45 MB RSS)** | `TC-PERF-001` | `scripts/test-functional.sh --all` |
