@@ -15,9 +15,9 @@ public enum WindowGroupingMode: String, Codable, CaseIterable, Sendable {
     
     public var displayName: String {
         switch self {
-        case .always: return "Always"
-        case .whenCrowded: return "When Crowded"
-        case .never: return "Never"
+        case .always: return TaskbarStrings.WindowGrouping.modeAlwaysShort
+        case .whenCrowded: return TaskbarStrings.WindowGrouping.modeWhenCrowdedShort
+        case .never: return TaskbarStrings.WindowGrouping.modeNeverShort
         }
     }
 }

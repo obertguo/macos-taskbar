@@ -5,6 +5,7 @@ import CoreGraphics
 
 public final class WindowStore: @unchecked Sendable {
     private var windows: [WindowKey: WindowInfo] = [:]
+    private var customOrders: [UInt32: [String: Int]] = [:]
     public private(set) var focusedWindowKey: WindowKey?
     public private(set) var frontmostPID: pid_t?
     private var openOrderCounter: UInt64 = 0
@@ -47,12 +48,27 @@ public final class WindowStore: @unchecked Sendable {
         if focusedWindowKey == key {
             focusedWindowKey = nil
         }
+        let keyString = TaskbarConstants.Identifiers.windowID(pid: key.pid, id: key.id)
+        for (screenID, order) in customOrders {
+            if order[keyString] != nil {
+                var updated = order
+                updated.removeValue(forKey: keyString)
+                customOrders[screenID] = updated
+            }
+        }
     }
     
     public func removeWindows(forPID pid: pid_t) {
         windows = windows.filter { $0.value.pid != pid }
         if let focused = focusedWindowKey, focused.pid == pid {
             focusedWindowKey = nil
+        }
+        let pidPrefix = TaskbarConstants.Identifiers.windowPIDPrefix(pid: pid)
+        for (screenID, order) in customOrders {
+            let updated = order.filter { !$0.key.hasPrefix(pidPrefix) }
+            if updated.count != order.count {
+                customOrders[screenID] = updated
+            }
         }
     }
     
@@ -91,7 +107,41 @@ public final class WindowStore: @unchecked Sendable {
         let assigned = windows.values.filter { window in
             ScreenAssignment.assignScreen(for: window.frame, across: screens) == screenID
         }
-        return assigned.sorted { $0.openOrder < $1.openOrder }
+        let naturalOrder = assigned.sorted { $0.openOrder < $1.openOrder }
+        guard let screenOrder = customOrders[screenID], !screenOrder.isEmpty else {
+            return naturalOrder
+        }
+        return naturalOrder.enumerated().sorted { left, right in
+            let leftKey = TaskbarConstants.Identifiers.windowID(pid: left.element.key.pid, id: left.element.key.id)
+            let rightKey = TaskbarConstants.Identifiers.windowID(pid: right.element.key.pid, id: right.element.key.id)
+            let leftSlot = screenOrder[leftKey]
+            let rightSlot = screenOrder[rightKey]
+            switch (leftSlot, rightSlot) {
+            case let (l?, r?):
+                return l != r ? l < r : left.offset < right.offset
+            case (.some, .none):
+                return true
+            case (.none, .some):
+                return false
+            case (.none, .none):
+                return left.offset < right.offset
+            }
+        }.map { $0.element }
+    }
+    
+    /// Retrieves the custom order slot mapping for a specific display, if set.
+    public func customOrder(forScreenID screenID: UInt32) -> [String: Int] {
+        customOrders[screenID] ?? [:]
+    }
+    
+    /// Commits a new custom order slot mapping for a specific display.
+    public func setCustomOrder(_ order: [String: Int], forScreenID screenID: UInt32) {
+        customOrders[screenID] = order
+    }
+    
+    /// Clears the custom order for a specific display, restoring natural open order.
+    public func clearCustomOrder(forScreenID screenID: UInt32) {
+        customOrders.removeValue(forKey: screenID)
     }
     
     /// Total count of tracked windows across all screens.

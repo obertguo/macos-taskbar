@@ -66,7 +66,7 @@ public enum WindowGroupingLogic {
         
         return appOrder.compactMap { bundleID in
             guard let wins = appWindows[bundleID], !wins.isEmpty else { return nil }
-            let name = appNames[bundleID] ?? wins.first?.appName ?? "App"
+            let name = appNames[bundleID] ?? wins.first?.appName ?? TaskbarStrings.WindowGrouping.defaultAppName
             return WindowGroup.applicationGroup(
                 bundleID: bundleID,
                 appName: name,

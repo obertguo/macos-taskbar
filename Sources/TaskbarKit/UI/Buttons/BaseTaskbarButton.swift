@@ -9,6 +9,14 @@ import TaskbarCore
 open class BaseTaskbarButton: NSView {
     public var onClick: (() -> Void)?
     
+    // MARK: - Drag-and-Drop Callbacks & State
+    public var onDragStarted: (() -> Void)?
+    public var onDragged: ((_ currentWindowLocation: NSPoint) -> Void)?
+    public var onDragEnded: ((_ cancelled: Bool) -> Void)?
+    
+    public private(set) var isDragging: Bool = false
+    private var mouseDownLocation: NSPoint?
+    
     public private(set) var isHovered: Bool = false {
         didSet {
             if oldValue != isHovered {
@@ -63,18 +71,58 @@ open class BaseTaskbarButton: NSView {
     
     open override func mouseExited(with event: NSEvent) {
         isHovered = false
-        isPressed = false
+        if !isDragging {
+            isPressed = false
+        }
     }
     
     open override func mouseDown(with event: NSEvent) {
+        mouseDownLocation = event.locationInWindow
+        isDragging = false
         isPressed = true
         if triggerClickOnMouseDown {
             onClick?()
         }
     }
     
+    open override func mouseDragged(with event: NSEvent) {
+        guard let startLocation = mouseDownLocation else {
+            super.mouseDragged(with: event)
+            return
+        }
+        
+        let currentLocation = event.locationInWindow
+        let dx = currentLocation.x - startLocation.x
+        let dy = currentLocation.y - startLocation.y
+        
+        if !isDragging {
+            if hypot(dx, dy) >= TaskbarConstants.Drag.activationThreshold {
+                isDragging = true
+                onDragStarted?()
+            }
+        }
+        
+        if isDragging {
+            // Check vertical departure bounds outside taskbar vertically
+            let localPoint = convert(currentLocation, from: nil)
+            let escape = TaskbarConstants.Drag.verticalEscapeThreshold
+            if localPoint.y < -escape || localPoint.y > (bounds.height + escape) {
+                cancelDrag()
+            } else {
+                onDragged?(currentLocation)
+            }
+        }
+    }
+    
     open override func mouseUp(with event: NSEvent) {
-        if isPressed {
+        let wasDragging = isDragging
+        mouseDownLocation = nil
+        
+        if wasDragging {
+            isDragging = false
+            isPressed = false
+            onDragEnded?(false)
+        } else if isPressed {
             isPressed = false
             if !triggerClickOnMouseDown {
                 let location = convert(event.locationInWindow, from: nil)
@@ -83,6 +131,24 @@ open class BaseTaskbarButton: NSView {
                 }
             }
         }
+    }
+    
+    /// Cancels an active drag session cleanly without triggering clicks or committing moves.
+    public func cancelDrag() {
+        guard isDragging else { return }
+        isDragging = false
+        isPressed = false
+        mouseDownLocation = nil
+        onDragEnded?(true)
+    }
+    
+    open override func keyDown(with event: NSEvent) {
+        // Escape key cancels active drag session
+        if event.keyCode == TaskbarConstants.KeyCodes.escape && isDragging {
+            cancelDrag()
+            return
+        }
+        super.keyDown(with: event)
     }
     
     /// Optional subclass hook invoked whenever `isHovered` or `isPressed` mutates.

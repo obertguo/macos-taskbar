@@ -51,7 +51,7 @@ public struct WindowGroup: Identifiable, Equatable, Sendable {
     /// Formatted label to display on the taskbar button.
     public var displayTitle: String {
         if isGrouped {
-            return "\(appName) (\(windows.count))"
+            return TaskbarStrings.WindowGrouping.groupedTitle(appName: appName, count: windows.count)
         } else {
             return primaryWindow?.displayTitle ?? appName
         }
@@ -74,7 +74,7 @@ public struct WindowGroup: Identifiable, Equatable, Sendable {
     /// Convenience initializer for a single, ungrouped window.
     public static func singleWindow(_ window: WindowInfo) -> WindowGroup {
         WindowGroup(
-            id: "win_\(window.key.pid)_\(window.key.id)",
+            id: TaskbarConstants.Identifiers.windowID(pid: window.key.pid, id: window.key.id),
             bundleID: window.bundleID,
             appName: window.appName,
             windows: [window],
@@ -85,7 +85,7 @@ public struct WindowGroup: Identifiable, Equatable, Sendable {
     /// Convenience initializer for an application group.
     public static func applicationGroup(bundleID: String, appName: String, windows: [WindowInfo]) -> WindowGroup {
         WindowGroup(
-            id: "group_\(bundleID)",
+            id: TaskbarConstants.Identifiers.groupID(bundleID: bundleID),
             bundleID: bundleID,
             appName: appName,
             windows: windows,

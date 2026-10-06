@@ -40,6 +40,7 @@ public final class TaskbarPanel: NSPanel {
             pinnedApps: pinnedApps,
             store: store
         )
+        self.taskbarView.screenID = displayID
         
         super.init(
             contentRect: frame,

@@ -180,6 +180,13 @@ public final class ScreenManager {
         NotificationCenter.default.post(name: .taskbarPinnedAppsDidChange, object: nil)
     }
     
+    public func reorderPinnedApps(_ newOrder: [PinnedApp]) {
+        settings.pinnedApps = newOrder
+        settings.save()
+        refreshPinnedAppsAcrossPanels()
+        NotificationCenter.default.post(name: .taskbarPinnedAppsDidChange, object: nil)
+    }
+    
     public func refreshPinnedAppsAcrossPanels() {
         let runningBundleIDs = Set(store.allWindows.map { $0.bundleID })
         for panel in panels.values {
@@ -198,6 +205,9 @@ public final class ScreenManager {
         }
         panel.taskbarView.onUnpinRequested = { [weak self] bundleID in
             self?.unpinApp(bundleIdentifier: bundleID)
+        }
+        panel.taskbarView.onPinnedReorderRequested = { [weak self] newPinnedApps in
+            self?.reorderPinnedApps(newPinnedApps)
         }
     }
     

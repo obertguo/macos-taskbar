@@ -162,4 +162,39 @@ public enum TaskbarStrings {
         public static let openThemesFolder = "Open Themes Folder in Finder..."
         public static let exportCurrentTheme = "Export Current Theme as JSON..."
     }
+    
+    // MARK: - Window Grouping UI
+    public enum WindowGrouping {
+        /// Title for the Window Grouping submenu in StatusMenu.
+        public static let menuTitle = "Window Grouping"
+        
+        /// Always group multi-window applications into a single button.
+        public static let modeAlways = "Always (Group multi-window apps)"
+        
+        /// Group multi-window applications only when taskbar is crowded.
+        public static let modeWhenCrowded = "When Crowded (Auto-group on overflow)"
+        
+        /// Never group windows; keep individual buttons.
+        public static let modeNever = "Never (One button per window)"
+        
+        /// Short display name for Always grouping mode.
+        public static let modeAlwaysShort = "Always"
+        
+        /// Short display name for When Crowded grouping mode.
+        public static let modeWhenCrowdedShort = "When Crowded"
+        
+        /// Short display name for Never grouping mode.
+        public static let modeNeverShort = "Never"
+        
+        /// Context menu action to close all windows in a group.
+        public static let closeAllWindows = "Close All Windows"
+        
+        /// Fallback application name when app name cannot be resolved.
+        public static let defaultAppName = "App"
+        
+        /// Formats a grouped button title with count badge.
+        public static func groupedTitle(appName: String, count: Int) -> String {
+            "\(appName) (\(count))"
+        }
+    }
 }

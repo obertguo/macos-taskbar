@@ -254,6 +254,75 @@ public enum TaskbarConstants {
         /// Standard application bundle path for Raycast on macOS.
         public static let raycastAppPath = "/Applications/Raycast.app"
     }
+    
+    // MARK: - Drag-and-Drop Reordering
+    public enum Drag {
+        /// Minimum drag movement distance in points before activating a drag session.
+        public static let activationThreshold: CGFloat = 4.0
+        
+        /// Vertical escape distance in points outside taskbar bounds that cancels an active drag session.
+        public static let verticalEscapeThreshold: CGFloat = 30.0
+        
+        /// Width of the vertical insertion indicator line in points.
+        public static let insertionIndicatorWidth: CGFloat = 2.0
+        
+        /// Corner radius in points for the vertical insertion indicator line.
+        public static let insertionIndicatorCornerRadius: CGFloat = 1.0
+        
+        /// Vertical padding in points deducted from top/bottom for the insertion indicator line.
+        public static let insertionIndicatorVerticalInset: CGFloat = 8.0
+        
+        /// Minimum height in points for the insertion indicator line.
+        public static let insertionIndicatorMinHeight: CGFloat = 16.0
+        
+        /// Opacity multiplier applied to the dragged button during an active drag session.
+        public static let draggedButtonAlpha: CGFloat = 0.85
+        
+        /// Layer z-position for elevating the dragged button above siblings.
+        public static let draggedButtonZPosition: CGFloat = 100.0
+        
+        /// Layer z-position for rendering the drop insertion indicator bar above all buttons.
+        public static let insertionIndicatorZPosition: CGFloat = 200.0
+    }
+    
+    // MARK: - Stable Component Identifiers
+    public enum Identifiers {
+        /// Prefix used for single-window taskbar button and custom order IDs.
+        public static let windowPrefix = "win_"
+        
+        /// Prefix used for multi-window group taskbar button and custom order IDs.
+        public static let groupPrefix = "group_"
+        
+        /// Generates a stable unique identifier for an ungrouped window button or custom order slot.
+        public static func windowID(pid: pid_t, id: UInt64) -> String {
+            "\(windowPrefix)\(pid)_\(id)"
+        }
+        
+        /// Generates a stable unique identifier for an application group button or custom order slot.
+        public static func groupID(bundleID: String) -> String {
+            "\(groupPrefix)\(bundleID)"
+        }
+        
+        /// Generates a PID prefix matching all windows belonging to the given process ID.
+        public static func windowPIDPrefix(pid: pid_t) -> String {
+            "\(windowPrefix)\(pid)_"
+        }
+    }
+    
+    // MARK: - Keyboard Codes
+    public enum KeyCodes {
+        /// macOS virtual key code for the Escape key (kVK_Escape).
+        public static let escape: UInt16 = 53
+        
+        /// macOS virtual key code for Return / Enter (kVK_Return).
+        public static let returnKey: UInt16 = 36
+        
+        /// macOS virtual key code for Up Arrow (kVK_UpArrow).
+        public static let upArrow: UInt16 = 126
+        
+        /// macOS virtual key code for Down Arrow (kVK_DownArrow).
+        public static let downArrow: UInt16 = 125
+    }
 }
 
 extension Notification.Name {
