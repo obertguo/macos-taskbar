@@ -84,6 +84,10 @@ Before expanding feature surface area, establish a robust automated testing and 
 
 ## 5. Phase 3: Advanced Window Organization (v0.3.0)
 
+**Pre-requisite Refactoring & Technical Enablers:**
+- [Codebase Audit Report (v0.2.3)](./v0.3.X/codebase_audit_v0.2.3.md)
+- [Refactoring Implementation Plan](./v0.3.X/refactoring_implementation_plan.md)
+
 ### 1. Window Re-Ordering
 - **Drag-to-Reorder UX:** Enable users to drag task buttons horizontally along the bar, with adjacent buttons smoothly shifting to indicate drop targets.
 - **Architecture:** Introduce a custom ordering layer in `WindowStore` (`[WindowKey: Int]`) that overrides default discovery sorting without altering background AX tracking.

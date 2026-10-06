@@ -33,7 +33,7 @@ Version `0.2.3` is a targeted patch release that resolves initial window maximiz
   - Enforced `.serialized` suite execution on `EdgeCasesIntegrationTests` to prevent concurrent fixture collisions.
   - Total test count expanded to 104 tests (71 unit + 33 integration) across 18 test suites passing at 100%.
 - **Technical Postmortem & Analysis Document:**
-  - Added `plans/v0.2.0/initial_maximize_nudger_and_tcc_race_analysis.md` documenting comprehensive root-cause analysis, reproduction mechanisms, and architectural solutions.
+  - Added `plans/v0.2.X/initial_maximize_nudger_and_tcc_race_analysis.md` documenting comprehensive root-cause analysis, reproduction mechanisms, and architectural solutions.
 
 ---
 
