@@ -359,10 +359,10 @@ Every phase must pass the entire test matrix before progressing:
   - [x] A2. Create `Sources/TaskbarKit/UI/Buttons/`, `Panels/`, `Menu/`, `Management/`.
   - [x] A2. Move files and update header comments.
   - [x] A2. Compile and verify `swift build`.
-- [ ] **Phase B: Medium Risk**
-  - [ ] B1. Implement `BaseTaskbarButton.swift`.
-  - [ ] B2. Refactor `TaskButton`, `PinnedButton`, `StartButton`, `OverflowButton`.
-  - [ ] B2. Run integration tests for buttons and context menus.
+- [x] **Phase B: Medium Risk**
+  - [x] B1. Implement `BaseTaskbarButton.swift`.
+  - [x] B2. Refactor `TaskButton`, `PinnedButton`, `StartButton`, `OverflowButton`.
+  - [x] B2. Run integration tests for buttons and context menus.
 - [ ] **Phase C: High Risk / v0.3.0 Enabler**
   - [ ] C1. Implement `TaskbarLayoutParameters`, `TaskbarLayoutPlan`, and `TaskbarLayoutEngine` in `TaskbarCore/Logic/`.
   - [ ] C2. Author comprehensive unit test suite in `Tests/TaskbarCoreTests/TaskbarLayoutEngineTests.swift`.

@@ -3,32 +3,19 @@
 import AppKit
 import TaskbarCore
 
-public final class StartButton: NSView {
+public final class StartButton: BaseTaskbarButton {
     public var theme: ThemeDefinition {
         didSet {
             needsDisplay = true
         }
     }
     
-    public var onClick: (() -> Void)?
-    
-    private var isHovered: Bool = false {
-        didSet { if oldValue != isHovered { needsDisplay = true } }
-    }
-    
-    private var isPressed: Bool = false {
-        didSet { if oldValue != isPressed { needsDisplay = true } }
-    }
-    
-    private var trackingArea: NSTrackingArea?
-    
     public init(theme: ThemeDefinition) {
         self.theme = theme
         super.init(frame: NSRect(x: 0, y: 0, width: 56, height: 26))
-        wantsLayer = true
     }
     
-    required init?(coder: NSCoder) {
+    public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
@@ -43,44 +30,6 @@ public final class StartButton: NSView {
             : TaskbarConstants.Layout.startButtonWidthHybrid
         let padding: CGFloat = theme.is3DBeveled ? 17.0 : 24.0
         return max(baseMin, ceil(textWidth + iconWidth + padding))
-    }
-    
-    public override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let trackingArea = trackingArea {
-            removeTrackingArea(trackingArea)
-        }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(area)
-        self.trackingArea = area
-    }
-    
-    public override func mouseEntered(with event: NSEvent) {
-        isHovered = true
-    }
-    
-    public override func mouseExited(with event: NSEvent) {
-        isHovered = false
-        isPressed = false
-    }
-    
-    public override func mouseDown(with event: NSEvent) {
-        isPressed = true
-    }
-    
-    public override func mouseUp(with event: NSEvent) {
-        if isPressed {
-            isPressed = false
-            let location = convert(event.locationInWindow, from: nil)
-            if bounds.contains(location) {
-                onClick?()
-            }
-        }
     }
     
     public override func draw(_ dirtyRect: NSRect) {

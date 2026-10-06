@@ -363,4 +363,60 @@ struct PinnedAppsIntegrationTests {
         #expect(prepared.representations.contains { $0.pixelsWide >= 64 })
         #expect(prepared.size == NSSize(width: 16, height: 16))
     }
+    
+    @Test("BaseTaskbarButton tracking, hover state, and configurable click dispatch")
+    func testBaseTaskbarButtonLifecycleAndClickPolicy() {
+        // Standard button: triggers on mouseUp within bounds
+        let standardBtn = BaseTaskbarButton(frame: NSRect(x: 0, y: 0, width: 100, height: 30))
+        standardBtn.updateTrackingAreas()
+        
+        #expect(!standardBtn.isHovered)
+        #expect(!standardBtn.isPressed)
+        
+        // Hover
+        standardBtn.mouseEntered(with: NSEvent())
+        #expect(standardBtn.isHovered)
+        
+        // Mouse down sets pressed
+        var standardClicked = false
+        standardBtn.onClick = { standardClicked = true }
+        standardBtn.mouseDown(with: NSEvent())
+        #expect(standardBtn.isPressed)
+        #expect(!standardClicked, "Standard button must not fire on mouseDown")
+        
+        // Mouse up inside bounds fires click
+        let insideEvent = NSEvent.mouseEvent(
+            with: .leftMouseUp,
+            location: NSPoint(x: 50, y: 15),
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1.0
+        )!
+        standardBtn.mouseUp(with: insideEvent)
+        #expect(!standardBtn.isPressed)
+        #expect(standardClicked)
+        
+        // Mouse exit resets hover and press
+        standardBtn.mouseEntered(with: NSEvent())
+        #expect(standardBtn.isHovered)
+        standardBtn.mouseExited(with: NSEvent())
+        #expect(!standardBtn.isHovered)
+        
+        // Immediate trigger button (like OverflowButton)
+        final class ImmediateButton: BaseTaskbarButton {
+            override var triggerClickOnMouseDown: Bool { true }
+        }
+        let immediateBtn = ImmediateButton(frame: NSRect(x: 0, y: 0, width: 50, height: 30))
+        var immediateClicked = false
+        immediateBtn.onClick = { immediateClicked = true }
+        immediateBtn.mouseDown(with: NSEvent())
+        #expect(immediateClicked, "Immediate button must trigger on mouseDown")
+        #expect(immediateBtn.isPressed)
+        immediateBtn.mouseUp(with: NSEvent())
+        #expect(!immediateBtn.isPressed)
+    }
 }

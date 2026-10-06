@@ -4,7 +4,7 @@ import AppKit
 import TaskbarCore
 
 /// A compact square button representing a pinned application shortcut on the taskbar.
-public final class PinnedButton: NSView {
+public final class PinnedButton: BaseTaskbarButton {
     public var pinnedApp: PinnedApp {
         didSet {
             if oldValue != pinnedApp {
@@ -29,19 +29,8 @@ public final class PinnedButton: NSView {
         }
     }
     
-    public var onClick: (() -> Void)?
     public var onUnpin: (() -> Void)?
     public var onQuit: (() -> Void)?
-    
-    public private(set) var isHovered: Bool = false {
-        didSet { if oldValue != isHovered { needsDisplay = true } }
-    }
-    
-    public private(set) var isPressed: Bool = false {
-        didSet { if oldValue != isPressed { needsDisplay = true } }
-    }
-    
-    private var trackingArea: NSTrackingArea?
     
     public init(
         pinnedApp: PinnedApp,
@@ -54,52 +43,13 @@ public final class PinnedButton: NSView {
         super.init(frame: .zero)
         
         self.toolTip = pinnedApp.displayName
-        self.wantsLayer = true
         self.setAccessibilityElement(true)
         self.setAccessibilityRole(.button)
         self.setAccessibilityLabel(pinnedApp.displayName)
     }
     
-    required init?(coder: NSCoder) {
+    public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-    
-    public override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let trackingArea = trackingArea {
-            removeTrackingArea(trackingArea)
-        }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(area)
-        self.trackingArea = area
-    }
-    
-    public override func mouseEntered(with event: NSEvent) {
-        isHovered = true
-    }
-    
-    public override func mouseExited(with event: NSEvent) {
-        isHovered = false
-        isPressed = false
-    }
-    
-    public override func mouseDown(with event: NSEvent) {
-        isPressed = true
-    }
-    
-    public override func mouseUp(with event: NSEvent) {
-        if isPressed {
-            isPressed = false
-            let loc = convert(event.locationInWindow, from: nil)
-            if bounds.contains(loc) {
-                onClick?()
-            }
-        }
     }
     
     public override func menu(for event: NSEvent) -> NSMenu? {

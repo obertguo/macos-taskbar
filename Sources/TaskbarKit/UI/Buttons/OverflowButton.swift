@@ -3,68 +3,24 @@
 import AppKit
 import TaskbarCore
 
-public final class OverflowButton: NSView {
+public final class OverflowButton: BaseTaskbarButton {
     public var theme: ThemeDefinition {
         didSet {
             needsDisplay = true
         }
     }
     
-    public var onClick: (() -> Void)?
-    
-    private var isHovered: Bool = false {
-        didSet { if oldValue != isHovered { needsDisplay = true } }
-    }
-    
-    private var isPressed: Bool = false {
-        didSet { if oldValue != isPressed { needsDisplay = true } }
-    }
-    
-    private var trackingArea: NSTrackingArea?
+    public override var triggerClickOnMouseDown: Bool { true }
     
     public init(theme: ThemeDefinition) {
         self.theme = theme
         let btnW = TaskbarConstants.Layout.overflowButtonWidth
         super.init(frame: NSRect(x: 0, y: 0, width: btnW, height: btnW))
-        wantsLayer = true
         toolTip = TaskbarStrings.Overflow.toolTip
     }
     
-    required init?(coder: NSCoder) {
+    public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-    
-    public override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let trackingArea = trackingArea {
-            removeTrackingArea(trackingArea)
-        }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(area)
-        self.trackingArea = area
-    }
-    
-    public override func mouseEntered(with event: NSEvent) {
-        isHovered = true
-    }
-    
-    public override func mouseExited(with event: NSEvent) {
-        isHovered = false
-        isPressed = false
-    }
-    
-    public override func mouseDown(with event: NSEvent) {
-        isPressed = true
-        onClick?()
-    }
-    
-    public override func mouseUp(with event: NSEvent) {
-        isPressed = false
     }
     
     public override func draw(_ dirtyRect: NSRect) {

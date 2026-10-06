@@ -74,7 +74,7 @@ The codebase adheres strictly to a three-tiered library/executable structure to 
    - Contains all macOS system integration and UI view code:
      - **Tracking:** `AppTracker`, `AXAppObserver`, `AXThread`, `WorkAreaEnforcer`.
      - **UI Subsystems:**
-       - **Buttons:** `TaskButton`, `StartButton`, `PinnedButton`, `OverflowButton`.
+       - **Buttons:** `BaseTaskbarButton`, `TaskButton`, `StartButton`, `PinnedButton`, `OverflowButton`.
        - **Panels:** `TaskbarPanel`, `TaskbarView`, `BevelDrawing`.
        - **Menu:** `StatusMenu`.
        - **Management:** `ScreenManager`, `IconCache`, `VisualEffectMapping`.

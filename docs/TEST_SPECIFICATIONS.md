@@ -164,6 +164,7 @@ This document provides the canonical specification catalog and requirements trac
 - **[TC-PIN-004] Context Menu Pin/Unpin Toggle:** Right-clicking running `TaskButton` toggles "Pin to Taskbar" / "Unpin from Taskbar"; right-clicking `PinnedButton` displays "Unpin from Taskbar".
 - **[TC-PIN-005] Multi-Display Synchronization:** Adding or removing a pinned application instantly updates `TaskbarView` across all connected displays via `ScreenManager`.
 - **[TC-PIN-006] Multi-Resolution Icon Sanitization:** Legacy 1x bitmaps ($< 64\text{px}$) inside app bundles are filtered out when high-resolution representations exist, preventing noise on 1x displays.
+- **[TC-PIN-007] BaseTaskbarButton Tracking & Click Dispatch:** Centralized tracking area creation, hover and pressed state mutations, and configurable mouse-up vs mouse-down click dispatch policies across button components.
 
 ---
 
@@ -206,7 +207,7 @@ This document provides the canonical specification catalog and requirements trac
 | **Edge-Case Filtering** | `TC-EDGE-001`, `TC-EDGE-002` | `EdgeCasesIntegrationTests` |
 | **Event Debounce, Multi-Monitor & Settle** | `TC-EDGE-003`, `TC-EDGE-004`, `TC-EDGE-005`, `TC-EDGE-006` | `EdgeCasesIntegrationTests` |
 | **View Recycling & Overflow** | `TC-STRESS-001`, `TC-STRESS-002`, `TC-PERF-001` | `StressIntegrationTests` |
-| **Pinned Quick Launch Bar** | `TC-PIN-001`, `TC-PIN-002`, `TC-PIN-003` | `PinnedAppsIntegrationTests` |
+| **Pinned Quick Launch Bar** | `TC-PIN-001`, `TC-PIN-002`, `TC-PIN-003`, `TC-PIN-007` | `PinnedAppsIntegrationTests` |
 | **Context Menus & Multi-Screen Sync** | `TC-PIN-004`, `TC-PIN-005` | `PinnedAppsIntegrationTests` |
 | **Multi-Resolution Icon Sanitizer** | `TC-PIN-006` | `PinnedAppsIntegrationTests` |
 | **Expanded Presets (Luna & Dark)** | `TC-THEME-001`, `TC-THEME-002` | `ThemeExpansionIntegrationTests` |

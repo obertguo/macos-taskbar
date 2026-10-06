@@ -59,7 +59,7 @@ All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SP
 - `ScreenAssignmentTests`: Primary/secondary monitor boundary partitioning (3 test cases).
 - `TaskbarCoreTests`: Build configuration sanity checks (1 test case).
 
-### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 33 Tests)
+### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 34 Tests)
 - **Window Lifecycle Suite (`WindowLifecycleIntegrationTests.swift` — 7 Tests):**
   - `TC-FUNC-001`: Window creation and store discovery within $\le 3\text{s}$.
   - `TC-FUNC-002`: Window minimization state tracking via AX notification.
@@ -79,7 +79,8 @@ All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SP
   - `TC-STRESS-001`: 100-window high-density window store burst.
   - `TC-STRESS-002`: TaskbarView overflow chevron activation when buttons reach `minButtonWidth`.
   - `TC-PERF-001`: In-place button view recycling preserving view instances and tracking areas.
-- **Pinned Applications Suite (`PinnedAppsIntegrationTests.swift` — 8 Tests):**
+- **Pinned Applications Suite (`PinnedAppsIntegrationTests.swift` — 9 Tests):**
+  - `BaseTaskbarButton` mouse tracking, hover state mutation, and configurable click dispatch.
   - `PinnedButton` properties, tracking, and dynamic context menu items.
   - `TaskbarView` pinned buttons layout, positioning, and square aspect ratio.
   - `TaskbarView` view recycling preserving existing `PinnedButton` instances.
