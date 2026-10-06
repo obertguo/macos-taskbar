@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Taskbar v0.3.0 - Drag & Drop Interaction Prototypes</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    /* Custom styles for realistic retro and Luna bevels */
+    .retro-raised {
+      box-shadow: inset 1px 1px #fff, inset -1px -1px #404040, inset 2px 2px #dfdfdf, inset -2px -2px #808080;
+    }
+    .retro-sunken {
+      box-shadow: inset 1px 1px #404040, inset -1px -1px #fff, inset 2px 2px #808080, inset -2px -2px #dfdfdf;
+    }
+    .retro-pressed {
+      background: #e0e0e0;
+      box-shadow: inset 1px 1px #404040, inset -1px -1px #fff;
+    }
+    .luna-bar {
+      background: linear-gradient(180deg, #3275db 0%, #245edc 10%, #1742a7 85%, #102e75 100%);
+    }
+    .luna-btn {
+      background: linear-gradient(180deg, #3d8aff 0%, #1e5adb 45%, #184cbd 50%, #1e60eb 100%);
+      border: 1px solid #143d96;
+      border-radius: 3px;
+      color: #fff;
+      text-shadow: 1px 1px 1px rgba(0,0,0,0.4);
+    }
+    .luna-btn:hover {
+      background: linear-gradient(180deg, #589aff 0%, #3572ed 45%, #255ec7 50%, #3071fb 100%);
+    }
+    .luna-btn-active {
+      background: linear-gradient(180deg, #103282 0%, #143e9e 45%, #123891 50%, #1a51cb 100%);
+      box-shadow: inset 1px 1px 2px rgba(0,0,0,0.6);
+    }
+    .luna-start {
+      background: linear-gradient(180deg, #4da64d 0%, #388e3c 45%, #2e7d32 50%, #3ba33f 100%);
+      border: 1px solid #1b5e20;
+      border-radius: 0 8px 8px 0;
+      font-weight: bold;
+      color: #fff;
+      font-style: italic;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
+    }
+    .hybrid-bar {
+      background: rgba(30, 30, 35, 0.75);
+      backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .hybrid-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      color: #f3f4f6;
+    }
+    .hybrid-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .hybrid-btn-active {
+      background: rgba(255, 255, 255, 0.22);
+      border-color: rgba(255, 255, 255, 0.35);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    }
+    .dragging-item {
+      cursor: grabbing !important;
+      z-index: 50 !important;
+      opacity: 0.9 !important;
+      transform: scale(1.04) !important;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.35) !important;
+    }
+    .insertion-line {
+      position: absolute;
+      top: 3px;
+      bottom: 3px;
+      width: 3px;
+      background: #38bdf8;
+      border-radius: 2px;
+      box-shadow: 0 0 8px #38bdf8, 0 0 2px #ffffff;
+      z-index: 40;
+      pointer-events: none;
+      transition: left 0.06s ease-out;
+    }
+    .retro-insertion-line {
+      background: #000080;
+      box-shadow: 0 0 0 1px #ffffff;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-6 font-sans antialiased">
+  <div class="max-w-5xl mx-auto space-y-8">
+    
+    <!-- Header -->
+    <header class="border-b border-slate-800 pb-5">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 mb-2">
+            Taskbar v0.3.0 Interactive Prototype
+          </div>
+          <h1 class="text-2xl font-bold tracking-tight text-white">Drag & Drop Interaction Comparison</h1>
+          <p class="text-sm text-slate-400 mt-1">Test and compare all three candidate drag-to-reorder feedback models under real-time mouse interaction.</p>
+        </div>
+        
+        <!-- Global Controls -->
+        <div class="flex items-center gap-3">
+          <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">Theme:</label>
+          <select id="themeSelect" class="bg-slate-900 border border-slate-700 text-sm rounded-lg px-3 py-1.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="hybrid">Modern Hybrid</option>
+            <option value="luna">Windows XP Luna</option>
+            <option value="retro">Retro Classic (Win 95)</option>
+          </select>
+          <button id="resetAllBtn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 font-medium transition">
+            Reset Order
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Interactive Sections -->
+    <main class="space-y-10">
+
+      <!-- ================= OPTION 1: LIVE SIBLING SHIFT ================= -->
+      <section class="bg-slate-900/60 border border-slate-800 rounded-xl p-6 shadow-xl">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 text-xs font-bold">1</span>
+              <h2 class="text-lg font-semibold text-white">Option A: Live Sibling Shift (Fluid Push)</h2>
+              <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">Highest UX Fluidity</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">
+              Adjacent taskbar buttons dynamically animate and shift left/right in real time as the cursor crosses their midpoints to reveal the drop slot.
+            </p>
+          </div>
+          <div class="text-xs text-slate-500 font-mono" id="statusA">State: Ready (Click & drag any button)</div>
+        </div>
+
+        <!-- Taskbar Frame A -->
+        <div class="taskbar-container rounded-lg p-2 overflow-hidden" id="barContainerA">
+          <div class="taskbar-bar flex items-center h-10 px-2 select-none relative" id="taskbarA">
+            <!-- Start & Pinned Fixed items -->
+            <div class="flex items-center gap-1.5 mr-3 shrink-0">
+              <div class="start-btn text-xs font-bold px-3 py-1 rounded cursor-default">Start</div>
+              <div class="w-px h-5 bg-slate-700/60 mx-1"></div>
+              <!-- Pinned Buttons -->
+              <div class="pinned-btn w-7 h-7 flex items-center justify-center rounded text-sm cursor-pointer" title="Finder">📁</div>
+              <div class="pinned-btn w-7 h-7 flex items-center justify-center rounded text-sm cursor-pointer" title="Terminal">💻</div>
+              <div class="pinned-btn w-7 h-7 flex items-center justify-center rounded text-sm cursor-pointer" title="Safari">🌐</div>
+              <div class="w-px h-5 bg-slate-700/60 mx-1"></div>
+            </div>
+            <!-- Dynamic Task Area -->
+            <div class="task-slots-area flex-1 flex items-center gap-1.5 relative h-full" id="taskAreaA">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 flex items-center justify-between text-xs text-slate-500">
+          <span>Pros: Immediate physical feedback; matches macOS Dock & modern browser tabs.</span>
+          <span>Complexity: Requires real-time sibling frame transitions & hysteresis dead-zones.</span>
+        </div>
+      </section>
+
+      <!-- ================= OPTION 2: INSERTION BAR / MARKER ================= -->
+      <section class="bg-slate-900/60 border border-slate-800 rounded-xl p-6 shadow-xl">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold">2</span>
+              <h2 class="text-lg font-semibold text-white">Option B: Insertion Bar / Marker</h2>
+              <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">Recommended Balance</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">
+              Sibling buttons remain stationary under the cursor. A vertical accent indicator bar glides between buttons to mark the exact insertion slot. Buttons snap on release.
+            </p>
+          </div>
+          <div class="text-xs text-slate-500 font-mono" id="statusB">State: Ready (Click & drag any button)</div>
+        </div>
+
+        <!-- Taskbar Frame B -->
+        <div class="taskbar-container rounded-lg p-2 overflow-hidden" id="barContainerB">
+          <div class="taskbar-bar flex items-center h-10 px-2 select-none relative" id="taskbarB">
+            <!-- Start & Pinned Fixed items -->
+            <div class="flex items-center gap-1.5 mr-3 shrink-0">
+              <div class="start-btn text-xs font-bold px-3 py-1 rounded cursor-default">Start</div>
+              <div class="w-px h-5 bg-slate-700/60 mx-1"></div>
+              <!-- Pinned Buttons -->
+              <div class="pinned-btn w-7 h-7 flex items-center justify-center rounded text-sm cursor-pointer" title="Finder">📁</div>
+              <div class="pinned-btn w-7 h-7 flex items-center justify-center rounded text-sm cursor-pointer" title="Terminal">💻</div>
+              <div class="pinned-btn w-7 h-7 flex items-center justify-center rounded text-sm cursor-pointer" title="Safari">🌐</div>
+              <div class="w-px h-5 bg-slate-700/60 mx-1"></div>
+            </div>
+            <!-- Dynamic Task Area -->
+            <div class="task-slots-area flex-1 flex items-center gap-1.5 relative h-full" id="taskAreaB">
+              <div class="insertion-line hidden" id="indicatorLineB"></div>
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 flex items-center justify-between text-xs text-slate-500">
+          <span>Pros: Zero layout jitter; clean classic precision; simple AppKit lifecycle.</span>
+          <span>Complexity: Minimal (single indicator overlay view during drag).</span>
+        </div>
+      </section>
+
+      <!-- ================= OPTION 3: GHOST / REORDER ON DROP ================= -->
+      <section class="bg-slate-900/60 border border-slate-800 rounded-xl p-6 shadow-xl">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-500/20 text-slate-400 text-xs font-bold">3</span>
+              <h2 class="text-lg font-semibold text-white">Option C: Ghost / Reorder on Drop</h2>
+              <span class="text-xs px-2 py-0.5 rounded bg-slate-500/10 text-slate-400 border border-slate-500/20 font-medium">Simplest Code</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">
+              Only the dragged tile moves as a floating translucent ghost. Sibling buttons do not move and no indicator line is shown. Reordering calculates strictly on release.
+            </p>
+          </div>
+          <div class="text-xs text-slate-500 font-mono" id="statusC">State: Ready (Click & drag any button)</div>
+        </div>
+
+        <!-- Taskbar Frame C -->
+        <div class="taskbar-container rounded-lg p-2 overflow-hidden" id="barContainerC">
+          <div class="taskbar-bar flex items-center h-10 px-2 select-none relative" id="taskbarC">
+            <!-- Start & Pinned Fixed items -->
+            <div class="flex items-center gap-1.5 mr-3 shrink-0">
+              <div class="start-btn text-xs font-bold px-3 py-1 rounded cursor-default">Start</div>
+              <div class="w-px h-5 bg-slate-700/60 mx-1"></div>
+              <!-- Pinned Buttons -->
+              <div class="pinned-btn w-7 h-7 flex items-center justify-center rounded text-sm cursor-pointer" title="Finder">📁</div>
+              <div class="pinned-btn w-7 h-7 flex items-center justify-center rounded text-sm cursor-pointer" title="Terminal">💻</div>
+              <div class="pinned-btn w-7 h-7 flex items-center justify-center rounded text-sm cursor-pointer" title="Safari">🌐</div>
+              <div class="w-px h-5 bg-slate-700/60 mx-1"></div>
+            </div>
+            <!-- Dynamic Task Area -->
+            <div class="task-slots-area flex-1 flex items-center gap-1.5 relative h-full" id="taskAreaC">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 flex items-center justify-between text-xs text-slate-500">
+          <span>Pros: Absolute lowest CPU consumption; zero in-flight math.</span>
+          <span>Cons: Ambiguous landing target until mouse release.</span>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Side-by-side Analysis Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-4">
+      <div class="bg-slate-900/40 border border-slate-800/80 rounded-lg p-4">
+        <h3 class="text-sm font-semibold text-indigo-400 mb-2">Option A Evaluation</h3>
+        <ul class="text-xs text-slate-400 space-y-1.5 list-disc list-inside">
+          <li><strong>Feel:</strong> Modern, organic, animated.</li>
+          <li><strong>CPU during Drag:</strong> ~1.2% (Continuous frame shifts).</li>
+          <li><strong>Edge Cases:</strong> Requires spatial hysteresis dead-zones to prevent rapid jitter if mouse lingers between two slots.</li>
+        </ul>
+      </div>
+
+      <div class="bg-slate-900/40 border border-slate-800/80 rounded-lg p-4">
+        <h3 class="text-sm font-semibold text-blue-400 mb-2">Option B Evaluation (Recommended)</h3>
+        <ul class="text-xs text-slate-400 space-y-1.5 list-disc list-inside">
+          <li><strong>Feel:</strong> Precise, crisp, retro/classic feel.</li>
+          <li><strong>CPU during Drag:</strong> ~0.1% (Only moves 1 lightweight marker).</li>
+          <li><strong>Edge Cases:</strong> Zero jitter; target slot is always 100% unambiguous before release.</li>
+        </ul>
+      </div>
+
+      <div class="bg-slate-900/40 border border-slate-800/80 rounded-lg p-4">
+        <h3 class="text-sm font-semibold text-slate-400 mb-2">Option C Evaluation</h3>
+        <ul class="text-xs text-slate-400 space-y-1.5 list-disc list-inside">
+          <li><strong>Feel:</strong> Utilitarian, minimal.</li>
+          <li><strong>CPU during Drag:</strong> &lt; 0.05% (Pure floating layer).</li>
+          <li><strong>Edge Cases:</strong> Higher cognitive load guessing which slot will receive the drop.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Initial Items
+    const initialItems = [
+      { id: 'item-1', title: 'TaskbarApp (Xcode)', icon: '🔨', isFocused: true },
+      { id: 'item-2', title: 'WindowActions.swift - TextEdit', icon: '📝', isFocused: false },
+      { id: 'item-3', title: 'Terminal - zsh (3)', icon: '🐚', isFocused: false, isGroup: true },
+      { id: 'item-4', title: 'Music - Playing', icon: '🎵', isFocused: false }
+    ];
+
+    let itemsA = JSON.parse(JSON.stringify(initialItems));
+    let itemsB = JSON.parse(JSON.stringify(initialItems));
+    let itemsC = JSON.parse(JSON.stringify(initialItems));
+    let currentTheme = 'hybrid';
+
+    // Apply Theme to Container
+    function applyTheme() {
+      const containers = [
+        { c: document.getElementById('barContainerA'), b: document.getElementById('taskbarA') },
+        { c: document.getElementById('barContainerB'), b: document.getElementById('taskbarB') },
+        { c: document.getElementById('barContainerC'), b: document.getElementById('taskbarC') }
+      ];
+
+      containers.forEach(({ c, b }) => {
+        b.className = 'taskbar-bar flex items-center h-10 px-2 select-none relative';
+        const startBtn = b.querySelector('.start-btn');
+        const pinnedBtns = b.querySelectorAll('.pinned-btn');
+
+        if (currentTheme === 'hybrid') {
+          c.className = 'taskbar-container rounded-lg p-2 overflow-hidden bg-slate-950/80';
+          b.classList.add('hybrid-bar');
+          startBtn.className = 'start-btn text-xs font-semibold px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/20 text-white cursor-pointer';
+          pinnedBtns.forEach(p => p.className = 'pinned-btn w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/15 text-sm cursor-pointer');
+        } else if (currentTheme === 'luna') {
+          c.className = 'taskbar-container rounded-lg p-2 overflow-hidden bg-[#0c235b]';
+          b.classList.add('luna-bar');
+          startBtn.className = 'start-btn text-xs luna-start px-3 py-1 cursor-pointer';
+          pinnedBtns.forEach(p => p.className = 'pinned-btn w-7 h-7 flex items-center justify-center rounded hover:bg-white/20 text-sm cursor-pointer');
+        } else if (currentTheme === 'retro') {
+          c.className = 'taskbar-container rounded-lg p-2 overflow-hidden bg-[#c0c0c0] text-black';
+          b.className = 'taskbar-bar flex items-center h-10 px-2 select-none relative bg-[#c0c0c0] border-t-2 border-white';
+          startBtn.className = 'start-btn text-xs font-bold px-2.5 py-1 retro-raised bg-[#c0c0c0] text-black cursor-pointer';
+          pinnedBtns.forEach(p => p.className = 'pinned-btn w-7 h-7 flex items-center justify-center rounded hover:bg-[#d0d0d0] text-sm cursor-pointer');
+        }
+      });
+
+      renderAll();
+    }
+
+    function getButtonClass(isFocused, isDragging = false) {
+      if (currentTheme === 'hybrid') {
+        return `hybrid-btn ${isFocused ? 'hybrid-btn-active' : ''} text-xs font-medium px-3 py-1 flex items-center gap-2 cursor-grab shrink-0 transition-transform duration-150`;
+      } else if (currentTheme === 'luna') {
+        return `luna-btn ${isFocused ? 'luna-btn-active' : ''} text-xs font-medium px-2.5 py-1 flex items-center gap-2 cursor-grab shrink-0 transition-transform duration-150`;
+      } else {
+        return `${isFocused ? 'retro-sunken retro-pressed' : 'retro-raised'} bg-[#c0c0c0] text-black text-xs font-medium px-2.5 py-1 flex items-center gap-1.5 cursor-grab shrink-0 transition-transform duration-150`;
+      }
+    }
+
+    // ==========================================
+    // RENDER LOGIC
+    // ==========================================
+    function renderArea(areaId, items, isOptionA = false) {
+      const area = document.getElementById(areaId);
+      // Retain indicator line in B
+      const indicator = area.querySelector('#indicatorLineB');
+      area.innerHTML = '';
+      if (indicator) area.appendChild(indicator);
+
+      items.forEach((item, index) => {
+        const btn = document.createElement('div');
+        btn.className = getButtonClass(item.isFocused);
+        btn.dataset.id = item.id;
+        btn.dataset.index = index;
+        btn.innerHTML = `
+          <span>${item.icon}</span>
+          <span class="truncate max-w-[150px]">${item.title}</span>
+          ${item.isGroup ? `<span class="ml-1 text-[11px] font-bold px-1.5 py-0.2 rounded-full ${currentTheme === 'retro' ? 'bg-navy-900 text-black' : 'bg-blue-500/30 text-blue-300'}">3</span>` : ''}
+        `;
+        area.appendChild(btn);
+      });
+    }
+
+    function renderAll() {
+      renderArea('taskAreaA', itemsA, true);
+      renderArea('taskAreaB', itemsB);
+      renderArea('taskAreaC', itemsC);
+      setupOptionA();
+      setupOptionB();
+      setupOptionC();
+    }
+
+    // ==========================================
+    // OPTION A: LIVE SIBLING SHIFT
+    // ==========================================
+    function setupOptionA() {
+      const area = document.getElementById('taskAreaA');
+      const status = document.getElementById('statusA');
+      const buttons = Array.from(area.children);
+
+      buttons.forEach(btn => {
+        btn.onmousedown = (e) => {
+          if (e.button !== 0) return;
+          const startIndex = parseInt(btn.dataset.index);
+          const startX = e.clientX;
+          const initialRects = buttons.map(b => b.getBoundingClientRect());
+          const draggedWidth = initialRects[startIndex].width;
+          let currentIndex = startIndex;
+
+          btn.classList.add('dragging-item');
+          status.innerText = `Dragging: "${itemsA[startIndex].title}"`;
+
+          function onMouseMove(ev) {
+            const deltaX = ev.clientX - startX;
+            btn.style.transform = `translateX(${deltaX}px) scale(1.05)`;
+
+            const draggedMid = initialRects[startIndex].left + deltaX + (draggedWidth / 2);
+
+            // Determine target slot
+            let targetIndex = 0;
+            for (let i = 0; i < initialRects.length; i++) {
+              if (draggedMid > initialRects[i].left + (initialRects[i].width / 2)) {
+                targetIndex = i;
+              }
+            }
+
+            if (targetIndex !== currentIndex) {
+              currentIndex = targetIndex;
+            }
+
+            // Shift siblings in real time
+            buttons.forEach((sib, sIdx) => {
+              if (sIdx === startIndex) return;
+              let shift = 0;
+              if (startIndex < currentIndex && sIdx > startIndex && sIdx <= currentIndex) {
+                shift = -draggedWidth - 6; // move left
+              } else if (startIndex > currentIndex && sIdx < startIndex && sIdx >= currentIndex) {
+                shift = draggedWidth + 6; // move right
+              }
+              sib.style.transform = `translateX(${shift}px)`;
+            });
+          }
+
+          function onMouseUp() {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+
+            btn.classList.remove('dragging-item');
+            buttons.forEach(b => {
+              b.style.transform = '';
+            });
+
+            if (currentIndex !== startIndex) {
+              const moved = itemsA.splice(startIndex, 1)[0];
+              itemsA.splice(currentIndex, 0, moved);
+              status.innerText = `Dropped into slot ${currentIndex + 1}`;
+            } else {
+              status.innerText = `Cancelled / Dropped at original slot`;
+            }
+            renderArea('taskAreaA', itemsA, true);
+            setupOptionA();
+          }
+
+          window.addEventListener('mousemove', onMouseMove);
+          window.addEventListener('mouseup', onMouseUp);
+        };
+      });
+    }
+
+    // ==========================================
+    // OPTION B: INSERTION BAR / MARKER
+    // ==========================================
+    function setupOptionB() {
+      const area = document.getElementById('taskAreaB');
+      const status = document.getElementById('statusB');
+      const indicator = document.getElementById('indicatorLineB');
+      const buttons = Array.from(area.querySelectorAll('div:not(.insertion-line)'));
+
+      if (currentTheme === 'retro') {
+        indicator.className = 'insertion-line retro-insertion-line hidden';
+      } else {
+        indicator.className = 'insertion-line hidden';
+      }
+
+      buttons.forEach(btn => {
+        btn.onmousedown = (e) => {
+          if (e.button !== 0) return;
+          const startIndex = parseInt(btn.dataset.index);
+          const startX = e.clientX;
+          const areaRect = area.getBoundingClientRect();
+          const rects = buttons.map(b => b.getBoundingClientRect());
+          let insertIndex = startIndex;
+
+          btn.classList.add('dragging-item');
+          indicator.classList.remove('hidden');
+          status.innerText = `Dragging: "${itemsB[startIndex].title}"`;
+
+          function updateIndicator(index) {
+            let leftPos = 0;
+            if (index === 0) {
+              leftPos = rects[0].left - areaRect.left - 3;
+            } else if (index >= rects.length) {
+              const last = rects[rects.length - 1];
+              leftPos = last.right - areaRect.left + 3;
+            } else {
+              leftPos = rects[index].left - areaRect.left - 4;
+            }
+            indicator.style.left = `${Math.max(0, leftPos)}px`;
+          }
+
+          updateIndicator(startIndex);
+
+          function onMouseMove(ev) {
+            const deltaX = ev.clientX - startX;
+            btn.style.transform = `translateX(${deltaX}px) scale(1.04)`;
+
+            const currentX = ev.clientX;
+            let targetSlot = 0;
+
+            for (let i = 0; i < rects.length; i++) {
+              const mid = rects[i].left + (rects[i].width / 2);
+              if (currentX > mid) {
+                targetSlot = i + 1;
+              }
+            }
+
+            insertIndex = targetSlot;
+            updateIndicator(insertIndex);
+          }
+
+          function onMouseUp() {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+
+            btn.classList.remove('dragging-item');
+            btn.style.transform = '';
+            indicator.classList.add('hidden');
+
+            // Calculate new array position
+            let finalIdx = insertIndex;
+            if (finalIdx > startIndex) finalIdx -= 1;
+
+            if (finalIdx !== startIndex && finalIdx >= 0 && finalIdx < itemsB.length) {
+              const moved = itemsB.splice(startIndex, 1)[0];
+              itemsB.splice(finalIdx, 0, moved);
+              status.innerText = `Snapped into slot ${finalIdx + 1}`;
+            } else {
+              status.innerText = `Dropped at original slot`;
+            }
+
+            renderArea('taskAreaB', itemsB);
+            setupOptionB();
+          }
+
+          window.addEventListener('mousemove', onMouseMove);
+          window.addEventListener('mouseup', onMouseUp);
+        };
+      });
+    }
+
+    // ==========================================
+    // OPTION C: GHOST / REORDER ON DROP
+    // ==========================================
+    function setupOptionC() {
+      const area = document.getElementById('taskAreaC');
+      const status = document.getElementById('statusC');
+      const buttons = Array.from(area.children);
+
+      buttons.forEach(btn => {
+        btn.onmousedown = (e) => {
+          if (e.button !== 0) return;
+          const startIndex = parseInt(btn.dataset.index);
+          const startX = e.clientX;
+          const rects = buttons.map(b => b.getBoundingClientRect());
+          let targetIndex = startIndex;
+
+          btn.classList.add('dragging-item');
+          btn.style.opacity = '0.6';
+          status.innerText = `Floating: "${itemsC[startIndex].title}"`;
+
+          function onMouseMove(ev) {
+            const deltaX = ev.clientX - startX;
+            btn.style.transform = `translateX(${deltaX}px) scale(1.02)`;
+
+            const currentX = ev.clientX;
+            let closest = 0;
+            let minDiff = Infinity;
+
+            for (let i = 0; i < rects.length; i++) {
+              const mid = rects[i].left + (rects[i].width / 2);
+              const diff = Math.abs(currentX - mid);
+              if (diff < minDiff) {
+                minDiff = diff;
+                closest = i;
+              }
+            }
+            targetIndex = closest;
+          }
+
+          function onMouseUp() {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+
+            btn.classList.remove('dragging-item');
+            btn.style.transform = '';
+            btn.style.opacity = '';
+
+            if (targetIndex !== startIndex) {
+              const moved = itemsC.splice(startIndex, 1)[0];
+              itemsC.splice(targetIndex, 0, moved);
+              status.innerText = `Placed into slot ${targetIndex + 1}`;
+            } else {
+              status.innerText = `Restored original slot`;
+            }
+
+            renderArea('taskAreaC', itemsC);
+            setupOptionC();
+          }
+
+          window.addEventListener('mousemove', onMouseMove);
+          window.addEventListener('mouseup', onMouseUp);
+        };
+      });
+    }
+
+    // Controls
+    document.getElementById('themeSelect').onchange = (e) => {
+      currentTheme = e.target.value;
+      applyTheme();
+    };
+
+    document.getElementById('resetAllBtn').onclick = () => {
+      itemsA = JSON.parse(JSON.stringify(initialItems));
+      itemsB = JSON.parse(JSON.stringify(initialItems));
+      itemsC = JSON.parse(JSON.stringify(initialItems));
+      renderAll();
+      document.getElementById('statusA').innerText = 'State: Reset';
+      document.getElementById('statusB').innerText = 'State: Reset';
+      document.getElementById('statusC').innerText = 'State: Reset';
+    };
+
+    // Initialize
+    applyTheme();
+  </script>
+</body>
+</html>
