@@ -97,14 +97,17 @@ The macOS Accessibility subsystem (`AXUIElement*`) communicates across processes
    - Audit `TaskbarView.updatePinnedButtons`:
      - Does it query `pinnedButtonMap[bundleID]` and reuse existing `PinnedButton` instances?
    - **Verification:** Successive layout updates must **not** invoke `removeFromSuperview()` and re-instantiate buttons for existing windows.
-2. **Layout Invalidation & Over-Drawing:**
-   - Audit `needsLayout = true` and `display()` calls.
-   - Avoid redundant layout passes: layouts should only trigger when window count, geometry, or display metrics actually change.
+2. **Layout Calculation & Geometry Decoupling:**
+   - Audit `TaskbarLayoutEngine`:
+     - Ensure layout math remains pure, allocating zero AppKit views or autoreleased objects during calculation.
+     - Frame computations must use immutable `TaskbarLayoutParameters` and return `TaskbarLayoutPlan` without intermediate heap allocations.
+   - Audit `needsLayout = true` and `display()` calls in `TaskbarView`:
+     - Avoid redundant layout passes: layouts should only trigger when window count, geometry, or display metrics actually change.
 3. **Vibrancy & Material Blending Performance:**
    - Inspect `NSVisualEffectView` configuration in `TaskbarPanel` and `TaskbarView`.
    - Ensure `blendingMode` (`.behindWindow` vs `.withinWindow`) matches theme requirements without causing unnecessary WindowServer multi-pass compositing.
 4. **Drawing Allocation Discipline:**
-   - Audit `draw(_:)` methods in `TaskButton`, `PinnedButton`, and `BevelDrawing`.
+   - Audit `draw(_:)` methods in `BaseTaskbarButton`, `TaskButton`, `PinnedButton`, and `BevelDrawing`.
    - Invariant: Zero memory allocations (e.g. `NSColor`, `NSBezierPath`, `NSDictionary` string attributes) inside `draw(_:)` loops. Pre-cache attributes, fonts, and path templates.
 
 ---
@@ -118,9 +121,10 @@ The macOS Accessibility subsystem (`AXUIElement*`) communicates across processes
      grep -rn "{ \[self\]" Sources/TaskbarKit/
      ```
    - Ensure every closure retaining long-lived controllers uses `[weak self]` or `[unowned self]`.
-2. **Unmanaged Memory Balance:**
-   - Audit `AXAppObserver.observeWindow` and observer callbacks:
-     - Ensure `Unmanaged.passUnretained(self).toOpaque()` is used when passing context pointers, avoiding retain cycles or leaked references.
+2. **Unmanaged Memory Balance & ARC Deinit Safety:**
+   - Audit `AXAppObserver` and observer callbacks:
+     - Ensure `AXObserverContext` wrapper holding a `weak var target` is passed as unmanaged pointer (`refcon`), avoiding ARC deallocation races when C callbacks fire concurrently on `AXThread`.
+     - Ensure unmanaged context pointer is safely released via `AXThread.shared.async` after run loop source unregistration, preventing premature deallocation while callbacks drain.
 3. **NotificationCenter Teardown:**
    - Ensure every `addObserver` has a corresponding `removeObserver` in `deinit` or `stopTracking()`.
 4. **Icon Cache Memory Bounds:**

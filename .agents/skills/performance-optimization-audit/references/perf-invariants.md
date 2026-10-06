@@ -18,6 +18,9 @@ This document codifies the non-negotiable performance invariants and resource th
 3. **Display Refresh Frame Coalescing:**
    - High-frequency window notifications must be coalesced into a **16ms window** (`TaskbarConstants.Timing.frameRenderDebounce = 0.016`).
    - Reconciliations must never be dispatched to the main thread faster than display frame intervals (60Hz / 120Hz).
+4. **Thread-Safe AX Callback Lifetime Isolation:**
+   - `AXObserver` C callbacks (`refcon`) must not retain or dereference deallocating host objects.
+   - Host instances must pass an isolated `AXObserverContext` containing a `weak var target` and synchronize unmanaged releases via `AXThread.shared.async` after run loop source unregistration.
 
 ---
 

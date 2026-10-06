@@ -56,7 +56,7 @@ Evaluate potential file and directory reorganizations to improve project navigab
 
 | Current Directory | Potential Structural Refactoring | Rationale |
 |---|---|---|
-| `Sources/TaskbarKit/UI/` | Subdivide into `Buttons/` (`TaskButton`, `PinnedButton`, `StartButton`, `OverflowButton`) and `Panels/` (`TaskbarPanel`, `TaskbarView`, `BevelDrawing`) | Reduces clutter and groups related subviews cleanly. |
+| `Sources/TaskbarKit/UI/` | *Completed in v0.3.X*: Subdivided into `Buttons/`, `Panels/`, `Menu/`, and `Management/` | Clutter reduced; button components cleanly decoupled from panels and menus. |
 | `Sources/TaskbarKit/Tracking/` | Group AX observers (`AXAppObserver`, `AXThread`) vs work area logic (`WorkAreaEnforcer`, `AppTracker`) | Separates OS-level accessibility engine mechanics from window work area layout clamping. |
 | `Tests/TaskbarIntegrationTests/` | Subdivide into `Suites/` and `Helpers/` | Keeps test fixture helpers clearly distinct from runnable test suites. |
 
@@ -69,3 +69,14 @@ Evaluate potential file and directory reorganizations to improve project navigab
   grep -rn "/Users/" Sources/ Tests/ config/ scripts/ docs/ plans/ README.md || true
   ```
 - [ ] Invariant: Ensure zero instances of personal user paths or developer account names appear anywhere in the codebase or git commit history.
+
+---
+
+## 6. Agent Skills Staleness & Alignment
+
+- [ ] **Skills Inventory Audit:**
+  - Verify all `.agents/skills/*/SKILL.md` files against latest architectural conventions and targets.
+  - Ensure reference runbooks in `.agents/skills/*/references/` contain zero obsolete or deprecated patterns (e.g. legacy unretained self unmanaged pointers or retired callbacks).
+  - Verify that test counts, metric thresholds, and commands match active codebase baselines (e.g. 112+ tests).
+- [ ] **Proactive Sync:**
+  - Synchronize any detected skill drift immediately during post-milestone audits.

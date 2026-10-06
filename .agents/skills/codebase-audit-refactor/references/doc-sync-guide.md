@@ -65,3 +65,12 @@ Verify configuration references against actual code:
 2. Milestone implementation plans (`plans/<milestone>/<milestone>_implementation_plan.md`):
    - Link all dedicated technical postmortems and analysis documents.
    - Update verification checklists with passing benchmark status.
+
+---
+
+### Step 6: Agent Skills Staleness Audit & Synchronization
+Audit all skills under `.agents/skills/`:
+1. Check that `SKILL.md` and reference runbooks in `.agents/skills/*/references/` reflect current architectural structures, target names, class hierarchies, and invariants.
+2. Check that test counts and benchmark thresholds in skills match active project baselines (e.g. 112+ tests, $\le 45\text{ MB}$ RSS, $\sim 0.0\%$ idle CPU).
+3. If new architectural patterns are introduced (e.g. `AXObserverContext`, `BaseTaskbarButton`, `TaskbarLayoutEngine`), ensure skill instructions do not prescribe obsolete patterns (e.g. direct unretained self unmanaged pointers or legacy callbacks).
+4. Update stale skill markdown files directly to maintain accuracy for future pairing and autonomous agent tasks.

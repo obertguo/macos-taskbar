@@ -33,8 +33,8 @@ flowchart TD
 
 1. **Inventory Source Targets:**
    - Review file distribution across the 3 SPM targets:
-     - `Sources/TaskbarCore/`: Models, geometry math, layout algorithms, filters, themes, settings, logging.
-     - `Sources/TaskbarKit/`: AppKit UI components, view recycling, multi-display manager, AX observer engine, work area enforcer, dock controller.
+     - `Sources/TaskbarCore/`: Models, pure `TaskbarLayoutEngine`, layout algorithms, filters, themes, settings, logging.
+     - `Sources/TaskbarKit/`: AppKit UI components (`Buttons/`, `Panels/`, `Menu/`, `Management/`), view recycling, multi-display manager, AX observer engine, work area enforcer, dock controller.
      - `Sources/TaskbarApp/`: Minimal application shell (`main.swift`).
      - `Tests/`: `TaskbarCoreTests` (Unit) and `TaskbarIntegrationTests` (Functional, Edge, Stress, Pinned, Theme).
 2. **Directory & File Hierarchy Evaluation:**
@@ -102,19 +102,24 @@ Verify adherence to the core architectural invariants defined in `docs/CONVENTIO
 
 ---
 
-### Stage 5: Documentation & Plan Synchronization
+### Stage 5: Documentation, Plan & Agent Skills Synchronization
 
-Audit documentation to eliminate staleness, version drift, and outdated architectural diagrams:
+Audit documentation and agent skills to eliminate staleness, version drift, and outdated architectural patterns:
 
 1. **Version & Test Count Consistency:**
    - Check `APP_VERSION` in `config/build.env`, `BuildConfiguration.swift`, and `Info.plist`.
-   - Verify that test counts in `README.md`, `docs/TESTING.md`, and `docs/TEST_SPECIFICATIONS.md` match actual test output from `./scripts/test-functional.sh --all`.
+   - Verify that test counts in `README.md`, `docs/TESTING.md`, and `docs/TEST_SPECIFICATIONS.md` match actual test output from `./scripts/test-functional.sh --all` (e.g. 112 tests).
 2. **Architecture & Specification Alignment:**
    - Verify that new subsystems, mitigations, or settings are documented in `docs/ARCHITECTURE.md`.
-   - Ensure all new test cases (e.g. `TC-EDGE-006`) are listed in `docs/TEST_SPECIFICATIONS.md` and mapped in the Requirements Traceability Matrix.
+   - Ensure all new test cases (e.g. `TC-EDGE-006`, `TC-PIN-007`, `TC-UNIT-*`) are listed in `docs/TEST_SPECIFICATIONS.md` and mapped in the Requirements Traceability Matrix.
 3. **Roadmap & Plan Updates:**
    - Review `plans/roadmap.md` and milestone implementation plans under `plans/`.
    - Update checklist checkboxes (`- [x]`) and add links to any completed design documents, postmortems, or technical analyses.
+4. **Agent Skills Staleness Audit & Synchronization:**
+   - Audit all agent skills in `.agents/skills/` (e.g. `codebase-audit-refactor`, `performance-optimization-audit`) and their corresponding `references/` runbooks:
+     - Check for staleness against recent architectural, layout, or concurrency changes.
+     - Identify obsolete code snippets, superseded class/callback names (e.g. retired callbacks or outdated unmanaged pointer patterns), or stale directory structures.
+     - Synchronize skill instructions, invariants, and checklist templates so future agent invocations always execute with accurate, evergreen guidance.
 
 ---
 
@@ -150,7 +155,7 @@ swift test --filter TaskbarCoreTests
 ./scripts/build-app.sh --install
 ```
 
-All 104+ tests must pass at 100%, resident memory must remain $\le 45\text{ MB}$ RSS, and idle CPU must remain $\sim 0.0\%$.
+All 112+ tests must pass at 100%, resident memory must remain $\le 45\text{ MB}$ RSS, and idle CPU must remain $\sim 0.0\%$.
 
 ---
 
