@@ -105,6 +105,70 @@ public struct TaskbarLayoutPlan: Equatable, Sendable {
         }
         return nil
     }
+    
+    /// Identifies the insertion slot index (0...visibleTaskCount) for a dragged task button at horizontal coordinate X.
+    public func taskInsertionSlot(atX x: CGFloat) -> Int {
+        let visibleFrames = Array(taskButtonFrames.prefix(visibleTaskCount))
+        guard !visibleFrames.isEmpty else { return 0 }
+        
+        for (index, frame) in visibleFrames.enumerated() {
+            if x < frame.midX {
+                return index
+            }
+        }
+        return visibleFrames.count
+    }
+    
+    /// Identifies the insertion slot index (0...pinnedItemCount) for a dragged pinned button at horizontal coordinate X.
+    public func pinnedInsertionSlot(atX x: CGFloat) -> Int {
+        guard !pinnedButtonFrames.isEmpty else { return 0 }
+        
+        for (index, frame) in pinnedButtonFrames.enumerated() {
+            if x < frame.midX {
+                return index
+            }
+        }
+        return pinnedButtonFrames.count
+    }
+    
+    /// Computes the horizontal center X coordinate for rendering the insertion indicator bar in the task area.
+    public func taskInsertionIndicatorX(
+        forSlot slot: Int,
+        buttonSpacing: CGFloat = CGFloat(TaskbarConstants.Layout.defaultButtonSpacing)
+    ) -> CGFloat? {
+        let visibleFrames = Array(taskButtonFrames.prefix(visibleTaskCount))
+        guard !visibleFrames.isEmpty else { return nil }
+        let clampedSlot = max(0, min(slot, visibleFrames.count))
+        
+        if clampedSlot == 0 {
+            return visibleFrames[0].minX - (buttonSpacing / 2.0)
+        } else if clampedSlot == visibleFrames.count {
+            return visibleFrames[visibleFrames.count - 1].maxX + (buttonSpacing / 2.0)
+        } else {
+            let prevMaxX = visibleFrames[clampedSlot - 1].maxX
+            let nextMinX = visibleFrames[clampedSlot].minX
+            return (prevMaxX + nextMinX) / 2.0
+        }
+    }
+    
+    /// Computes the horizontal center X coordinate for rendering the insertion indicator bar in the pinned area.
+    public func pinnedInsertionIndicatorX(
+        forSlot slot: Int,
+        pinnedSpacing: CGFloat = CGFloat(TaskbarConstants.Layout.pinnedButtonSpacing)
+    ) -> CGFloat? {
+        guard !pinnedButtonFrames.isEmpty else { return nil }
+        let clampedSlot = max(0, min(slot, pinnedButtonFrames.count))
+        
+        if clampedSlot == 0 {
+            return pinnedButtonFrames[0].minX - (pinnedSpacing / 2.0)
+        } else if clampedSlot == pinnedButtonFrames.count {
+            return pinnedButtonFrames[pinnedButtonFrames.count - 1].maxX + (pinnedSpacing / 2.0)
+        } else {
+            let prevMaxX = pinnedButtonFrames[clampedSlot - 1].maxX
+            let nextMinX = pinnedButtonFrames[clampedSlot].minX
+            return (prevMaxX + nextMinX) / 2.0
+        }
+    }
 }
 
 /// Pure Swift layout calculation engine for the Taskbar.
