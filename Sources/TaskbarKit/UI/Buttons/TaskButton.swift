@@ -4,12 +4,29 @@ import AppKit
 import TaskbarCore
 
 public final class TaskButton: BaseTaskbarButton {
-    public var windowInfo: WindowInfo {
+    public var group: WindowGroup {
         didSet {
-            if oldValue != windowInfo {
-                toolTip = windowInfo.displayTitle
+            if oldValue != group {
+                toolTip = group.displayTitle
                 needsDisplay = true
             }
+        }
+    }
+    
+    public var windowInfo: WindowInfo {
+        get {
+            group.primaryWindow ?? WindowInfo(
+                key: WindowKey(id: 0, pid: 0),
+                pid: 0,
+                appName: group.appName,
+                bundleID: group.bundleID,
+                title: group.appName,
+                frame: .zero,
+                isMinimized: false
+            )
+        }
+        set {
+            group = .singleWindow(newValue)
         }
     }
     
@@ -37,22 +54,38 @@ public final class TaskButton: BaseTaskbarButton {
     
     public var isPinned: Bool = false
     public var onClose: (() -> Void)?
+    public var onCloseAll: (() -> Void)?
     public var onQuit: (() -> Void)?
     public var onTogglePin: (() -> Void)?
+    public var onGroupClick: (() -> Void)?
     
     public init(
-        windowInfo: WindowInfo,
+        group: WindowGroup,
         isFocused: Bool,
         showTitle: Bool,
         theme: ThemeDefinition
     ) {
-        self.windowInfo = windowInfo
+        self.group = group
         self.isFocusedWindow = isFocused
         self.showTitle = showTitle
         self.theme = theme
         super.init(frame: .zero)
         
-        self.toolTip = windowInfo.displayTitle
+        self.toolTip = group.displayTitle
+    }
+    
+    public convenience init(
+        windowInfo: WindowInfo,
+        isFocused: Bool,
+        showTitle: Bool,
+        theme: ThemeDefinition
+    ) {
+        self.init(
+            group: .singleWindow(windowInfo),
+            isFocused: isFocused,
+            showTitle: showTitle,
+            theme: theme
+        )
     }
     
     public required init?(coder: NSCoder) {
@@ -60,10 +93,11 @@ public final class TaskButton: BaseTaskbarButton {
     }
     
     public override func menu(for event: NSEvent) -> NSMenu? {
-        let menu = NSMenu(title: windowInfo.appName)
+        let menu = NSMenu(title: group.appName)
         
         // Restore / Minimize
-        let minActionTitle = windowInfo.isMinimized ? TaskbarStrings.ContextMenu.restore : TaskbarStrings.ContextMenu.minimize
+        let isMin = group.isMinimized
+        let minActionTitle = isMin ? TaskbarStrings.ContextMenu.restore : TaskbarStrings.ContextMenu.minimize
         let minItem = NSMenuItem(title: minActionTitle, action: #selector(handleMenuMinimizeOrRestore), keyEquivalent: "")
         minItem.target = self
         menu.addItem(minItem)
@@ -78,13 +112,20 @@ public final class TaskButton: BaseTaskbarButton {
         
         menu.addItem(NSMenuItem.separator())
         
-        // Close Window
-        let closeItem = NSMenuItem(title: TaskbarStrings.ContextMenu.closeWindow, action: #selector(handleMenuClose), keyEquivalent: "w")
-        closeItem.target = self
-        menu.addItem(closeItem)
+        if group.isGrouped {
+            // Close All Windows
+            let closeAllItem = NSMenuItem(title: TaskbarStrings.WindowGrouping.closeAllWindows, action: #selector(handleMenuCloseAll), keyEquivalent: "")
+            closeAllItem.target = self
+            menu.addItem(closeAllItem)
+        } else {
+            // Close Window
+            let closeItem = NSMenuItem(title: TaskbarStrings.ContextMenu.closeWindow, action: #selector(handleMenuClose), keyEquivalent: "w")
+            closeItem.target = self
+            menu.addItem(closeItem)
+        }
         
         // Quit App
-        let quitItem = NSMenuItem(title: TaskbarStrings.ContextMenu.quitApp(windowInfo.appName), action: #selector(handleMenuQuit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: TaskbarStrings.ContextMenu.quitApp(group.appName), action: #selector(handleMenuQuit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
         
@@ -101,6 +142,10 @@ public final class TaskButton: BaseTaskbarButton {
     
     @objc private func handleMenuClose() {
         onClose?()
+    }
+    
+    @objc private func handleMenuCloseAll() {
+        onCloseAll?()
     }
     
     @objc private func handleMenuQuit() {
@@ -133,14 +178,14 @@ public final class TaskButton: BaseTaskbarButton {
         let iconOffset: CGFloat = isDown ? 1.0 : 0.0
         let iconX = bounds.minX + TaskbarConstants.Layout.taskButtonIconMarginRetro + iconOffset
         let iconY = bounds.midY - (iconSize / 2.0) - iconOffset
-        let icon = IconCache.shared.icon(for: windowInfo.bundleID, pid: windowInfo.pid)
+        let icon = IconCache.shared.icon(for: group.bundleID, pid: group.primaryWindow?.pid ?? 0)
         icon.draw(in: NSRect(x: iconX, y: iconY, width: iconSize, height: iconSize))
         
         if showTitle {
             let textX = iconX + iconSize + TaskbarConstants.Layout.taskButtonIconMarginRetro
             let maxTextW = max(0, bounds.maxX - textX - TaskbarConstants.Layout.taskButtonIconMarginRetro)
             
-            let isDimmed = windowInfo.isMinimized || windowInfo.isAppHidden
+            let isDimmed = group.isMinimized || group.isAppHidden
             let baseColor = NSColor(rgba: isFocusedWindow ? theme.textPressedColor : theme.textColor)
             let textColor = isDimmed ? (theme.bevelShadow.map { NSColor(rgba: $0) } ?? baseColor.withAlphaComponent(0.5)) : baseColor
             
@@ -153,10 +198,25 @@ public final class TaskButton: BaseTaskbarButton {
                 .foregroundColor: textColor,
                 .paragraphStyle: para
             ]
-            let str = NSAttributedString(string: windowInfo.displayTitle, attributes: attrs)
+            let str = NSAttributedString(string: group.displayTitle, attributes: attrs)
             let lineHeight = ceil(str.size().height)
             let textY = bounds.midY - (lineHeight / 2.0) - iconOffset
             str.draw(in: NSRect(x: textX, y: textY, width: maxTextW, height: lineHeight))
+        }
+        
+        if group.isGrouped {
+            // Draw stacked tab bevel ridge on trailing edge
+            let ridgeX = bounds.maxX - 5.0 + iconOffset
+            let ridgeY1 = bounds.minY + 4.0
+            let ridgeY2 = bounds.maxY - 4.0
+            if let shadow = theme.bevelShadow {
+                NSColor(rgba: shadow).setStroke()
+                let path = NSBezierPath()
+                path.move(to: NSPoint(x: ridgeX, y: ridgeY1))
+                path.line(to: NSPoint(x: ridgeX, y: ridgeY2))
+                path.lineWidth = 1.0
+                path.stroke()
+            }
         }
     }
     
@@ -164,7 +224,7 @@ public final class TaskButton: BaseTaskbarButton {
         let cornerRadius = CGFloat(theme.buttonCornerRadius)
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 1.0, dy: 1.0), xRadius: cornerRadius, yRadius: cornerRadius)
         
-        let isDimmed = windowInfo.isMinimized || windowInfo.isAppHidden
+        let isDimmed = group.isMinimized || group.isAppHidden
         let alphaMultiplier: CGFloat = isDimmed ? TaskbarConstants.Layout.dimmedButtonAlpha : 1.0
         
         let bgColor: NSColor
@@ -187,7 +247,7 @@ public final class TaskButton: BaseTaskbarButton {
         let iconSize = CGFloat(theme.iconSize)
         let iconX = bounds.minX + TaskbarConstants.Layout.taskButtonIconMarginHybrid
         let iconY = bounds.midY - (iconSize / 2.0)
-        let icon = IconCache.shared.icon(for: windowInfo.bundleID, pid: windowInfo.pid)
+        let icon = IconCache.shared.icon(for: group.bundleID, pid: group.primaryWindow?.pid ?? 0)
         icon.draw(
             in: NSRect(x: iconX, y: iconY, width: iconSize, height: iconSize),
             from: .zero,
@@ -210,10 +270,39 @@ public final class TaskButton: BaseTaskbarButton {
                 .foregroundColor: textColor,
                 .paragraphStyle: para
             ]
-            let str = NSAttributedString(string: windowInfo.displayTitle, attributes: attrs)
+            let str = NSAttributedString(string: group.displayTitle, attributes: attrs)
             let lineHeight = ceil(str.size().height)
             let textY = bounds.midY - (lineHeight / 2.0)
             str.draw(in: NSRect(x: textX, y: textY, width: maxTextW, height: lineHeight))
+        } else if group.isGrouped {
+            // Draw compact pill badge in top-right corner when title is hidden
+            let badgeText = "\(group.count)" as NSString
+            let badgeFont = NSFont.boldSystemFont(ofSize: 9.0)
+            let badgeAttrs: [NSAttributedString.Key: Any] = [
+                .font: badgeFont,
+                .foregroundColor: NSColor.white
+            ]
+            let badgeTextSize = badgeText.size(withAttributes: badgeAttrs)
+            let badgeW = max(TaskbarConstants.Layout.groupBadgeMinWidth, badgeTextSize.width + 6.0)
+            let badgeH = TaskbarConstants.Layout.groupBadgeHeight
+            let badgeRect = NSRect(
+                x: bounds.maxX - badgeW - 3.0,
+                y: bounds.maxY - badgeH - 3.0,
+                width: badgeW,
+                height: badgeH
+            )
+            let badgePath = NSBezierPath(
+                roundedRect: badgeRect,
+                xRadius: TaskbarConstants.Layout.groupBadgeCornerRadius,
+                yRadius: TaskbarConstants.Layout.groupBadgeCornerRadius
+            )
+            NSColor(rgba: theme.buttonBorderPressed).setFill()
+            badgePath.fill()
+            let textPoint = NSPoint(
+                x: badgeRect.midX - (badgeTextSize.width / 2.0),
+                y: badgeRect.midY - (badgeTextSize.height / 2.0)
+            )
+            badgeText.draw(at: textPoint, withAttributes: badgeAttrs)
         }
     }
 }

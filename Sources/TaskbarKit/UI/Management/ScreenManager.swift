@@ -73,6 +73,7 @@ public final class ScreenManager {
                 titleThreshold: newSettings.titleVisibilityThreshold
             )
             panel.updatePinnedApps(newSettings.pinnedApps)
+            panel.updateGroupingMode(newSettings.windowGroupingMode)
         }
         
         refreshPanels()
@@ -164,6 +165,15 @@ public final class ScreenManager {
     
     public func updateThemeStyle(_ style: ThemeStyle) {
         updateTheme(themeId: ThemeDefinition.forStyle(style).id)
+    }
+    
+    public func updateGroupingMode(_ mode: WindowGroupingMode) {
+        settings.windowGroupingMode = mode
+        settings.save()
+        for panel in panels.values {
+            panel.updateGroupingMode(mode)
+        }
+        updateWindows()
     }
     
     public func pinApp(bundleIdentifier: String, displayName: String, customPath: String? = nil) {
@@ -261,6 +271,7 @@ public final class ScreenManager {
             if let existingPanel = panels[displayID] {
                 existingPanel.updateLayout(for: screen, height: height)
                 existingPanel.updatePinnedApps(settings.pinnedApps, runningBundleIDs: runningBundleIDs)
+                existingPanel.updateGroupingMode(settings.windowGroupingMode)
                 existingPanel.orderFrontRegardless()
             } else {
                 let panel = TaskbarPanel(
@@ -272,6 +283,7 @@ public final class ScreenManager {
                     maxButtonWidth: settings.maxButtonWidth,
                     buttonSpacing: settings.buttonSpacing,
                     titleVisibilityThreshold: settings.titleVisibilityThreshold,
+                    groupingMode: settings.windowGroupingMode,
                     pinnedApps: settings.pinnedApps,
                     store: store
                 )

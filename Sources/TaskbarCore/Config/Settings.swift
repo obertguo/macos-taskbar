@@ -62,6 +62,7 @@ public struct Settings: Codable, Sendable, Equatable {
     public var hideSystemDock: Bool
     public var dockHideDelay: Double
     public var pinnedApps: [PinnedApp]
+    public var windowGroupingMode: WindowGroupingMode
     
     public static let `default` = Settings(
         activeThemeId: ThemeDefinition.modernHybrid.id,
@@ -76,7 +77,8 @@ public struct Settings: Codable, Sendable, Equatable {
         enableAXNudger: true,
         hideSystemDock: true,
         dockHideDelay: TaskbarConstants.Dock.defaultAutohideDelaySeconds,
-        pinnedApps: PinnedApp.defaultPinnedApps
+        pinnedApps: PinnedApp.defaultPinnedApps,
+        windowGroupingMode: .always
     )
     
     public init(
@@ -92,7 +94,8 @@ public struct Settings: Codable, Sendable, Equatable {
         enableAXNudger: Bool = true,
         hideSystemDock: Bool = true,
         dockHideDelay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds,
-        pinnedApps: [PinnedApp] = PinnedApp.defaultPinnedApps
+        pinnedApps: [PinnedApp] = PinnedApp.defaultPinnedApps,
+        windowGroupingMode: WindowGroupingMode = .always
     ) {
         self.activeThemeId = activeThemeId
         self.barHeight = barHeight
@@ -107,6 +110,7 @@ public struct Settings: Codable, Sendable, Equatable {
         self.hideSystemDock = hideSystemDock
         self.dockHideDelay = dockHideDelay
         self.pinnedApps = pinnedApps
+        self.windowGroupingMode = windowGroupingMode
     }
     
     public init(
@@ -122,7 +126,8 @@ public struct Settings: Codable, Sendable, Equatable {
         enableAXNudger: Bool = true,
         hideSystemDock: Bool = true,
         dockHideDelay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds,
-        pinnedApps: [PinnedApp] = PinnedApp.defaultPinnedApps
+        pinnedApps: [PinnedApp] = PinnedApp.defaultPinnedApps,
+        windowGroupingMode: WindowGroupingMode = .always
     ) {
         self.init(
             activeThemeId: (themeStyle == .retroClassic) ? ThemeDefinition.retroClassic.id : ThemeDefinition.modernHybrid.id,
@@ -137,7 +142,8 @@ public struct Settings: Codable, Sendable, Equatable {
             enableAXNudger: enableAXNudger,
             hideSystemDock: hideSystemDock,
             dockHideDelay: dockHideDelay,
-            pinnedApps: pinnedApps
+            pinnedApps: pinnedApps,
+            windowGroupingMode: windowGroupingMode
         )
     }
     
@@ -145,7 +151,7 @@ public struct Settings: Codable, Sendable, Equatable {
         case activeThemeId, themeStyle, barHeight, maxButtonWidth, minButtonWidth
         case buttonSpacing, titleVisibilityThreshold, fontSize, iconSize
         case launcherAction, enableAXNudger, hideSystemDock, dockHideDelay
-        case pinnedApps
+        case pinnedApps, windowGroupingMode
     }
     
     public init(from decoder: Decoder) throws {
@@ -174,6 +180,7 @@ public struct Settings: Codable, Sendable, Equatable {
         self.hideSystemDock = try container.decodeIfPresent(Bool.self, forKey: .hideSystemDock) ?? true
         self.dockHideDelay = try container.decodeIfPresent(Double.self, forKey: .dockHideDelay) ?? TaskbarConstants.Dock.defaultAutohideDelaySeconds
         self.pinnedApps = try container.decodeIfPresent([PinnedApp].self, forKey: .pinnedApps) ?? PinnedApp.defaultPinnedApps
+        self.windowGroupingMode = try container.decodeIfPresent(WindowGroupingMode.self, forKey: .windowGroupingMode) ?? .always
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -192,6 +199,7 @@ public struct Settings: Codable, Sendable, Equatable {
         try container.encode(hideSystemDock, forKey: .hideSystemDock)
         try container.encode(dockHideDelay, forKey: .dockHideDelay)
         try container.encode(pinnedApps, forKey: .pinnedApps)
+        try container.encode(windowGroupingMode, forKey: .windowGroupingMode)
     }
     
     // MARK: - Pinned Applications Management

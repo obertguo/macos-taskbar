@@ -189,6 +189,12 @@ public enum TaskbarStrings {
         /// Context menu action to close all windows in a group.
         public static let closeAllWindows = "Close All Windows"
         
+        /// Glyph used for individual window close buttons in group popup menus.
+        public static let closeWindowGlyph = "✕"
+        
+        /// Tooltip for the window close button in the group popup menu.
+        public static let closeWindowTooltip = "Close window"
+        
         /// Fallback application name when app name cannot be resolved.
         public static let defaultAppName = "App"
         

@@ -80,6 +80,15 @@ public enum TaskbarConstants {
         /// Opacity multiplier applied to task buttons representing minimized or hidden windows.
         public static let dimmedButtonAlpha: CGFloat = 0.6
         
+        /// Corner radius in points for the multi-window counter badge in Modern Hybrid theme.
+        public static let groupBadgeCornerRadius: CGFloat = 4.0
+        
+        /// Minimum width in points for the multi-window counter badge.
+        public static let groupBadgeMinWidth: CGFloat = 16.0
+        
+        /// Height in points for the multi-window counter badge.
+        public static let groupBadgeHeight: CGFloat = 14.0
+        
         /// Preset configurations for button width and overflow sensitivity in settings menu.
         public static let buttonWidthPresets: [(title: String, width: Double)] = [
             (TaskbarStrings.Presets.buttonWidthBalanced, 80.0),
@@ -322,6 +331,39 @@ public enum TaskbarConstants {
         
         /// macOS virtual key code for Down Arrow (kVK_DownArrow).
         public static let downArrow: UInt16 = 125
+    }
+    
+    // MARK: - Group Window Popup Metrics
+    public enum GroupPopup {
+        /// Fixed height for each window row in the popup list.
+        public static let rowHeight: CGFloat = 28.0
+        
+        /// Minimum horizontal width for the popup panel.
+        public static let minWidth: CGFloat = 220.0
+        
+        /// Maximum horizontal width for the popup panel.
+        public static let maxWidth: CGFloat = 360.0
+        
+        /// Vertical offset in points from the taskbar button top edge.
+        public static let verticalOffset: CGFloat = 4.0
+        
+        /// Outer corner radius in points for the popup panel in Modern Hybrid theme.
+        public static let cornerRadius: CGFloat = 6.0
+        
+        /// Horizontal padding inside the popup panel.
+        public static let contentHorizontalPadding: CGFloat = 6.0
+        
+        /// Vertical padding inside the popup panel.
+        public static let contentVerticalPadding: CGFloat = 6.0
+        
+        /// Size in points of the active window indicator dot.
+        public static let activeDotSize: CGFloat = 6.0
+        
+        /// Size in points of the window close button (✕).
+        public static let closeButtonSize: CGFloat = 16.0
+        
+        /// Horizontal spacing between icon, title, and accessories.
+        public static let itemSpacing: CGFloat = 6.0
     }
 }
 

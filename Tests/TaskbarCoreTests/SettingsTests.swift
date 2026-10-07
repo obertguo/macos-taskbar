@@ -19,6 +19,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(defaults.hideSystemDock)
         XCTAssertEqual(defaults.dockHideDelay, TaskbarConstants.Dock.defaultAutohideDelaySeconds)
         XCTAssertEqual(defaults.pinnedApps, PinnedApp.defaultPinnedApps)
+        XCTAssertEqual(defaults.windowGroupingMode, .always)
     }
     
     func testSettingsEncodingDecoding() throws {
@@ -66,6 +67,17 @@ final class SettingsTests: XCTestCase {
         
         let decoded = try JSONDecoder().decode(Settings.self, from: legacyData)
         XCTAssertEqual(decoded.pinnedApps, PinnedApp.defaultPinnedApps)
+    }
+    
+    func testBackwardCompatibleDecodingWithoutWindowGroupingMode() throws {
+        // Simulates persisted settings from older versions lacking windowGroupingMode key
+        let baseData = try JSONEncoder().encode(Settings.default)
+        var dict = try JSONSerialization.jsonObject(with: baseData) as! [String: Any]
+        dict.removeValue(forKey: "windowGroupingMode")
+        let legacyData = try JSONSerialization.data(withJSONObject: dict)
+        
+        let decoded = try JSONDecoder().decode(Settings.self, from: legacyData)
+        XCTAssertEqual(decoded.windowGroupingMode, .always)
     }
     
     func testUserDefaultsPersistence() {

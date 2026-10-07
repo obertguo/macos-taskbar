@@ -16,6 +16,7 @@ public final class TaskbarPanel: NSPanel {
         maxButtonWidth: Double = TaskbarConstants.Layout.defaultMaxButtonWidth,
         buttonSpacing: Double = TaskbarConstants.Layout.defaultButtonSpacing,
         titleVisibilityThreshold: Double = TaskbarConstants.Layout.defaultTitleVisibilityThreshold,
+        groupingMode: WindowGroupingMode = .always,
         pinnedApps: [PinnedApp] = [],
         store: WindowStore? = nil
     ) {
@@ -37,6 +38,7 @@ public final class TaskbarPanel: NSPanel {
             maxButtonWidth: maxButtonWidth,
             buttonSpacing: buttonSpacing,
             titleVisibilityThreshold: titleVisibilityThreshold,
+            groupingMode: groupingMode,
             pinnedApps: pinnedApps,
             store: store
         )
@@ -110,5 +112,9 @@ public final class TaskbarPanel: NSPanel {
     
     public func updatePinnedApps(_ apps: [PinnedApp], runningBundleIDs: Set<String>? = nil) {
         taskbarView.updatePinnedApps(apps, runningBundleIDs: runningBundleIDs)
+    }
+    
+    public func updateGroupingMode(_ mode: WindowGroupingMode) {
+        taskbarView.groupingMode = mode
     }
 }

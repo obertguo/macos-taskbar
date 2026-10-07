@@ -58,7 +58,7 @@ struct StressIntegrationTests {
                 key: winKey,
                 pid: pid,
                 appName: "TestApp",
-                bundleID: "com.test.app",
+                bundleID: "com.test.app.\(i)",
                 title: "Overflow Win \(i)",
                 frame: CGRect(x: 50, y: 50, width: 600, height: 400),
                 isMinimized: false
