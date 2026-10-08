@@ -13,6 +13,8 @@ This document provides the canonical specification catalog and requirements trac
 | `TC-STRESS-xxx`| Stress & Load | High window density (50–100 windows), button overflow, chevron dropdown verification. | `scripts/test-functional.sh --stress` |
 | `TC-PERF-xxx` | Performance | Memory bounds (peak RSS < 45 MB), button view recycling, idle CPU consumption (< 0.1%). | `scripts/test-functional.sh --stress` (Instrumentation) |
 | `TC-PIN-xxx` | Quick Launch | Pinned applications model, layout positioning, running indicators, context menus, icon sanitization. | `Tests/TaskbarIntegrationTests/PinnedAppsIntegrationTests.swift` |
+| `TC-DRAG-xxx` | Reordering | Drag-and-drop slot reordering, threshold detection, insertion bar, multi-display order isolation. | `Tests/TaskbarIntegrationTests/WindowReorderingIntegrationTests.swift` |
+| `TC-GROUP-xxx`| Grouping | Application window grouping, count badge, lightweight popup, keyboard navigation, close triggers. | `Tests/TaskbarIntegrationTests/WindowGroupingIntegrationTests.swift` |
 | `TC-THEME-xxx` | Theming | Preset definitions, contrast checks, file loader discovery, corrupt JSON safety, dynamic menu updates. | `Tests/TaskbarIntegrationTests/ThemeExpansionIntegrationTests.swift` |
 | `TC-UNIT-xxx` | Unit | Pure math, clamping algorithms, model codecs, settings persistence, theme registry. | `Tests/TaskbarCoreTests` (`swift test`) |
 
@@ -196,12 +198,38 @@ This document provides the canonical specification catalog and requirements trac
 
 ---
 
-### 2.6 Pure Layout Engine & Geometry (`TC-UNIT-*`)
+### 2.6 Pure Layout Engine, Grouping & Ordering (`TC-UNIT-*`)
 
 - **[TC-UNIT-001] Empty & Pinned-Only Taskbar Geometry:** Empty states and pinned-only states calculate correct start button and pinned item bounds without NaN or negative widths.
 - **[TC-UNIT-002] Dynamic Task Button Compression:** As available width contracts, button widths compress evenly within `[minButtonWidth, maxButtonWidth]` and hide title labels below visibility threshold.
 - **[TC-UNIT-003] Overflow Button Reservation & Slot Allocation:** When available space is insufficient for all task buttons at `minButtonWidth`, overflow space is reserved and visible vs hidden counts are accurately computed.
 - **[TC-UNIT-004] Extensible Slot Geometry for Window Grouping:** Pre-calculates geometric slots suitable for grouping multiple window items into unified bounds.
+- **[TC-UNIT-005] Never Grouping Mode Leaves All Separate:** Validates 10 windows across 3 distinct app bundles form 10 individual `WindowGroup` objects.
+- **[TC-UNIT-006] Always Grouping Mode Aggregates by Bundle ID:** Validates 10 windows across 3 distinct app bundles aggregate into exactly 3 `WindowGroup` objects.
+- **[TC-UNIT-007] When Crowded Auto-Groups on Overflow:** Verifies that under ample width windows remain ungrouped, and under constrained width multi-window apps automatically aggregate until layout bounds fit.
+- **[TC-UNIT-008] Group Derived States:** Verifies `isFocused`, `isMinimized`, `isAppHidden`, and `displayTitle` derivations for single vs multi-window groups.
+- **[TC-UNIT-009] Reorder Item Shifts Indices:** Validates array slot moving and slot reindexing operations.
+- **[TC-UNIT-010] Custom Order Persists Across New Windows:** Validates that newly opened applications append after manually ordered items without disturbing established order.
+- **[TC-UNIT-011] Custom Order Purges Closed Windows:** Validates that closed windows are cleanly pruned from custom order dictionaries without dangling slots.
+- **[TC-UNIT-012] Drag Slot Calculation & Boundary Clamping:** Validates `slotIndex(forHorizontalPosition:in:)` math and boundary clamping across task and pinned layout slots.
+
+---
+
+### 2.7 Interactive Drag-and-Drop Slot Reordering (`TC-DRAG-*`)
+
+- **[TC-DRAG-001] Dragging Task Button Beyond Threshold Reorders Slots:** Dragging a button beyond `dragThresholdPoints` activates insertion indicator; releasing commits slot change, updates button frames, and persists to `WindowStore.customOrders`.
+- **[TC-DRAG-002] Vertical Mouse Escape & Escape Key Cancelation:** Moving mouse vertically beyond `verticalEscapeThreshold` or pressing `Escape` cleanly cancels drag session, hiding indicator and restoring original button frames.
+- **[TC-DRAG-003] Multi-Display Drag Isolation:** Reordering buttons on Display 1 maintains independent order without disturbing Display 2 button layout or order maps.
+- **[TC-DRAG-004] Dragging Pinned Button Reorders Settings & Broadcasts in Lockstep:** Dragging a pinned button reorders `Settings.pinnedApps`, immediately persists to disk, and broadcasts the updated pinned list across all connected screens via `ScreenManager`.
+
+---
+
+### 2.8 Application Window Grouping & Popup Menu (`TC-GROUP-*`)
+
+- **[TC-GROUP-001] Multi-Window Aggregation & Badge Counter:** Multi-window application renders as a unified button with badge count pill (Modern) or stacked bevel ridges (Retro).
+- **[TC-GROUP-002] Group Button Click Presents Window List Popup:** Clicking a multi-window group presents `GroupWindowPopup` anchored above the button displaying all constituent window titles and icons.
+- **[TC-GROUP-003] Selecting Window in Popup Focuses Target Window:** Selecting a window row in the popup (via click or `Return` key) raises and focuses that specific window without raising other application windows, and dismisses the popup.
+- **[TC-GROUP-004] Dynamic Grouping Mode Switching via ScreenManager:** Switching `WindowGroupingMode` via `ScreenManager` or Status Menu immediately reconfigures taskbar layout across all connected displays without restarting.
 
 ---
 
@@ -221,5 +249,9 @@ This document provides the canonical specification catalog and requirements trac
 | **Multi-Resolution Icon Sanitizer** | `TC-PIN-006` | `PinnedAppsIntegrationTests` |
 | **Expanded Presets (Luna & Dark)** | `TC-THEME-001`, `TC-THEME-002` | `ThemeExpansionIntegrationTests` |
 | **Custom JSON Theme Loader** | `TC-THEME-003`, `TC-THEME-004`, `TC-THEME-005`, `TC-THEME-006` | `ThemeExpansionIntegrationTests`, `StatusMenuThemeTests` |
-| **Pure Layout Engine & Slot Allocation** | `TC-UNIT-001`, `TC-UNIT-002`, `TC-UNIT-003`, `TC-UNIT-004` | `TaskbarLayoutEngineTests` |
+| **Pure Layout Engine & Slot Allocation** | `TC-UNIT-001`, `TC-UNIT-002`, `TC-UNIT-003`, `TC-UNIT-004`, `TC-UNIT-012` | `TaskbarLayoutEngineTests`, `TaskbarLayoutEngineDragTests` |
+| **Window Grouping Logic & Models** | `TC-UNIT-005`, `TC-UNIT-006`, `TC-UNIT-007`, `TC-UNIT-008` | `WindowGroupingLogicTests` |
+| **Window Ordering Logic & Persistence** | `TC-UNIT-009`, `TC-UNIT-010`, `TC-UNIT-011` | `WindowOrderingLogicTests` |
+| **Interactive Drag-and-Drop Reordering** | `TC-DRAG-001`, `TC-DRAG-002`, `TC-DRAG-003`, `TC-DRAG-004` | `WindowReorderingIntegrationTests`, `PinnedAppsIntegrationTests` |
+| **Application Window Grouping & Popup** | `TC-GROUP-001`, `TC-GROUP-002`, `TC-GROUP-003`, `TC-GROUP-004` | `WindowGroupingIntegrationTests`, `StatusMenuGroupingTests` |
 | **Memory Bound (< 45 MB RSS)** | `TC-PERF-001` | `scripts/test-functional.sh --all` |

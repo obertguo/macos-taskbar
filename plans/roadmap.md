@@ -21,7 +21,7 @@ Individual release cycles will have their own dedicated, detailed implementation
 flowchart LR
     v010["v0.1.0<br/>Initial Release<br/>(Complete)"] --> v011["v0.1.1<br/>Foundational Quality<br/>& Stress Testing<br/>(Complete)"]
     v011 --> v020["v0.2.0 - v0.2.3<br/>Personalization &<br/>Quick Launch<br/>(Complete)"]
-    v020 --> v030["v0.3.0<br/>Window Re-ordering &<br/>Optional Grouping"]
+    v020 --> v030["v0.3.0<br/>Window Re-ordering &<br/>Optional Grouping<br/>(Complete)"]
     v030 --> v040["v0.4.0<br/>Edge Placement &<br/>Auto-Hide"]
 ```
 
@@ -30,7 +30,7 @@ flowchart LR
 | **v0.1.0** | **Initial Core Release** *(Completed)* | Dual themes, 1-to-1 task buttons, AX Nudger (`WorkAreaEnforcer`), Dock hiding with configurable delays, button overflow chevron, and packaging pipeline. |
 | **v0.1.1** | **Foundational Quality & Hardening** *(Completed)* | Automated functional & stress test harness, codebase audit & refactoring, ecosystem research. |
 | **v0.2.0 – v0.2.3** | **Personalization & Quick Launch** *(Completed)* | Data-driven custom theming (JSON import/export), Quick Launch / pinned applications, multi-resolution icon sanitization, focus isolation, in-flight debounce protection, and robust work area clamping. |
-| **v0.3.0** | **Advanced Window Organization** | Drag-and-drop window re-ordering, optional window grouping. |
+| **v0.3.0** | **Advanced Window Organization** *(Completed)* | Drag-and-drop window re-ordering (Option B insertion bar), application window grouping (Always, When Crowded, Never), lightweight window list popup (`GroupWindowPopup`), Status Menu grouping controls, multi-monitor isolation, and 140 automated tests. |
 | **v0.4.0** | **Layout & Placement Flexibility** | Multi-edge placement (Top/Left/Right/Bottom), taskbar auto-hide mode, button alignment (Left vs. Center). |
 
 ---
@@ -82,7 +82,7 @@ Before expanding feature surface area, establish a robust automated testing and 
 
 ---
 
-## 5. Phase 3: Advanced Window Organization (v0.3.0)
+## 5. Phase 3: Advanced Window Organization (v0.3.0) *(Completed)*
 
 **Pre-requisite Refactoring & Technical Enablers:**
 - [Codebase Audit Report (v0.2.3)](./v0.3.X/codebase_audit_v0.2.3.md)

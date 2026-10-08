@@ -32,10 +32,16 @@ The primary interface for test execution is the fail-fast orchestration script [
 # 3. Run high-density window stress tests & memory/CPU benchmarks (TC-STRESS-*, TC-PERF-*)
 ./scripts/test-functional.sh --stress
 
-# 4. Run the entire test suite (Unit + Functional + Edge + Stress + Pinned + Themes, default)
+# 4. Run drag-and-drop slot reordering suite (TC-DRAG-*)
+./scripts/test-functional.sh --reordering
+
+# 5. Run application window grouping & popup suite (TC-GROUP-*)
+./scripts/test-functional.sh --grouping
+
+# 6. Run the entire test suite (Unit + Functional + Edge + Stress + Pinned + Themes + Reordering + Grouping, default)
 ./scripts/test-functional.sh --all
 
-# 5. Direct SwiftPM test execution across all targets
+# 7. Direct SwiftPM test execution across all targets
 swift test
 ```
 
@@ -45,8 +51,11 @@ swift test
 
 All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SPECIFICATIONS.md).
 
-### 3.1 Core Unit Tests (`Tests/TaskbarCoreTests/` — 78 Tests)
+### 3.1 Core Unit Tests (`Tests/TaskbarCoreTests/` — 94 Tests)
 - `TaskbarLayoutEngineTests`: Pure geometry plan calculations, empty/pinned/standard layouts, compression, overflow reservation, and slot hit testing (7 test cases).
+- `TaskbarLayoutEngineDragTests`: Drag insertion slot math, boundary clamping, and indicator line coordinates for task and pinned items (`TC-UNIT-012`, 6 test cases).
+- `WindowGroupingLogicTests`: Grouping rules across `always`, `whenCrowded`, and `never`, single-window apps, empty window lists, and group derived states (`TC-UNIT-005` – `TC-UNIT-008`, 6 test cases).
+- `WindowOrderingLogicTests`: Reordering slot shifts, manual order persistence across incoming windows, closed window order pruning, and empty inputs (`TC-UNIT-009` – `TC-UNIT-011`, 4 test cases).
 - `WorkAreaMathTests`: Clamping math, vertical maximization checks, multi-monitor coordinates, subpixel overlap tolerances (10 test cases).
 - `ClickPolicyTests`: Taskbar click dispatch rules across unfocused, focused, minimized, hidden, and frontmost windows (5 test cases).
 - `ButtonLayoutTests`: Spacious, compressing, icon-only, overflow width calculations, and custom title visibility thresholds (6 test cases).
@@ -55,12 +64,12 @@ All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SP
 - `ThemeTests`: Theme definition properties, JSON serialization round-trips, ThemeMaterials material/blendingMode decoding, and theme registry built-ins (6 test cases).
 - `ThemeFileLoaderTests`: Directory discovery, custom JSON deserialization with material/blendingMode, missing defaults tolerance, non-JSON filtering, built-in ID collision rejection, corrupted JSON resilience, export routines, and registry synchronization (9 test cases).
 - `PinnedAppTests`: PinnedApp model serialization, missing fields fallback, duplicate pin rejection, unpinning, reordering boundary checks, and UserDefaults storage (9 test cases).
-- `SettingsTests`: Default values, serialization, UserDefaults persistence, backward compatibility with v0.1 payloads, strings, and presets (6 test cases).
+- `SettingsTests`: Default values, serialization, UserDefaults persistence, backward compatibility with v0.1 payloads, strings, presets, and window grouping mode (7 test cases).
 - `WindowStoreTests`: Window ordering, display assignment, sync snapshot reconciliation, full-screen transitions (4 test cases).
 - `ScreenAssignmentTests`: Primary/secondary monitor boundary partitioning (3 test cases).
 - `TaskbarCoreTests`: Build configuration sanity checks (1 test case).
 
-### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 34 Tests)
+### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 46 Tests)
 - **Window Lifecycle Suite (`WindowLifecycleIntegrationTests.swift` — 7 Tests):**
   - `TC-FUNC-001`: Window creation and store discovery within $\le 3\text{s}$.
   - `TC-FUNC-002`: Window minimization state tracking via AX notification.
@@ -80,6 +89,16 @@ All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SP
   - `TC-STRESS-001`: 100-window high-density window store burst.
   - `TC-STRESS-002`: TaskbarView overflow chevron activation when buttons reach `minButtonWidth`.
   - `TC-PERF-001`: In-place button view recycling preserving view instances and tracking areas.
+- **Window Reordering & Drag Suite (`WindowReorderingIntegrationTests.swift` — 4 Tests):**
+  - `TC-DRAG-001`: Dragging task button beyond threshold reorders slots and updates layout.
+  - `TC-DRAG-002`: Vertical mouse escape and Escape key cancel drag session cleanly.
+  - `TC-DRAG-003`: Multi-display drag isolation maintains independent custom ordering per monitor.
+  - `TC-DRAG-004`: Dragging pinned button reorders Settings.pinnedApps and syncs across all displays in lockstep.
+- **Window Grouping & Popup Suite (`WindowGroupingIntegrationTests.swift` — 4 Tests):**
+  - `TC-GROUP-001`: Multi-window application aggregates into single button with badge counter.
+  - `TC-GROUP-002`: Group button click presents window list popup with matching titles.
+  - `TC-GROUP-003`: Selecting window in popup triggers selection, focuses target window, and dismisses panel.
+  - `TC-GROUP-004`: Dynamic grouping mode switching via ScreenManager reconfigures taskbar layout across all displays.
 - **Pinned Applications Suite (`PinnedAppsIntegrationTests.swift` — 9 Tests):**
   - `BaseTaskbarButton` mouse tracking, hover state mutation, and configurable click dispatch.
   - `PinnedButton` properties, tracking, and dynamic context menu items.
@@ -101,6 +120,11 @@ All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SP
   - Dynamic menu item updates when custom themes are registered.
   - Callback invocation when triggering "Reload Themes from Disk".
   - Custom theme selection notifying `onThemeIdChanged` and maintaining checkmark state without legacy Modern Hybrid fallback.
+- **Status Menu Window Grouping Suite (`StatusMenuGroupingTests.swift` — 4 Tests):**
+  - Submenu structure containing Always, When Crowded, and Never items with initial checkmark.
+  - Menu checkmark state reflects initial mode configuration.
+  - Selecting a grouping mode triggers `onWindowGroupingModeChanged` and updates menu checkmarks.
+  - Programmatic `updateWindowGroupingMode` synchronizes property and menu item states.
 
 ---
 

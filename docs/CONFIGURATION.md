@@ -12,8 +12,8 @@ All build metadata, packaging properties, and test benchmarks are governed by [`
 # Build and Packaging Configuration
 APP_NAME="Taskbar"
 BUNDLE_ID="com.local.taskbar"
-APP_VERSION="0.2.3"
-BUILD_NUMBER="6"
+APP_VERSION="0.3.0"
+BUILD_NUMBER="7"
 MIN_MACOS_VERSION="14.0"
 INSTALL_DIR="~/Applications"
 
@@ -33,8 +33,8 @@ TEST_FIXTURE_APP="TextEdit"
 |---|---|---|---|
 | `APP_NAME` | Product display name and process name. | `"Taskbar"` | `build-app.sh`, `package-release.sh`, `test-functional.sh` |
 | `BUNDLE_ID` | macOS bundle identifier and `UserDefaults` domain. | `"com.local.taskbar"` | `generate-config.sh`, `BuildConfiguration.swift` |
-| `APP_VERSION` | Semantic release version (X.Y.Z). | `"0.2.3"` | `generate-config.sh`, `package-release.sh`, `Info.plist` |
-| `BUILD_NUMBER` | Monotonically increasing build integer. | `"6"` | `generate-config.sh`, `Info.plist` |
+| `APP_VERSION` | Semantic release version (X.Y.Z). | `"0.3.0"` | `generate-config.sh`, `package-release.sh`, `Info.plist` |
+| `BUILD_NUMBER` | Monotonically increasing build integer. | `"7"` | `generate-config.sh`, `Info.plist` |
 | `MIN_MACOS_VERSION` | Minimum supported macOS version. | `"14.0"` | `generate-config.sh`, `test-functional.sh` |
 | `INSTALL_DIR` | Destination directory for `--install` flag. | `"~/Applications"` | `build-app.sh` |
 | `SIGN_IDENTITY` | Codesigning certificate identity (`"auto"` searches Keychain). | `"auto"` | `build-app.sh` |
@@ -54,16 +54,18 @@ Settings are stored in the user's domain via `UserDefaults.standard` under the k
 - `buttonWidth`: Maximum width of task buttons before shrinking (default: `160.0`, range: `80.0` – `240.0`).
 - `fontSize`: Typography point size across buttons (default: `12.0`, range: `10.0` – `14.0`).
 - `iconSize`: Application icon dimensions in points (default: `16.0`, range: `14.0` – `24.0`).
+- `windowGroupingMode`: Grouping policy for multi-window applications (`.always`, `.whenCrowded`, `.never`, default: `.always`).
 - `launcherAction`: Launcher invoked by Start button (`.spotlight`, `.raycast`, or `.custom(path)`).
 - `activeThemeId`: Active theme ID (`"modern-hybrid"`, `"retro-classic"`, `"windows-xp-luna"`, `"dark-minimal"`, or custom theme ID).
 - `pinnedApps`: Array of `PinnedApp` shortcuts displayed in the Quick Launch bar.
 - `dockAutohideDelay`: System Dock autohide hover reveal delay in seconds (default: `1000.0` = Permanently Hidden).
 
 ### Backward Compatibility Guarantee:
-`Settings` decodes existing `v0.1.0` and `v0.1.1` preference payloads with zero loss:
+`Settings` decodes existing `v0.1.X` and `v0.2.X` preference payloads with zero loss:
 ```swift
 self.pinnedApps = try container.decodeIfPresent([PinnedApp].self, forKey: .pinnedApps) ?? PinnedApp.defaultPinnedApps
 self.activeThemeId = try container.decodeIfPresent(String.self, forKey: .activeThemeId) ?? ThemeDefinition.forStyle(self.themeStyle).id
+self.windowGroupingMode = try container.decodeIfPresent(WindowGroupingMode.self, forKey: .windowGroupingMode) ?? .always
 ```
 If `pinnedApps` is absent, it automatically defaults to `Finder`, `Safari`, and `Terminal`.
 

@@ -314,3 +314,88 @@ flowchart LR
   - `NSVisualEffectView.Material`: `"hudWindow"`, `"windowBackground"`, `"popover"`, `"sidebar"`, `"menu"`, `"headerView"`, `"sheet"`, `"selection"`, `"titlebar"`, `"toolTip"`, `"contentBackground"`, `"underPageBackground"`, `"fullScreenUI"`, defaulting safely to `.underWindowBackground`.
   - `NSVisualEffectView.BlendingMode`: `"behindWindow"` (samples desktop wallpaper and underlying windows) or `"withinWindow"` (samples content within the taskbar window itself), defaulting to `.behindWindow`.
 - **Runtime Application:** `TaskbarView.applyTheme()` dynamically updates `visualEffectView.material`, `visualEffectView.blendingMode`, and `visualEffectView.isHidden` across all display panels immediately upon theme selection without requiring an application restart.
+
+---
+
+## 10. Application Window Grouping & Lightweight Popup Architecture
+
+Taskbar provides configurable application window grouping to declutter the taskbar in multi-window workflows while maintaining instantaneous window switching.
+
+```mermaid
+flowchart TD
+    Store["WindowStore.windows(forScreenID)"] --> WGL["WindowGroupingLogic.groupWindows()"]
+    Mode["WindowGroupingMode:<br/>.always | .whenCrowded | .never"] --> WGL
+    WGL --> Groups["[WindowGroup]"]
+    CustomOrder["WindowStore.customOrders[screenID]"] --> WOL["WindowOrderingLogic.applyCustomOrder()"]
+    Groups --> WOL
+    WOL --> Ordered["Ordered [WindowGroup]"]
+    Ordered --> TV["TaskbarView (groupButtonMap Recycling)"]
+    TV --> TB["TaskButton (Badge Pill / Ridge Bevel)"]
+    
+    TB -- "Click (count > 1)" --> Popup["GroupWindowPopup (NSPanel)"]
+    Popup -- "Select Row / Enter" --> Focus["WindowActions.restoreAndFocusWindow()"]
+    Popup -- "Click Close (✕)" --> Close["WindowActions.closeWindow()"]
+```
+
+### 10.1 Grouping Modes & Pure Business Logic
+- **`WindowGroupingMode` (`TaskbarCore`):**
+  - `.always`: Groups all windows sharing the same `bundleID` into a single button.
+  - `.whenCrowded`: Dynamically computes total required width (`count * minWidth + (count - 1) * spacing`). If required width exceeds available taskbar width, automatically groups multi-window applications to prevent button truncation.
+  - `.never`: Disables grouping entirely; preserves 1-to-1 window buttons.
+- **`WindowGroup` (`TaskbarCore`):**
+  - Immutable value type encapsulating `id`, `bundleID`, `appName`, `windows: [WindowInfo]`, and `isGrouped`.
+  - Provides computed states (`isFocused(focusedKey:frontmostPID:)`, `isMinimized`, `isAppHidden`, `displayTitle`).
+  - Single windows use `id = "win_<pid>_<id>"`; multi-window groups use `id = "grp_<bundleID>"`.
+- **`WindowGroupingLogic` (`TaskbarCore`):**
+  - Pure function mapping `([WindowInfo], WindowGroupingMode, availableWidth) -> [WindowGroup]`.
+  - Allocates zero AppKit views; 100% unit tested in `WindowGroupingLogicTests`.
+
+### 10.2 Lightweight Window List Popup (`GroupWindowPopup`)
+- **Panel Characteristics:**
+  - Lightweight borderless `NSPanel` sharing taskbar visual effect materials and theme styling.
+  - Anchored dynamically above the clicked group button on the target screen.
+  - Renders application icon, document/window title (truncated with ellipsis), active window dot indicator, and dedicated close button (`✕`).
+- **Keyboard Navigation & Accessibility:**
+  - `Up` / `Down` arrow keys navigate and highlight rows.
+  - `Return` / `Enter` focuses and raises the selected window, dismissing the popup.
+  - `Escape` or clicking outside dismisses the popup cleanly.
+- **Context Menu Integration:** Right-clicking a grouped button offers "Close All Windows", "Quit Application", and "Pin to Taskbar" / "Unpin from Taskbar".
+
+---
+
+## 11. Interactive Drag-and-Drop Slot Reordering Architecture
+
+Taskbar implements real-time horizontal drag-and-drop reordering with live visual feedback, insertion indicator bars, and strict multi-display isolation.
+
+```mermaid
+sequenceDiagram
+    participant User as User Interaction
+    participant Button as BaseTaskbarButton
+    participant View as TaskbarView
+    participant Logic as WindowOrderingLogic
+    participant Store as WindowStore / Settings
+
+    User->>Button: mouseDown & mouseDragged (> 5pt threshold)
+    Button->>View: onDragStarted & onDragged(location)
+    View->>View: Compute insertion slot via TaskbarLayoutEngine
+    View->>View: Update insertionIndicatorView frame (Option B)
+    User->>Button: mouseUp (Drop)
+    Button->>View: onDragEnded(cancelled: false)
+    View->>Logic: moveItem(items, fromIndex, toIndex)
+    View->>Store: Commit orderMap to WindowStore (Task) or Settings (Pinned)
+    View->>View: Re-layout taskbar with updated button slots
+```
+
+### 11.1 Drag Session Lifecycle & UX (Option B: Insertion Bar)
+- **Threshold Detection:** `BaseTaskbarButton` initiates drag sessions only after cursor movement exceeds `TaskbarConstants.Drag.dragThresholdPoints` (5.0pt), distinguishing rapid click/focus interactions from intentional drags.
+- **Insertion Indicator Bar:** `TaskbarView` renders a high-contrast insertion bar (`insertionIndicatorView`) positioned at slot boundaries calculated via `TaskbarLayoutEngine.taskInsertionIndicatorX` and `pinnedInsertionIndicatorX`.
+- **Dragged Button Visuals:** The dragged button shifts opacity to `draggedButtonAlpha` (0.85) and elevates its layer `zPosition` to render smoothly above neighboring items during motion.
+- **Session Cancellation:** Moving the cursor vertically beyond `verticalEscapeThreshold` (24pt) or pressing the `Escape` key immediately cancels the drag session, smoothly restoring buttons to their original slots.
+
+### 11.2 Storage & Multi-Display Isolation
+- **Running Task Buttons:**
+  - In-memory custom order dictionaries (`[String: Int]`) are maintained per physical display in `WindowStore.customOrders[screenID]`.
+  - When committing drops, `orderMap` indexes both `WindowGroup.id` and all constituent window keys (`TaskbarConstants.Identifiers.windowID`), ensuring consistent ordering regardless of grouping mode transitions.
+  - Moving a window to another screen in macOS migrates the window without disrupting either display's custom slot order.
+- **Quick Launch Pinned Buttons:**
+  - Pinned applications are global launchers. Dragging a pinned button on any monitor reorders `settings.pinnedApps`, immediately writes to disk, and broadcasts the new pinned order across all connected displays via `ScreenManager.updatePinnedApps` in lockstep.

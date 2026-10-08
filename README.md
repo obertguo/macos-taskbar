@@ -16,6 +16,17 @@ Designed for peak responsiveness, ~0.0% idle CPU, and rock-solid stability using
   - Click already-focused window button $\rightarrow$ Minimizes the window.
   - Click minimized window button $\rightarrow$ Restores and focuses the window.
   - Right-click $\rightarrow$ Context menu with Minimize/Restore, Close Window, and Quit Application.
+- **Application Window Grouping & Lightweight Popup:**
+  - Group multi-window applications into single taskbar buttons with badge count indicators (`App Name (Count)`).
+  - Three configurable grouping modes in Status Menu and Settings: `Always (Group multi-window apps)`, `When Crowded (Auto-group on overflow)`, and `Never (One button per window)`.
+  - Clicking a grouped button opens `GroupWindowPopup`: a lightweight, native `NSPanel` listing open window titles, focused state dot indicators, and individual close (`✕`) buttons.
+  - Complete keyboard navigation: `Up`/`Down` arrow keys to highlight windows, `Return` to focus and raise, `Escape` to dismiss.
+  - Right-click context menu offers "Close All Windows" alongside app management actions.
+- **Interactive Drag-and-Drop Slot Reordering:**
+  - Reorder running task buttons horizontally with smooth real-time visual feedback and an insertion indicator bar.
+  - Display-isolated ordering for running tasks: custom orders are scoped per screen, persisting seamlessly as windows move across displays.
+  - Quick Launch pinned button reordering: dragging pinned shortcuts reorders items, syncs across all connected monitors in lockstep, and immediately persists to `settings.json`.
+  - Clean cancelation on vertical drag escape or Escape key press.
 - **Button Overflow Handling:** When window density is high, buttons shrink gracefully down to `minButtonWidth` (80pt default), after which an interactive overflow chevron (`»`) appears with a popup menu to activate hidden windows.
 - **Pinned Applications / Quick Launch Bar:**
   - Compact square buttons rendered between the Start button and window task buttons across all monitors.
@@ -34,7 +45,7 @@ Designed for peak responsiveness, ~0.0% idle CPU, and rock-solid stability using
 - **Screen Space Reservation via AX Nudger (`WorkAreaEnforcer`):** Maximized windows (from native zoom, double-click titlebar, Rectangle, Raycast, etc.) are actively clamped so their bottom edges (status bars, terminal prompts, input boxes) remain visible above the bar. Features multi-pass debounce settling (150ms / 400ms / 650ms), in-flight resize debounce protection against passive move/reconcile events, TCC authorization polling on ad-hoc binary startup, active mouse-drag deferral, and self-inflicted notification filtering to prevent jitter and feedback loops.
 - **Configurable System Dock Replacement & Safety:** Safely hides the system Dock during execution with user-configurable autohide reveal delays (1000s Permanently Hidden, 1.5s Deliberate Hover, 1.0s, 0.5s, 0.0s). Restores original settings automatically on quit, `SIGINT`/`SIGTERM` signals, or via `./scripts/restore-dock.sh`.
 - **Full-Screen Space Suppression:** Taskbar panels automatically hide on native macOS full-screen spaces (keynote presentations, full-screen video, games).
-- **Status Menu Customization:** Adjust Theme, Taskbar Height (26–44pt), Button Width / Overflow Threshold (28–120pt), Font Size (10–14pt), and Icon Size (14–24pt) dynamically without restarting.
+- **Status Menu Customization:** Adjust Theme, Window Grouping Mode, Taskbar Height (26–44pt), Button Width / Overflow Threshold (28–120pt), Font Size (10–14pt), and Icon Size (14–24pt) dynamically without restarting.
 - **Minimalist Start Button:** Quick-launches your preferred application launcher (Spotlight via Command+Space keystroke, Raycast, or custom path).
 - **Unified Diagnostic Logging:** Apple unified `os.Logger` integration categorized across `Lifecycle`, `Tracking`, `WorkArea`, `Dock`, and `UI` subsystems for low-overhead production diagnostics.
 
@@ -68,7 +79,13 @@ Taskbar includes a 3-tier test harness with automated memory and CPU benchmarkin
 # Stress & capacity suite (100-window burst, chevron overflow, button recycling)
 ./scripts/test-functional.sh --stress
 
-# Run all test suites (112 tests) + resident memory (<45 MB RSS) and CPU benchmarks
+# Drag-and-drop slot reordering suite (TC-DRAG-*)
+./scripts/test-functional.sh --reordering
+
+# Application window grouping & popup suite (TC-GROUP-*)
+./scripts/test-functional.sh --grouping
+
+# Run all test suites (140 tests) + resident memory (<45 MB RSS) and CPU benchmarks
 ./scripts/test-functional.sh --all
 ```
 
