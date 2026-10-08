@@ -175,7 +175,9 @@ public final class GroupWindowPopup: NSPanel {
     }
     
     deinit {
-        removeEventMonitor()
+        MainActor.assumeIsolated {
+            removeEventMonitor()
+        }
     }
 }
 
