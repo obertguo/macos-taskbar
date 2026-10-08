@@ -21,7 +21,9 @@ usage() {
     echo "  --quick        Run fast window lifecycle tests (TC-FUNC-*, ~15s)"
     echo "  --edge-cases   Run boundary & corner case suite (TC-EDGE-*, ~5s)"
     echo "  --stress       Run high-density window stress & memory benchmark (TC-STRESS-*, TC-PERF-*)"
-    echo "  --all          Run complete test suite (Unit + Functional + Edge + Stress, default)"
+    echo "  --reordering   Run drag-and-drop slot reordering suite (TC-DRAG-*)"
+    echo "  --grouping     Run application window grouping & popup suite (TC-GROUP-*)"
+    echo "  --all          Run complete test suite (Unit + Functional + Edge + Stress + Reordering + Grouping, default)"
     echo "  --help, -h     Show this help message"
     echo ""
     echo -e "${BOLD}Configuration (from config/build.env):${NC}"
@@ -46,6 +48,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --stress)
             MODE="stress"
+            shift
+            ;;
+        --reordering)
+            MODE="reordering"
+            shift
+            ;;
+        --grouping)
+            MODE="grouping"
             shift
             ;;
         --all)
@@ -146,6 +156,15 @@ case "${MODE}" in
         log_info "Running Stress & Capacity Suite (TC-STRESS-*, TC-PERF-*)..."
         swift test --filter StressIntegrationTests || FAILED=1
         ;;
+    reordering)
+        log_info "Running Window Reordering & Drag Suite (TC-DRAG-*)..."
+        swift test --filter WindowReorderingIntegrationTests || FAILED=1
+        ;;
+    grouping)
+        log_info "Running Window Grouping Suite (TC-GROUP-*)..."
+        swift test --filter WindowGroupingIntegrationTests || FAILED=1
+        swift test --filter StatusMenuGroupingTests || FAILED=1
+        ;;
     all)
         log_info "Running Core Unit Tests (TC-UNIT-*)..."
         swift test --filter TaskbarCoreTests || FAILED=1
@@ -159,11 +178,20 @@ case "${MODE}" in
         log_info "Running Pinned Applications Suite..."
         swift test --filter PinnedAppsIntegrationTests || FAILED=1
         
+        log_info "Running Window Reordering & Drag Suite (TC-DRAG-*)..."
+        swift test --filter WindowReorderingIntegrationTests || FAILED=1
+        
+        log_info "Running Window Grouping Suite (TC-GROUP-*)..."
+        swift test --filter WindowGroupingIntegrationTests || FAILED=1
+        
         log_info "Running Theme Expansion Suite..."
         swift test --filter ThemeExpansionIntegrationTests || FAILED=1
         
         log_info "Running Status Menu Theme Suite..."
         swift test --filter StatusMenuThemeTests || FAILED=1
+        
+        log_info "Running Status Menu Window Grouping Suite..."
+        swift test --filter StatusMenuGroupingTests || FAILED=1
         
         log_info "Running Functional Lifecycle Suite (TC-FUNC-*)..."
         swift test --filter WindowLifecycleIntegrationTests || FAILED=1

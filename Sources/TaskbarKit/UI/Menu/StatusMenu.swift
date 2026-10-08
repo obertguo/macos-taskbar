@@ -8,6 +8,7 @@ public final class StatusMenu {
     private let statusItem: NSStatusItem
     private var currentStyle: ThemeStyle
     public private(set) var currentThemeId: String
+    public private(set) var windowGroupingMode: WindowGroupingMode
     private var minButtonWidth: Double
     private var barHeight: Double
     private var fontSize: Double
@@ -16,6 +17,7 @@ public final class StatusMenu {
     private var isDockHidden: Bool
     private var dockDelay: Double
     public var onThemeIdChanged: ((String) -> Void)?
+    public var onWindowGroupingModeChanged: ((WindowGroupingMode) -> Void)?
     public var onReloadThemesRequested: (() -> Void)?
     public var onOpenThemesFolderRequested: (() -> Void)?
     public var onExportThemeRequested: (() -> Void)?
@@ -33,6 +35,7 @@ public final class StatusMenu {
     public init(
         currentStyle: ThemeStyle = .modernHybrid,
         currentThemeId: String? = nil,
+        windowGroupingMode: WindowGroupingMode = .always,
         minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth,
         barHeight: Double = TaskbarConstants.Layout.defaultBarHeight,
         fontSize: Double = TaskbarConstants.Layout.defaultFontSize,
@@ -43,6 +46,7 @@ public final class StatusMenu {
     ) {
         self.currentStyle = currentStyle
         self.currentThemeId = currentThemeId ?? ((currentStyle == .retroClassic) ? ThemeDefinition.retroClassic.id : ThemeDefinition.modernHybrid.id)
+        self.windowGroupingMode = windowGroupingMode
         self.minButtonWidth = minButtonWidth
         self.barHeight = barHeight
         self.fontSize = fontSize
@@ -64,6 +68,11 @@ public final class StatusMenu {
     public func updateThemeId(_ themeId: String) {
         self.currentThemeId = themeId
         self.currentStyle = ThemeRegistry.shared.theme(for: themeId).style
+        setupMenu()
+    }
+    
+    public func updateWindowGroupingMode(_ mode: WindowGroupingMode) {
+        self.windowGroupingMode = mode
         setupMenu()
     }
     
@@ -188,6 +197,24 @@ public final class StatusMenu {
         let themeParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.themeMenu, action: nil, keyEquivalent: "")
         themeParentItem.submenu = themeSubmenu
         menu.addItem(themeParentItem)
+        
+        // Window Grouping Menu
+        let groupingSubmenu = NSMenu(title: TaskbarStrings.WindowGrouping.menuTitle)
+        let groupingModes: [(WindowGroupingMode, String)] = [
+            (.always, TaskbarStrings.WindowGrouping.modeAlways),
+            (.whenCrowded, TaskbarStrings.WindowGrouping.modeWhenCrowded),
+            (.never, TaskbarStrings.WindowGrouping.modeNever)
+        ]
+        for (mode, title) in groupingModes {
+            let item = NSMenuItem(title: title, action: #selector(handleGroupingModeSelection(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = mode
+            item.state = (mode == windowGroupingMode) ? .on : .off
+            groupingSubmenu.addItem(item)
+        }
+        let groupingParentItem = NSMenuItem(title: TaskbarStrings.WindowGrouping.menuTitle, action: nil, keyEquivalent: "")
+        groupingParentItem.submenu = groupingSubmenu
+        menu.addItem(groupingParentItem)
         
         // Taskbar Height Menu
         let heightSubmenu = NSMenu(title: TaskbarStrings.StatusMenu.barHeightMenu)
@@ -335,6 +362,14 @@ public final class StatusMenu {
     
     @objc private func handleExportCurrentTheme() {
         onExportThemeRequested?()
+    }
+    
+    @objc private func handleGroupingModeSelection(_ sender: NSMenuItem) {
+        if let mode = sender.representedObject as? WindowGroupingMode {
+            self.windowGroupingMode = mode
+            setupMenu()
+            onWindowGroupingModeChanged?(mode)
+        }
     }
     
     @objc private func handleWidthSelection(_ sender: NSMenuItem) {

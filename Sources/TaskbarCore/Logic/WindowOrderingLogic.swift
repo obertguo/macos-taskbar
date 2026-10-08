@@ -22,8 +22,12 @@ public enum WindowOrderingLogic {
         guard !items.isEmpty, !customOrder.isEmpty else { return items }
         
         return items.enumerated().sorted { (left, right) -> Bool in
-            let leftSlot = customOrder[left.element.id]
-            let rightSlot = customOrder[right.element.id]
+            let leftSlot = customOrder[left.element.id] ?? left.element.windows.compactMap {
+                customOrder[TaskbarConstants.Identifiers.windowID(pid: $0.key.pid, id: $0.key.id)]
+            }.min()
+            let rightSlot = customOrder[right.element.id] ?? right.element.windows.compactMap {
+                customOrder[TaskbarConstants.Identifiers.windowID(pid: $0.key.pid, id: $0.key.id)]
+            }.min()
             
             switch (leftSlot, rightSlot) {
             case let (l?, r?):
@@ -73,9 +77,13 @@ public enum WindowOrderingLogic {
     /// Generates a complete `[String: Int]` slot map for the given array of window groups.
     public static func rebuildOrderMap(for items: [WindowGroup]) -> [String: Int] {
         var map: [String: Int] = [:]
-        map.reserveCapacity(items.count)
+        map.reserveCapacity(items.count * 2)
         for (index, item) in items.enumerated() {
             map[item.id] = index
+            for win in item.windows {
+                let winKey = TaskbarConstants.Identifiers.windowID(pid: win.key.pid, id: win.key.id)
+                map[winKey] = index
+            }
         }
         return map
     }

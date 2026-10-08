@@ -519,10 +519,14 @@ public final class TaskbarView: NSView {
             let moved = taskButtons.remove(at: initialIndex)
             taskButtons.insert(moved, at: destinationIndex)
             
-            // Commit customOrder to WindowStore keyed by WindowGroup.id
+            // Commit customOrder to WindowStore keyed by WindowGroup.id and individual window IDs
             var orderMap: [String: Int] = [:]
             for (idx, b) in taskButtons.enumerated() {
                 orderMap[b.group.id] = idx
+                for win in b.group.windows {
+                    let winKey = TaskbarConstants.Identifiers.windowID(pid: win.key.pid, id: win.key.id)
+                    orderMap[winKey] = idx
+                }
             }
             if let screenID = self.screenID {
                 store?.setCustomOrder(orderMap, forScreenID: UInt32(screenID))
@@ -681,7 +685,7 @@ public final class TaskbarView: NSView {
             focusedKey: focusedKey,
             frontmostPID: frontmostPID
         )
-        popup.onSelectWindow = { [weak self] win in
+        popup.onSelectWindow = { win in
             WindowActions.restoreAndFocusWindow(win.key)
         }
         popup.onCloseWindow = { key in

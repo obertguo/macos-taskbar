@@ -59,6 +59,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         let statusMenu = StatusMenu(
             currentStyle: settings.themeStyle,
             currentThemeId: settings.activeThemeId,
+            windowGroupingMode: settings.windowGroupingMode,
             minButtonWidth: settings.minButtonWidth,
             barHeight: settings.barHeight,
             fontSize: settings.fontSize,
@@ -67,6 +68,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             isDockHidden: settings.hideSystemDock,
             dockDelay: settings.dockHideDelay
         )
+        statusMenu.onWindowGroupingModeChanged = { [weak self] mode in
+            guard let self = self else { return }
+            self.settings.windowGroupingMode = mode
+            self.settings.save()
+            self.screenManager?.updateGroupingMode(mode)
+        }
         statusMenu.onThemeIdChanged = { [weak self] themeId in
             guard let self = self else { return }
             self.settings.activeThemeId = themeId
