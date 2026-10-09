@@ -181,14 +181,125 @@ public final class GroupWindowPopup: NSPanel {
     }
 }
 
-// MARK: - Popup Content View
+// MARK: - Popup Content View (Container)
 
 private final class GroupWindowContentView: NSView {
     var theme: ThemeDefinition {
         didSet {
-            visualEffectView.isHidden = !theme.useTranslucency
-            visualEffectView.material = VisualEffectMapping.resolveMaterial(theme.material)
-            visualEffectView.blendingMode = VisualEffectMapping.resolveBlendingMode(theme.blendingMode)
+            applyTheme(theme)
+        }
+    }
+    
+    var windows: [WindowInfo] {
+        get { rowsView.windows }
+        set { rowsView.windows = newValue }
+    }
+    
+    var focusedKey: WindowKey? {
+        get { rowsView.focusedKey }
+        set { rowsView.focusedKey = newValue }
+    }
+    
+    var frontmostPID: pid_t? {
+        get { rowsView.frontmostPID }
+        set { rowsView.frontmostPID = newValue }
+    }
+    
+    var selectedIndex: Int? {
+        get { rowsView.selectedIndex }
+        set { rowsView.selectedIndex = newValue }
+    }
+    
+    var onSelect: ((WindowInfo) -> Void)? {
+        get { rowsView.onSelect }
+        set { rowsView.onSelect = newValue }
+    }
+    
+    var onClose: ((WindowInfo) -> Void)? {
+        get { rowsView.onClose }
+        set { rowsView.onClose = newValue }
+    }
+    
+    private let visualEffectView = NSVisualEffectView()
+    private let rowsView: GroupWindowRowsView
+    
+    init(
+        group: WindowGroup,
+        theme: ThemeDefinition,
+        focusedKey: WindowKey?,
+        frontmostPID: pid_t?
+    ) {
+        self.theme = theme
+        self.rowsView = GroupWindowRowsView(
+            group: group,
+            theme: theme,
+            focusedKey: focusedKey,
+            frontmostPID: frontmostPID
+        )
+        super.init(frame: .zero)
+        
+        wantsLayer = true
+        layer?.cornerRadius = theme.is3DBeveled ? 0 : TaskbarConstants.GroupPopup.cornerRadius
+        layer?.masksToBounds = true
+        
+        // 1. Background visual effect view (frosted glass)
+        visualEffectView.autoresizingMask = [.width, .height]
+        visualEffectView.state = .active
+        visualEffectView.wantsLayer = true
+        visualEffectView.layer?.cornerRadius = theme.is3DBeveled ? 0 : TaskbarConstants.GroupPopup.cornerRadius
+        visualEffectView.layer?.masksToBounds = true
+        visualEffectView.isHidden = !theme.useTranslucency || theme.is3DBeveled
+        visualEffectView.material = VisualEffectMapping.resolveMaterial(theme.material)
+        visualEffectView.blendingMode = VisualEffectMapping.resolveBlendingMode(theme.blendingMode)
+        addSubview(visualEffectView)
+        
+        // 2. Foreground rows view (rendered above visualEffectView)
+        rowsView.autoresizingMask = [.width, .height]
+        rowsView.wantsLayer = true
+        addSubview(rowsView)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func layout() {
+        super.layout()
+        visualEffectView.frame = bounds
+        rowsView.frame = bounds
+    }
+    
+    private func applyTheme(_ theme: ThemeDefinition) {
+        layer?.cornerRadius = theme.is3DBeveled ? 0 : TaskbarConstants.GroupPopup.cornerRadius
+        visualEffectView.layer?.cornerRadius = theme.is3DBeveled ? 0 : TaskbarConstants.GroupPopup.cornerRadius
+        visualEffectView.isHidden = !theme.useTranslucency || theme.is3DBeveled
+        visualEffectView.material = VisualEffectMapping.resolveMaterial(theme.material)
+        visualEffectView.blendingMode = VisualEffectMapping.resolveBlendingMode(theme.blendingMode)
+        rowsView.theme = theme
+    }
+    
+    func removeWindow(forKey key: WindowKey) {
+        rowsView.removeWindow(forKey: key)
+    }
+    
+    func currentlySelectedWindow() -> WindowInfo? {
+        rowsView.currentlySelectedWindow()
+    }
+    
+    func moveSelection(up: Bool) {
+        rowsView.moveSelection(up: up)
+    }
+    
+    func preferredSize() -> NSSize {
+        rowsView.preferredSize()
+    }
+}
+
+// MARK: - Foreground Rows View
+
+private final class GroupWindowRowsView: NSView {
+    var theme: ThemeDefinition {
+        didSet {
             needsDisplay = true
         }
     }
@@ -200,8 +311,21 @@ private final class GroupWindowContentView: NSView {
         }
     }
     
-    var focusedKey: WindowKey?
-    var frontmostPID: pid_t?
+    var focusedKey: WindowKey? {
+        didSet {
+            if oldValue != focusedKey {
+                needsDisplay = true
+            }
+        }
+    }
+    
+    var frontmostPID: pid_t? {
+        didSet {
+            if oldValue != frontmostPID {
+                needsDisplay = true
+            }
+        }
+    }
     
     var selectedIndex: Int? = 0 {
         didSet {
@@ -228,7 +352,6 @@ private final class GroupWindowContentView: NSView {
     var onSelect: ((WindowInfo) -> Void)?
     var onClose: ((WindowInfo) -> Void)?
     
-    private let visualEffectView = NSVisualEffectView()
     private var trackingAreaRef: NSTrackingArea?
     
     init(
@@ -242,14 +365,6 @@ private final class GroupWindowContentView: NSView {
         self.focusedKey = focusedKey
         self.frontmostPID = frontmostPID
         super.init(frame: .zero)
-        
-        wantsLayer = true
-        visualEffectView.autoresizingMask = [.width, .height]
-        visualEffectView.state = .active
-        visualEffectView.isHidden = !theme.useTranslucency
-        visualEffectView.material = VisualEffectMapping.resolveMaterial(theme.material)
-        visualEffectView.blendingMode = VisualEffectMapping.resolveBlendingMode(theme.blendingMode)
-        addSubview(visualEffectView)
     }
     
     required init?(coder: NSCoder) {
@@ -261,6 +376,8 @@ private final class GroupWindowContentView: NSView {
         if let sel = selectedIndex, sel >= windows.count {
             selectedIndex = max(0, windows.count - 1)
         }
+        updateTrackingAreas()
+        needsDisplay = true
     }
     
     func currentlySelectedWindow() -> WindowInfo? {
@@ -402,7 +519,7 @@ private final class GroupWindowContentView: NSView {
     
     private func drawHybridBackground() {
         let cornerRadius = TaskbarConstants.GroupPopup.cornerRadius
-        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 1.0, dy: 1.0), xRadius: cornerRadius, yRadius: cornerRadius)
+        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: cornerRadius, yRadius: cornerRadius)
         
         if !theme.useTranslucency || theme.backgroundColor.alpha > 0.0 {
             NSColor(rgba: theme.backgroundColor).setFill()

@@ -130,6 +130,33 @@ struct WindowGroupingIntegrationTests {
         #expect(popup.windows[0].title == "ProjectA - AppKit", "First row must display first window title")
         #expect(popup.windows[1].title == "ProjectB - TaskbarCore", "Second row must display second window title")
         
+        // Layering verification: foreground rows view is above NSVisualEffectView
+        guard let contentView = popup.contentView else {
+            Issue.record("Popup must have a content view")
+            return
+        }
+        #expect(contentView.subviews.count >= 2, "Popup content view must contain background visualEffectView and foreground rows view")
+        #expect(contentView.subviews[0] is NSVisualEffectView, "Subviews[0] must be NSVisualEffectView")
+        let visualEffect = contentView.subviews[0] as! NSVisualEffectView
+        #expect(!visualEffect.isHidden, "Modern Hybrid theme must enable visualEffectView translucency")
+        
+        // Theme switching: Retro Classic disables translucency
+        popup.theme = .retroClassic
+        #expect(visualEffect.isHidden, "Retro Classic theme must hide visualEffectView")
+        
+        // Restore Modern Hybrid
+        popup.theme = .modernHybrid
+        #expect(!visualEffect.isHidden, "Switching back to Modern Hybrid must unhide visualEffectView")
+        
+        // Keyboard navigation
+        #expect(popup.selectedIndex == 0, "Default selection is index 0")
+        let downEvent = makeKeyEvent(keyCode: TaskbarConstants.KeyCodes.downArrow)
+        popup.keyDown(with: downEvent)
+        #expect(popup.selectedIndex == 1, "Down arrow must advance selection to index 1")
+        let upEvent = makeKeyEvent(keyCode: TaskbarConstants.KeyCodes.upArrow)
+        popup.keyDown(with: upEvent)
+        #expect(popup.selectedIndex == 0, "Up arrow must return selection to index 0")
+        
         // Keyboard navigation: Escape key dismisses popup
         let escapeEvent = makeKeyEvent(keyCode: TaskbarConstants.KeyCodes.escape)
         popup.keyDown(with: escapeEvent)
@@ -243,5 +270,94 @@ struct WindowGroupingIntegrationTests {
         let regrouped = WindowGroupingLogic.groupWindows(windows, mode: .always)
         #expect(regrouped.count == 1, "In .always mode, windows recombine into 1 group")
         #expect(regrouped.first?.isGrouped == true)
+    }
+    
+    // TC-GROUP-005: Popup mouse interactions and dynamic window close resizing
+    @Test("TC-GROUP-005: Popup mouse interaction, close button trigger, and dynamic resize")
+    func testPopupMouseInteractionAndClose() {
+        let view = TaskbarView(theme: .modernHybrid, launcherAction: .spotlight)
+        view.frame = NSRect(x: 0, y: 0, width: 1200, height: 38)
+        
+        let win1 = WindowInfo(
+            key: WindowKey(id: 71, pid: 7100),
+            pid: 7100,
+            appName: "TextEdit",
+            bundleID: "com.apple.TextEdit",
+            title: "Notes.txt",
+            frame: CGRect(x: 0, y: 0, width: 500, height: 400),
+            isMinimized: false
+        )
+        let win2 = WindowInfo(
+            key: WindowKey(id: 72, pid: 7100),
+            pid: 7100,
+            appName: "TextEdit",
+            bundleID: "com.apple.TextEdit",
+            title: "Todo.txt",
+            frame: CGRect(x: 50, y: 50, width: 500, height: 400),
+            isMinimized: false
+        )
+        
+        view.updateWindows(windows: [win1, win2], focusedKey: nil, frontmostPID: nil)
+        guard let groupBtn = view.button(forKey: win1.key) else {
+            Issue.record("Expected TextEdit group button")
+            return
+        }
+        
+        groupBtn.onClick?()
+        guard let popup = view.activeGroupPopup, let contentView = popup.contentView, contentView.subviews.count >= 2 else {
+            Issue.record("Expected popup with layered content view")
+            return
+        }
+        let rowsView = contentView.subviews[1]
+        
+        // Initial height should accommodate 2 windows
+        let initialHeight = popup.frame.height
+        #expect(popup.windows.count == 2)
+        
+        var closedKeys: [WindowKey] = []
+        popup.onCloseWindow = { key in
+            closedKeys.append(key)
+        }
+        
+        // Simulate mouse click on close button of top row (index 0)
+        // Row 0 midY is 48.0; close button x center is maxX - 20.0.
+        let closeLoc = NSPoint(x: rowsView.bounds.maxX - 20.0, y: 48.0)
+        let closeClickEvent = NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: closeLoc,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1.0
+        )!
+        rowsView.mouseDown(with: closeClickEvent)
+        
+        #expect(closedKeys.contains(win1.key), "Clicking row 0 close button must trigger onCloseWindow for win1")
+        #expect(popup.windows.count == 1, "Remaining windows in popup must equal 1")
+        #expect(popup.windows[0].key == win2.key, "Remaining window must be win2")
+        
+        // Panel height must have shrunk smoothly to single-row height
+        #expect(popup.frame.height < initialHeight, "Popup frame height must shrink when window is closed")
+        
+        // Close the remaining window (now at index 0 of 1-row popup, midY is 20.0)
+        let remainingCloseLoc = NSPoint(x: rowsView.bounds.maxX - 20.0, y: 20.0)
+        let finalCloseClick = NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: remainingCloseLoc,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1.0
+        )!
+        rowsView.mouseDown(with: finalCloseClick)
+        
+        #expect(closedKeys.contains(win2.key), "Closing second window must trigger onCloseWindow for win2")
+        #expect(view.activeGroupPopup == nil, "Closing last window must automatically dismiss the popup")
     }
 }
