@@ -30,7 +30,7 @@ flowchart LR
 | **v0.1.0** | **Initial Core Release** *(Completed)* | Dual themes, 1-to-1 task buttons, AX Nudger (`WorkAreaEnforcer`), Dock hiding with configurable delays, button overflow chevron, and packaging pipeline. |
 | **v0.1.1** | **Foundational Quality & Hardening** *(Completed)* | Automated functional & stress test harness, codebase audit & refactoring, ecosystem research. |
 | **v0.2.0 – v0.2.3** | **Personalization & Quick Launch** *(Completed)* | Data-driven custom theming (JSON import/export), Quick Launch / pinned applications, multi-resolution icon sanitization, focus isolation, in-flight debounce protection, and robust work area clamping. |
-| **v0.3.0** | **Advanced Window Organization** *(Completed)* | Drag-and-drop window re-ordering (Option B insertion bar), application window grouping (Always, When Crowded, Never), lightweight window list popup (`GroupWindowPopup`), Status Menu grouping controls, multi-monitor isolation, and 140 automated tests. |
+| **v0.3.0 – v0.3.1** | **Advanced Window Organization & Hardening** *(Completed)* | Drag-and-drop window re-ordering (Option B insertion bar), application window grouping (Always, When Crowded, Never), lightweight window list popup (`GroupWindowPopup`), single-window focus isolation (`_AXUIElementGetWindow` + `SetFrontProcessWithOptions`), Status Menu grouping controls, multi-monitor isolation, and 140 automated tests. |
 | **v0.4.0** | **Layout & Placement Flexibility** | Multi-edge placement (Top/Left/Right/Bottom), taskbar auto-hide mode, button alignment (Left vs. Center). |
 
 ---

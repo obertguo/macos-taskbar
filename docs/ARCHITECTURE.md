@@ -200,18 +200,22 @@ To maintain low memory usage ($< 25\text{ MB}$ typical RSS) and eliminate mouse 
 
 ---
 
-## 7. Multi-Display Window Focus Isolation (`WindowActions`)
+## 7. Multi-Display & Workspace Window Focus Isolation (`WindowActions`)
 
-In multi-monitor environments, activating an application using standard AppKit APIs (`NSRunningApplication.activate(options: .activateAllWindows)`) causes macOS to bring *all* windows belonging to that application to the front across *all* connected displays. This behavior disrupts user focus on other screens (e.g. clicking Chrome on Monitor 2 would unintentionally raise a background Chrome window on Monitor 1, covering an active code editor).
+In multi-window and multi-monitor environments, activating an application using standard AppKit APIs (`NSRunningApplication.activate()`) causes macOS to bring *all* windows belonging to that application to the front across *all* connected displays and desktops. This behavior disrupts user focus (e.g. clicking a browser window on Monitor 2 or in a group list pops background browser windows forward on Monitor 1, burying intervening windows from other applications).
 
-To guarantee strict multi-display isolation:
-- **Targeted AX Window Focus:** `WindowActions.performAction(.focus, for: key)` locates the specific `AXUIElement` window for the requested key.
-- **Selective Raising:** Invokes `AXUIElementPerformAction(window, kAXRaiseAction)` and assigns `kAXMainAttribute` directly to the target window.
-- **Selective App Activation:** Activates the application process *without* the `.activateAllWindows` flag:
+To guarantee strict single-window focus and multi-display isolation:
+- **Native Window ID Resolution:** In `AXElement+Attributes.swift`, `windowID` resolves the native `CGWindowID` via dynamic link to `_AXUIElementGetWindow`, ensuring numerical window identifiers match WindowServer.
+- **Targeted AX Window Elevation:** `WindowActions.performAction(.focus, for: key)` locates the specific `AXUIElement` window for the requested key, executes `AXUIElementPerformAction(window, kAXRaiseAction)`, and sets `kAXMainAttribute` to `true`.
+- **Single-Window Process Activation:** Instead of AppKit's `NSRunningApplication.activate` (which brings the entire application window group forward), `WindowActions.activateSingleWindow` targets the specific window via Carbon and SkyLight WindowServer APIs:
   ```swift
-  app.activate(options: [])
+  // 1. Activate process front window only (kSetFrontProcessFrontWindowOnly = 0x0001)
+  SetFrontProcessWithOptions(&psn, 1)
+
+  // 2. Target specific window ID in WindowServer (kCPSUserGenerated = 0x200)
+  _SLPSSetFrontProcessWithOptions(&psn, UInt32(key.id), 0x200)
   ```
-- **Outcome:** Only the clicked window on the specific monitor is raised and given keyboard focus; background windows belonging to the same application on other monitors remain undisturbed in their existing z-order.
+- **Outcome:** Only the targeted window is raised and given keyboard focus; sibling windows of the same application on any screen remain undisturbed behind intervening windows from other applications in their existing on-screen z-order.
 
 ---
 
@@ -351,14 +355,19 @@ flowchart TD
   - Allocates zero AppKit views; 100% unit tested in `WindowGroupingLogicTests`.
 
 ### 10.2 Lightweight Window List Popup (`GroupWindowPopup`)
-- **Panel Characteristics:**
-  - Lightweight borderless `NSPanel` sharing taskbar visual effect materials and theme styling.
+- **Panel Characteristics & Visual Layer Separation:**
+  - Lightweight borderless `NSPanel` (`.nonactivatingPanel`, floating above desktop).
+  - Uses an explicit two-layer subview hierarchy: a background `NSVisualEffectView` maintaining frosted glass vibrancy, and a distinct foreground `rowsContainerView` hosting interactive `GroupWindowRowView` subviews to eliminate subview clobbering.
   - Anchored dynamically above the clicked group button on the target screen.
   - Renders application icon, document/window title (truncated with ellipsis), active window dot indicator, and dedicated close button (`✕`).
+- **Immediate Single-Click Responsiveness:**
+  - `GroupWindowRowView` and close buttons override `acceptsFirstMouse(for:) -> true`, ensuring first clicks immediately activate and focus the chosen window or trigger window closure without requiring an initial focus click.
+- **Auto-Dismissal & Event Monitoring:**
+  - Dismisses cleanly on `Escape`, row selection, or loss of key window focus (`windowDidResignKey`).
+  - Active global and local event monitors detect clicks outside the popup bounds and immediately close the panel.
 - **Keyboard Navigation & Accessibility:**
   - `Up` / `Down` arrow keys navigate and highlight rows.
   - `Return` / `Enter` focuses and raises the selected window, dismissing the popup.
-  - `Escape` or clicking outside dismisses the popup cleanly.
 - **Context Menu Integration:** Right-clicking a grouped button offers "Close All Windows", "Quit Application", and "Pin to Taskbar" / "Unpin from Taskbar".
 
 ---

@@ -63,18 +63,18 @@ This document provides the canonical specification catalog and requirements trac
 - **Automated Verification:** `TC-FUNC-003` in `WindowLifecycleIntegrationTests.swift`
 - **Pass/Fail Criteria:** Window button reflects un-minimized state within 100ms.
 
-#### [TC-FUNC-004] Single Window Focus Targeting & Display Isolation
-- **Category:** Functional / Focus State & Multi-Display Isolation
-- **Preconditions:** Application fixture running with two distinct document windows (e.g. on separate screens or behind other apps); an external application is currently frontmost.
+#### [TC-FUNC-004] Single Window Focus Targeting & Z-Order Isolation
+- **Category:** Functional / Focus State & Z-Order Isolation
+- **Preconditions:** Application fixture running with two distinct document windows (Doc 1 and Doc 2); an intervening third-party application window (Finder) is opened in front of both documents (`[Finder, Doc 2, Doc 1]`).
 - **Stimulus / Action:**
-  1. Trigger window focus for the second document window via `WindowActions.performAction(.focus, for: win2.key)`.
-  2. Verify target application process is activated.
+  1. Trigger window focus specifically for Doc 1 via `WindowActions.performAction(.focus, for: win1.key)`.
+  2. Query `CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements])` to determine live WindowServer on-screen z-order.
 - **Expected Outcome:**
-  1. Target window performs `kAXRaiseAction` and is assigned `kAXMainAttribute`.
-  2. Target application process is activated without `.activateAllWindows`.
-  3. The target window is raised and focused, while other windows of the same application (e.g. on another monitor) remain in their background z-order without stealing focus or covering active windows on that display.
+  1. Doc 1 executes `kAXRaiseAction`, receives `kAXMainAttribute`, and is activated via `SetFrontProcessWithOptions(&psn, 1)` and `_SLPSSetFrontProcessWithOptions(&psn, wid, 0x200)`.
+  2. Target application becomes `frontmostApplication`.
+  3. Doc 1 is frontmost in z-order ($z_0$), the intervening Finder window remains in the middle ($z_1$), and Doc 2 remains in the background ($z_2$), proving that focusing Doc 1 did not pull sibling windows of the same application forward.
 - **Automated Verification:** `TC-FUNC-004` in `WindowLifecycleIntegrationTests.swift`
-- **Pass/Fail Criteria:** Targeted window is focused and raised while background windows of the same application remain undisturbed.
+- **Pass/Fail Criteria:** Targeted Doc 1 is frontmost, and the intervening Finder window index is strictly less than sibling Doc 2 index in `CGWindowListCopyWindowInfo`.
 
 #### [TC-FUNC-005] Dynamic Window Title Mutation
 - **Category:** Functional / Dynamic Properties

@@ -2,7 +2,54 @@
 
 All notable changes to **Taskbar** will be documented in this file.
 
-## [0.2.3] - 2026-10-05
+## [0.3.1] - 2026-10-09
+
+### Window Grouping Responsiveness & Single-Window Focus Isolation
+
+Version `0.3.1` is a targeted patch release that resolves single-window focus isolation across multi-window applications, eliminates double-click requirements in the window grouping list popup, and ensures immediate auto-dismissal on outside clicks.
+
+#### Fixed
+- **Single-Window Focus Isolation (`WindowActions` & `AXElement+Attributes`):**
+  - Resolved an issue where clicking a task button or group row to focus a specific window caused macOS to elevate all windows belonging to that application across the desktop, burying intervening windows from other applications.
+  - Resolved native window identity lookup: dynamically linked `_AXUIElementGetWindow` so `AXUIElement.windowID` returns the true `CGWindowID` matching WindowServer rather than a fallback pointer hash.
+  - Replaced full application activation (`NSRunningApplication.activate`) with targeted WindowServer activation: invokes `SetFrontProcessWithOptions(&psn, 1 /* kSetFrontProcessFrontWindowOnly */)` and `_SLPSSetFrontProcessWithOptions(&psn, wid, 0x200 /* kCPSUserGenerated */)` in conjunction with Accessibility `kAXRaiseAction` and `kAXMainAttribute`.
+  - Background sibling windows belonging to the same application now reliably remain behind intervening windows of other applications in their existing on-screen z-order.
+- **Window Grouping List Popup Interaction (`GroupWindowPopup`):**
+  - Resolved an issue where the window group popup appeared blank by separating the background `NSVisualEffectView` from the foreground `rowsContainerView`, eliminating subview hierarchy conflicts.
+  - Enabled instantaneous single-click window switching and window closing by implementing `acceptsFirstMouse(for:) -> true` across row views and close buttons.
+  - Implemented automatic popup dismissal upon losing key focus (`windowDidResignKey`) or when clicking anywhere outside the popup frame via global and local `NSEvent` monitors.
+- **Test Harness Concurrency & Reliability (`TestFixtureApp`):**
+  - Added an asynchronous `TestFixtureQueue` actor to serialize GUI fixture creation and teardown across test suites, eliminating AppleScript `Connection is invalid (-609)` test collisions.
+- **Test Suite Verification (`TC-FUNC-004`):**
+  - Upgraded `TC-FUNC-004` (`WindowLifecycleIntegrationTests`) to introduce an intervening Finder window and verify true on-screen z-order isolation using `CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements])`.
+
+---
+
+## [0.3.0] - 2026-10-07
+
+### Application Window Grouping & Drag-and-Drop Slot Reordering
+
+Version `0.3.0` introduces Phase 3 advanced window organization capabilities: configurable application window grouping and interactive drag-and-drop slot reordering with multi-display isolation.
+
+#### Added
+- **Application Window Grouping (`TaskbarCore` & `TaskbarKit`):**
+  - Pure grouping engine (`WindowGroupingLogic`) supporting three modes: `Always (Group multi-window apps)`, `When Crowded (Auto-group on overflow)`, and `Never (One button per window)`.
+  - Dynamic badge count indicator rendered on grouped buttons (`AppName (Count)`).
+  - Lightweight native `GroupWindowPopup` (`NSPanel`) displaying open document titles, focus indicators, and individual close buttons (`✕`).
+  - Full keyboard navigation: `Up`/`Down` arrow keys to highlight rows, `Return` to focus and raise, and `Escape` to dismiss.
+  - Group button context menu with "Close All Windows" alongside app management actions.
+  - Status Menu submenu for live switching between window grouping modes with checkmark states.
+- **Interactive Drag-and-Drop Slot Reordering:**
+  - Real-time horizontal drag-and-drop reordering with high-contrast insertion indicator bar (Option B).
+  - Display-isolated ordering for running tasks: custom orders are scoped per screen, persisting seamlessly as windows move across displays.
+  - Quick Launch pinned button reordering: dragging pinned shortcuts reorders items, syncs across all connected monitors in lockstep, and immediately persists to `settings.json`.
+  - Smooth drag cancellation on vertical escape threshold (24pt) or Escape key press.
+- **Automated Test Expansion:**
+  - Added `TC-GROUP-001` through `TC-GROUP-006` covering grouping aggregation, popup presentation, row selection, dynamic mode switching, and outside dismissal.
+  - Added `TC-DRAG-001` through `TC-DRAG-004` covering drag threshold detection, cancelation, multi-display order isolation, and pinned app synchronization.
+  - Expanded test harness flags `--reordering` and `--grouping` in `scripts/test-functional.sh`.
+
+---
 
 ### Initial Maximize Clamping & TCC Authorization Hardening
 
