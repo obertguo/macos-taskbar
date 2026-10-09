@@ -109,8 +109,18 @@ extension AXUIElement {
         return (win as! AXUIElement)
     }
     
-    /// Stable numerical identity based on CFHash
+    private typealias AXUIElementGetWindowFunc = @convention(c) (AXUIElement, UnsafeMutablePointer<CGWindowID>) -> AXError
+    private static let axUIElementGetWindowFn: AXUIElementGetWindowFunc? = {
+        guard let sym = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "_AXUIElementGetWindow") else { return nil }
+        return unsafeBitCast(sym, to: AXUIElementGetWindowFunc.self)
+    }()
+
+    /// Stable numerical identity based on native CGWindowID, falling back to CFHash
     public var windowID: UInt64 {
-        UInt64(bitPattern: Int64(CFHash(self)))
+        var wid: CGWindowID = 0
+        if let fn = Self.axUIElementGetWindowFn, fn(self, &wid) == .success, wid != 0 {
+            return UInt64(wid)
+        }
+        return UInt64(bitPattern: Int64(CFHash(self)))
     }
 }

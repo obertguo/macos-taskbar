@@ -78,30 +78,61 @@ public final class TestFixtureApp: @unchecked Sendable {
         return windowElement(index: index)
     }
 
+    private actor TestFixtureQueue {
+        static let shared = TestFixtureQueue()
+        private var isBusy = false
+        private var waiters: [CheckedContinuation<Void, Never>] = []
+        
+        func acquire() async {
+            if !isBusy {
+                isBusy = true
+                return
+            }
+            await withCheckedContinuation { cont in
+                waiters.append(cont)
+            }
+        }
+        
+        func release() {
+            if !waiters.isEmpty {
+                let next = waiters.removeFirst()
+                next.resume()
+            } else {
+                isBusy = false
+            }
+        }
+    }
+    
     /// Launches the application and creates an empty untitled document window.
     @discardableResult
     public static func launchTextEdit(documentTitle: String = "TaskbarTestDoc") async throws -> TestFixtureApp {
-        // Ensure any previous dangling instances are cleanly quit before creating our fixture
-        terminateApp(appName: "TextEdit", bundleIdentifier: "com.apple.TextEdit")
-        try await Task.sleep(nanoseconds: 200_000_000)
-        
-        let fixture = TestFixtureApp(appName: "TextEdit", bundleIdentifier: "com.apple.TextEdit")
-        
-        // Launch TextEdit and create a document
-        let script = """
-        tell application "TextEdit"
-            activate
-            try
-                close every document saving no
-            end try
-            make new document with properties {name:"\(documentTitle)"}
-        end tell
-        """
-        _ = try fixture.runAppleScript(script)
-        
-        // Give macOS WindowServer and AX time to register the window
-        _ = await fixture.waitForWindowElement(index: 1, timeoutSeconds: 3.0)
-        return fixture
+        await TestFixtureQueue.shared.acquire()
+        do {
+            // Ensure any previous dangling instances are cleanly quit before creating our fixture
+            terminateApp(appName: "TextEdit", bundleIdentifier: "com.apple.TextEdit")
+            try await Task.sleep(nanoseconds: 200_000_000)
+            
+            let fixture = TestFixtureApp(appName: "TextEdit", bundleIdentifier: "com.apple.TextEdit")
+            
+            // Launch TextEdit and create a document
+            let script = """
+            tell application "TextEdit"
+                activate
+                try
+                    close every document saving no
+                end try
+                make new document with properties {name:"\(documentTitle)"}
+            end tell
+            """
+            _ = try fixture.runAppleScript(script)
+            
+            // Give macOS WindowServer and AX time to register the window
+            _ = await fixture.waitForWindowElement(index: 1, timeoutSeconds: 3.0)
+            return fixture
+        } catch {
+            Task { await TestFixtureQueue.shared.release() }
+            throw error
+        }
     }
     
     /// Terminates the application and cleans up all documents without saving.
@@ -113,6 +144,7 @@ public final class TestFixtureApp: @unchecked Sendable {
         isTerminated = true
         
         Self.terminateApp(appName: appName, bundleIdentifier: bundleIdentifier)
+        Task { await TestFixtureQueue.shared.release() }
     }
     
     /// Creates an additional document window for the fixture app.

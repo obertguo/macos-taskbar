@@ -136,19 +136,100 @@ struct WindowLifecycleIntegrationTests {
         }
         #expect(bothDiscovered == true, "Both document windows should be tracked in store")
         
-        guard let win2Info = store.allWindows.first(where: { $0.title.contains(doc2Title) }) else {
-            Issue.record("Failed to find second document in WindowStore")
+        guard let win1Info = store.allWindows.first(where: { $0.title.contains(doc1Title) }),
+              let win2Info = store.allWindows.first(where: { $0.title.contains(doc2Title) }) else {
+            Issue.record("Failed to find both documents in WindowStore")
             return
         }
         
-        // Focus the second window via WindowActions
-        WindowActions.performAction(.focus, for: win2Info.key)
+        // Introduce an intervening Finder window in front of TextEdit
+        let openFinderProc = Process()
+        openFinderProc.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        openFinderProc.arguments = ["-e", "tell application \"Finder\" to activate\ntell application \"Finder\" to make new Finder window to desktop\nreturn \"\""]
+        try openFinderProc.run()
+        openFinderProc.waitUntilExit()
         
-        // Verify target application is activated
-        let focused = await waitUntil(timeoutSeconds: 3.0) {
+        defer {
+            let closeFinderProc = Process()
+            closeFinderProc.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            closeFinderProc.arguments = ["-e", "tell application \"Finder\"\nif (count of windows) > 0 then close front window\nend tell"]
+            try? closeFinderProc.run()
+            closeFinderProc.waitUntilExit()
+        }
+        
+        let finderActivated = await waitUntil(timeoutSeconds: 3.0) {
+            NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.finder"
+        }
+        #expect(finderActivated == true, "Intervening Finder window should become frontmost")
+        
+        // Helper to query on-screen z-order of target windows
+        func getZOrder(ids: [UInt64]) -> [UInt64] {
+            guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[CFString: Any]] else {
+                return []
+            }
+            var result: [UInt64] = []
+            for dict in list {
+                guard let layer = dict[kCGWindowLayer] as? Int, layer == 0,
+                      let wid = dict[kCGWindowNumber] as? CGWindowID else {
+                    continue
+                }
+                let id64 = UInt64(wid)
+                if ids.contains(id64) {
+                    result.append(id64)
+                }
+            }
+            return result
+        }
+        
+        // Find the Finder window ID with retry
+        var finderWid: CGWindowID?
+        let foundFinder = await waitUntil(timeoutSeconds: 3.0) {
+            guard let finderApp = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == "com.apple.finder" }),
+                  let finderList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[CFString: Any]],
+                  let wid = finderList.first(where: {
+                      ($0[kCGWindowLayer] as? Int == 0) && (($0[kCGWindowOwnerPID] as? pid_t) == finderApp.processIdentifier)
+                  })?[kCGWindowNumber] as? CGWindowID else {
+                return false
+            }
+            finderWid = wid
+            return true
+        }
+        #expect(foundFinder == true, "Finder window must be present in on-screen window list")
+        
+        guard let resolvedFinderWid = finderWid else {
+            Issue.record("Failed to locate intervening Finder window")
+            return
+        }
+        
+        let finderWid64 = UInt64(resolvedFinderWid)
+        
+        // Ensure Finder window presentation and activation has fully settled
+        try await Task.sleep(nanoseconds: 300_000_000)
+        
+        // Target: Focus doc1 only. Doc 2 must NOT be raised above the intervening Finder window.
+        WindowActions.performAction(.focus, for: win1Info.key)
+        
+        let textEditFocused = await waitUntil(timeoutSeconds: 3.0) {
             NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.TextEdit"
         }
-        #expect(focused == true, "Target application should be activated")
+        #expect(textEditFocused == true, "TextEdit should be the active application")
+        
+        // Wait for z-order to settle in WindowServer
+        let doc1Frontmost = await waitUntil(timeoutSeconds: 3.0) {
+            let z = getZOrder(ids: [win1Info.key.id, finderWid64, win2Info.key.id])
+            return z.first == win1Info.key.id
+        }
+        #expect(doc1Frontmost == true, "Target doc 1 should be frontmost in z-order")
+        
+        let zOrder = getZOrder(ids: [win1Info.key.id, finderWid64, win2Info.key.id])
+        
+        // Finder must remain ahead of Doc 2 (Doc 2 must NOT have been raised above Finder)
+        if let finderIndex = zOrder.firstIndex(of: finderWid64),
+           let doc2Index = zOrder.firstIndex(of: win2Info.key.id) {
+            #expect(finderIndex < doc2Index, "Intervening Finder window must remain above background Doc 2")
+        } else {
+            Issue.record("Both Finder and Doc 2 should be present in on-screen z-order")
+        }
     }
     
     @Test("TC-FUNC-005: Dynamic window title mutation")
