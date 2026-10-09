@@ -31,6 +31,9 @@ public final class GroupWindowPopup: NSPanel {
     
     private let popupContentView: GroupWindowContentView
     private var localEventMonitor: Any?
+    private var globalEventMonitor: Any?
+    private var workspaceObserver: NSObjectProtocol?
+    private var isDismissing: Bool = false
     
     public init(
         group: WindowGroup,
@@ -76,12 +79,20 @@ public final class GroupWindowPopup: NSPanel {
     public override var canBecomeKey: Bool { true }
     public override var canBecomeMain: Bool { false }
     
+    public override func resignKey() {
+        super.resignKey()
+        if !isDismissing {
+            dismiss()
+        }
+    }
+    
     public func show(
         anchoredTo buttonRect: NSRect,
         in screen: NSScreen,
         focusedKey: WindowKey?,
         frontmostPID: pid_t?
     ) {
+        isDismissing = false
         popupContentView.focusedKey = focusedKey
         popupContentView.frontmostPID = frontmostPID
         
@@ -112,6 +123,8 @@ public final class GroupWindowPopup: NSPanel {
     }
     
     public func dismiss() {
+        guard !isDismissing else { return }
+        isDismissing = true
         removeEventMonitor()
         orderOut(nil)
         onDismiss?()
@@ -158,7 +171,8 @@ public final class GroupWindowPopup: NSPanel {
     
     private func installEventMonitor() {
         removeEventMonitor()
-        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+        
+        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
             guard let self = self else { return event }
             let clickLoc = NSEvent.mouseLocation
             if !self.frame.contains(clickLoc) {
@@ -166,12 +180,38 @@ public final class GroupWindowPopup: NSPanel {
             }
             return event
         }
+        
+        globalEventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    self?.dismiss()
+                }
+            }
+        }
+        
+        workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.dismiss()
+            }
+        }
     }
     
     private func removeEventMonitor() {
         if let monitor = localEventMonitor {
             NSEvent.removeMonitor(monitor)
             localEventMonitor = nil
+        }
+        if let monitor = globalEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalEventMonitor = nil
+        }
+        if let obs = workspaceObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(obs)
+            workspaceObserver = nil
         }
     }
     

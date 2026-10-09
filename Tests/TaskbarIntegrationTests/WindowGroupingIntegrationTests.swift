@@ -379,4 +379,73 @@ struct WindowGroupingIntegrationTests {
         #expect(closedKeys.contains(win2.key), "Closing second window must trigger onCloseWindow for win2")
         #expect(view.activeGroupPopup == nil, "Closing last window must automatically dismiss the popup")
     }
+    
+    // TC-GROUP-006: Popup dismisses immediately when interacting with foreground window or losing key status
+    @Test("TC-GROUP-006: Popup dismisses immediately upon losing key focus or outside interaction")
+    func testPopupDismissalOnLossOfKeyFocus() {
+        let view = TaskbarView(theme: .modernHybrid, launcherAction: .spotlight)
+        view.frame = NSRect(x: 0, y: 0, width: 1200, height: 38)
+        
+        let win1 = WindowInfo(
+            key: WindowKey(id: 81, pid: 8100),
+            pid: 8100,
+            appName: "Calculator",
+            bundleID: "com.apple.calculator",
+            title: "Calculator",
+            frame: CGRect(x: 0, y: 0, width: 300, height: 400),
+            isMinimized: false
+        )
+        let win2 = WindowInfo(
+            key: WindowKey(id: 82, pid: 8100),
+            pid: 8100,
+            appName: "Calculator",
+            bundleID: "com.apple.calculator",
+            title: "Grapher",
+            frame: CGRect(x: 50, y: 50, width: 500, height: 400),
+            isMinimized: false
+        )
+        
+        view.updateWindows(windows: [win1, win2], focusedKey: nil, frontmostPID: nil)
+        guard let groupBtn = view.button(forKey: win1.key) else {
+            Issue.record("Expected Calculator group button")
+            return
+        }
+        
+        groupBtn.onClick?()
+        guard let popup = view.activeGroupPopup else {
+            Issue.record("Expected active popup")
+            return
+        }
+        
+        #expect(popup.windows.count == 2)
+        
+        // Simulating user closing 1 window: popup should remain visible and active
+        popup.onCloseWindow = { _ in }
+        guard let contentView = popup.contentView, contentView.subviews.count >= 2 else {
+            Issue.record("Expected layered content view")
+            return
+        }
+        let rowsView = contentView.subviews[1]
+        let closeLoc = NSPoint(x: rowsView.bounds.maxX - 20.0, y: 48.0)
+        let closeClickEvent = NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: closeLoc,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1.0
+        )!
+        rowsView.mouseDown(with: closeClickEvent)
+        
+        #expect(popup.windows.count == 1, "One window remaining")
+        #expect(view.activeGroupPopup != nil, "Popup must remain visible while closing window")
+        
+        // Simulating user clicking/interacting with foreground window -> popup resigns key
+        popup.resignKey()
+        
+        #expect(view.activeGroupPopup == nil, "Popup must dismiss immediately when interacting with foreground window or resigning key")
+    }
 }
