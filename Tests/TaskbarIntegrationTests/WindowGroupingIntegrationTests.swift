@@ -201,15 +201,34 @@ struct WindowGroupingIntegrationTests {
             return
         }
         
+        guard let contentView = popup.contentView, contentView.subviews.count >= 2 else {
+            Issue.record("Expected layered content view")
+            return
+        }
+        #expect(contentView.acceptsFirstMouse(for: nil) == true, "contentView must accept first mouse for immediate single-click")
+        let rowsView = contentView.subviews[1]
+        #expect(rowsView.acceptsFirstMouse(for: nil) == true, "rowsView must accept first mouse for immediate single-click")
+        
         var selectedWindowKey: WindowKey?
         popup.onSelectWindow = { win in
             selectedWindowKey = win.key
         }
         
-        // Select second window (Engineering Spec)
-        popup.selectWindow(win2)
+        // Simulate immediate single click on second window row (index 1, midY is 20.0)
+        let row1Click = NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: NSPoint(x: 50.0, y: 20.0),
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1.0
+        )!
+        rowsView.mouseDown(with: row1Click)
         
-        #expect(selectedWindowKey == win2.key, "Selecting row must callback with win2")
+        #expect(selectedWindowKey == win2.key, "Single click on row 1 must immediately select win2")
         #expect(view.activeGroupPopup == nil, "Selecting a window row must dismiss the popup")
     }
     

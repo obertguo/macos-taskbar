@@ -50,6 +50,10 @@ open class BaseTaskbarButton: NSView {
         fatalError("init(coder:) has not been implemented")
     }
     
+    open override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+    
     open override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let trackingArea = trackingArea {

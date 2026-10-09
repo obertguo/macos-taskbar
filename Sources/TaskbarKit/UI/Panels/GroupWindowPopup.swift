@@ -106,6 +106,7 @@ public final class GroupWindowPopup: NSPanel {
         
         setFrame(panelFrame, display: true)
         orderFrontRegardless()
+        makeKey()
         
         installEventMonitor()
     }
@@ -263,6 +264,10 @@ private final class GroupWindowContentView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
     
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+    
     override func layout() {
         super.layout()
         visualEffectView.frame = bounds
@@ -371,6 +376,10 @@ private final class GroupWindowRowsView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
     
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+    
     func removeWindow(forKey key: WindowKey) {
         windows.removeAll { $0.key == key }
         if let sel = selectedIndex, sel >= windows.count {
@@ -445,8 +454,8 @@ private final class GroupWindowRowsView: NSView {
         let loc = convert(event.locationInWindow, from: nil)
         guard let rowIdx = rowIndex(at: loc) else { return }
         
-        let closeRect = closeButtonRect(forRow: rowIdx)
-        if closeRect.contains(loc) {
+        let closeHit = closeHitRect(forRow: rowIdx)
+        if closeHit.contains(loc) {
             onClose?(windows[rowIdx])
         } else {
             selectedIndex = rowIdx
@@ -463,8 +472,8 @@ private final class GroupWindowRowsView: NSView {
         hoveredIndex = rowIdx
         selectedIndex = rowIdx
         
-        let closeRect = closeButtonRect(forRow: rowIdx)
-        hoveredCloseIndex = closeRect.contains(location) ? rowIdx : nil
+        let closeHit = closeHitRect(forRow: rowIdx)
+        hoveredCloseIndex = closeHit.contains(location) ? rowIdx : nil
     }
     
     private func rowIndex(at location: NSPoint) -> Int? {
@@ -496,6 +505,10 @@ private final class GroupWindowRowsView: NSView {
             width: size,
             height: size
         )
+    }
+    
+    private func closeHitRect(forRow index: Int) -> NSRect {
+        closeButtonRect(forRow: index).insetBy(dx: -4.0, dy: -4.0)
     }
     
     override func draw(_ dirtyRect: NSRect) {
