@@ -128,4 +128,44 @@ final class SettingsTests: XCTestCase {
         let dockDelays = TaskbarConstants.Dock.dockDelayPresets.map { $0.delay }
         XCTAssertTrue(dockDelays.contains(TaskbarConstants.Dock.defaultAutohideDelaySeconds))
     }
+    
+    // MARK: - TC-UNIT-015: TaskbarEdge Domain Serialization & Settings
+    
+    func testTaskbarEdgeDomainProperties() {
+        XCTAssertTrue(TaskbarEdge.bottom.isHorizontal)
+        XCTAssertFalse(TaskbarEdge.bottom.isVertical)
+        
+        XCTAssertTrue(TaskbarEdge.top.isHorizontal)
+        XCTAssertFalse(TaskbarEdge.top.isVertical)
+        
+        XCTAssertTrue(TaskbarEdge.left.isVertical)
+        XCTAssertFalse(TaskbarEdge.left.isHorizontal)
+        
+        XCTAssertTrue(TaskbarEdge.right.isVertical)
+        XCTAssertFalse(TaskbarEdge.right.isHorizontal)
+        
+        XCTAssertEqual(TaskbarEdge.allCases.count, 4)
+    }
+    
+    func testTaskbarEdgeSerialization() throws {
+        var settings = Settings.default
+        settings.taskbarEdge = .left
+        
+        let data = try JSONEncoder().encode(settings)
+        let decoded = try JSONDecoder().decode(Settings.self, from: data)
+        
+        XCTAssertEqual(decoded.taskbarEdge, .left)
+        XCTAssertEqual(settings, decoded)
+    }
+    
+    func testBackwardCompatibleDecodingWithoutTaskbarEdge() throws {
+        // Simulates persisted settings from v0.1.0-v0.3.1 lacking taskbarEdge key
+        let baseData = try JSONEncoder().encode(Settings.default)
+        var dict = try JSONSerialization.jsonObject(with: baseData) as! [String: Any]
+        dict.removeValue(forKey: "taskbarEdge")
+        let legacyData = try JSONSerialization.data(withJSONObject: dict)
+        
+        let decoded = try JSONDecoder().decode(Settings.self, from: legacyData)
+        XCTAssertEqual(decoded.taskbarEdge, .bottom)
+    }
 }

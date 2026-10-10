@@ -133,4 +133,124 @@ final class WorkAreaMathTests: XCTestCase {
         XCTAssertNotNil(maxResult)
         XCTAssertEqual(maxResult?.height, 845)
     }
+    
+    // MARK: - TC-UNIT-013: Multi-Edge Screen Clamping Geometry
+    
+    func testMultiEdgeClampingTopEdge() {
+        let screen = primaryScreen.frame // 0, 0, 1440, 900
+        
+        // Window starting at top of screen (y = 0) overlapping 30pt top bar
+        let window = CGRect(x: 100, y: 0, width: 800, height: 700)
+        let clamped = WorkAreaMath.clampedFrame(
+            windowFrame: window,
+            screenBounds: screen,
+            barDimension: 30,
+            edge: .top,
+            allowNonMaximized: true
+        )
+        
+        XCTAssertNotNil(clamped)
+        XCTAssertEqual(clamped?.origin.y, 30)
+        XCTAssertEqual(clamped?.height, 670)
+        XCTAssertEqual(clamped?.maxY, 700)
+        
+        // Sub-pixel overlap: window starting at y = 29.0 (overlap is 1.0pt <= 2.0pt threshold)
+        let subpixelWindow = CGRect(x: 100, y: 29.0, width: 800, height: 600)
+        let subpixelResult = WorkAreaMath.clampedFrame(
+            windowFrame: subpixelWindow,
+            screenBounds: screen,
+            barDimension: 30,
+            edge: .top,
+            allowNonMaximized: true
+        )
+        XCTAssertNil(subpixelResult)
+    }
+    
+    func testMultiEdgeClampingLeftEdge() {
+        let screen = primaryScreen.frame
+        
+        // Window at left edge (x = 0) overlapping 40pt left bar
+        let window = CGRect(x: 0, y: 100, width: 1000, height: 600)
+        let clamped = WorkAreaMath.clampedFrame(
+            windowFrame: window,
+            screenBounds: screen,
+            barDimension: 40,
+            edge: .left,
+            allowNonMaximized: true
+        )
+        
+        XCTAssertNotNil(clamped)
+        XCTAssertEqual(clamped?.origin.x, 40)
+        XCTAssertEqual(clamped?.width, 960)
+        XCTAssertEqual(clamped?.maxX, 1000)
+        
+        // Sub-pixel overlap: window starting at x = 39.0 (overlap is 1.0pt <= 2.0pt)
+        let subpixelWindow = CGRect(x: 39.0, y: 100, width: 800, height: 600)
+        let subpixelResult = WorkAreaMath.clampedFrame(
+            windowFrame: subpixelWindow,
+            screenBounds: screen,
+            barDimension: 40,
+            edge: .left,
+            allowNonMaximized: true
+        )
+        XCTAssertNil(subpixelResult)
+    }
+    
+    func testMultiEdgeClampingRightEdge() {
+        let screen = primaryScreen.frame // width: 1440. Right bar: 40pt -> reserved x: 1400...1440
+        
+        // Window extending to screen right edge (x: 500, width: 940 => maxX: 1440)
+        let window = CGRect(x: 500, y: 100, width: 940, height: 600)
+        let clamped = WorkAreaMath.clampedFrame(
+            windowFrame: window,
+            screenBounds: screen,
+            barDimension: 40,
+            edge: .right,
+            allowNonMaximized: true
+        )
+        
+        XCTAssertNotNil(clamped)
+        XCTAssertEqual(clamped?.origin.x, 500)
+        XCTAssertEqual(clamped?.width, 900)
+        XCTAssertEqual(clamped?.maxX, 1400)
+        
+        // Sub-pixel overlap: maxX is 1401.5 (overlap is 1.5pt <= 2.0pt threshold)
+        let subpixelWindow = CGRect(x: 500, y: 100, width: 901.5, height: 600)
+        let subpixelResult = WorkAreaMath.clampedFrame(
+            windowFrame: subpixelWindow,
+            screenBounds: screen,
+            barDimension: 40,
+            edge: .right,
+            allowNonMaximized: true
+        )
+        XCTAssertNil(subpixelResult)
+    }
+    
+    func testMultiEdgeClampingNonMaximizedFiltering() {
+        let screen = primaryScreen.frame
+        
+        // Small floating window at left edge (width 300, < 45% screen width)
+        let smallLeftWindow = CGRect(x: 0, y: 200, width: 300, height: 400)
+        let ignoredLeft = WorkAreaMath.clampedFrame(
+            windowFrame: smallLeftWindow,
+            screenBounds: screen,
+            barDimension: 40,
+            edge: .left,
+            allowNonMaximized: false
+        )
+        XCTAssertNil(ignoredLeft)
+        
+        // Horizontally maximized window at left edge (width 1440 >= 45% screen width)
+        let wideWindow = CGRect(x: 0, y: 200, width: 1440, height: 400)
+        let clampedWide = WorkAreaMath.clampedFrame(
+            windowFrame: wideWindow,
+            screenBounds: screen,
+            barDimension: 40,
+            edge: .left,
+            allowNonMaximized: false
+        )
+        XCTAssertNotNil(clampedWide)
+        XCTAssertEqual(clampedWide?.origin.x, 40)
+        XCTAssertEqual(clampedWide?.width, 1400)
+    }
 }

@@ -9,6 +9,7 @@ public struct TaskbarLayoutParameters: Equatable, Sendable {
     public let startButtonWidth: CGFloat
     public let pinnedItemCount: Int
     public let taskItemCount: Int
+    public let edge: TaskbarEdge
     public let minButtonWidth: Double
     public let maxButtonWidth: Double
     public let buttonSpacing: Double
@@ -23,11 +24,22 @@ public struct TaskbarLayoutParameters: Equatable, Sendable {
     public let overflowButtonWidth: CGFloat
     public let overflowButtonTrailingMargin: CGFloat
     
+    /// Primary dimension available along the taskbar's main layout axis (width for horizontal, height for vertical).
+    public var primaryDimension: Double {
+        edge.isHorizontal ? Double(containerSize.width) : Double(containerSize.height)
+    }
+    
+    /// Cross dimension perpendicular to the taskbar's main layout axis (height for horizontal, width for vertical).
+    public var crossDimension: Double {
+        edge.isHorizontal ? Double(containerSize.height) : Double(containerSize.width)
+    }
+    
     public init(
         containerSize: CGSize,
         startButtonWidth: CGFloat,
         pinnedItemCount: Int,
         taskItemCount: Int,
+        edge: TaskbarEdge = .bottom,
         minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth,
         maxButtonWidth: Double = TaskbarConstants.Layout.defaultMaxButtonWidth,
         buttonSpacing: Double = TaskbarConstants.Layout.defaultButtonSpacing,
@@ -46,6 +58,7 @@ public struct TaskbarLayoutParameters: Equatable, Sendable {
         self.startButtonWidth = startButtonWidth
         self.pinnedItemCount = max(0, pinnedItemCount)
         self.taskItemCount = max(0, taskItemCount)
+        self.edge = edge
         self.minButtonWidth = minButtonWidth
         self.maxButtonWidth = maxButtonWidth
         self.buttonSpacing = buttonSpacing
@@ -96,119 +109,178 @@ public struct TaskbarLayoutPlan: Equatable, Sendable {
         self.taskButtonWidth = taskButtonWidth
     }
     
-    /// Helper for drag-and-drop hit testing: identifies the task button slot index at horizontal coordinate X.
-    public func slotIndex(atX x: CGFloat) -> Int? {
+    /// Identifies the task button slot index at the specified coordinate along the primary axis.
+    public func slotIndex(forPosition position: CGFloat, edge: TaskbarEdge = .bottom) -> Int? {
+        let isHorizontal = edge.isHorizontal
         for (index, frame) in taskButtonFrames.prefix(visibleTaskCount).enumerated() {
-            if x >= frame.minX && x <= frame.maxX {
+            let (minCoord, maxCoord) = isHorizontal ? (frame.minX, frame.maxX) : (frame.minY, frame.maxY)
+            if position >= minCoord && position <= maxCoord {
                 return index
             }
         }
         return nil
     }
     
-    /// Identifies the insertion slot index (0...visibleTaskCount) for a dragged task button at horizontal coordinate X.
-    public func taskInsertionSlot(atX x: CGFloat) -> Int {
+    /// Backward-compatible helper for horizontal drag-and-drop hit testing.
+    public func slotIndex(atX x: CGFloat) -> Int? {
+        slotIndex(forPosition: x, edge: .bottom)
+    }
+    
+    /// Identifies the insertion slot index (0...visibleTaskCount) for a dragged task button at position along the primary axis.
+    public func taskInsertionSlot(forPosition position: CGFloat, edge: TaskbarEdge = .bottom) -> Int {
+        let isHorizontal = edge.isHorizontal
         let visibleFrames = Array(taskButtonFrames.prefix(visibleTaskCount))
         guard !visibleFrames.isEmpty else { return 0 }
         
         for (index, frame) in visibleFrames.enumerated() {
-            if x < frame.midX {
+            let midCoord = isHorizontal ? frame.midX : frame.midY
+            if position < midCoord {
                 return index
             }
         }
         return visibleFrames.count
     }
     
-    /// Identifies the insertion slot index (0...pinnedItemCount) for a dragged pinned button at horizontal coordinate X.
-    public func pinnedInsertionSlot(atX x: CGFloat) -> Int {
+    /// Backward-compatible helper for task insertion slot along horizontal axis X.
+    public func taskInsertionSlot(atX x: CGFloat) -> Int {
+        taskInsertionSlot(forPosition: x, edge: .bottom)
+    }
+    
+    /// Identifies the insertion slot index (0...pinnedItemCount) for a dragged pinned button at position along the primary axis.
+    public func pinnedInsertionSlot(forPosition position: CGFloat, edge: TaskbarEdge = .bottom) -> Int {
+        let isHorizontal = edge.isHorizontal
         guard !pinnedButtonFrames.isEmpty else { return 0 }
         
         for (index, frame) in pinnedButtonFrames.enumerated() {
-            if x < frame.midX {
+            let midCoord = isHorizontal ? frame.midX : frame.midY
+            if position < midCoord {
                 return index
             }
         }
         return pinnedButtonFrames.count
     }
     
-    /// Computes the horizontal center X coordinate for rendering the insertion indicator bar in the task area.
-    public func taskInsertionIndicatorX(
+    /// Backward-compatible helper for pinned insertion slot along horizontal axis X.
+    public func pinnedInsertionSlot(atX x: CGFloat) -> Int {
+        pinnedInsertionSlot(forPosition: x, edge: .bottom)
+    }
+    
+    /// Computes the primary axis coordinate for rendering the insertion indicator bar in the task area.
+    public func taskInsertionIndicatorPosition(
         forSlot slot: Int,
-        buttonSpacing: CGFloat = CGFloat(TaskbarConstants.Layout.defaultButtonSpacing)
+        buttonSpacing: CGFloat = CGFloat(TaskbarConstants.Layout.defaultButtonSpacing),
+        edge: TaskbarEdge = .bottom
     ) -> CGFloat? {
         let visibleFrames = Array(taskButtonFrames.prefix(visibleTaskCount))
         guard !visibleFrames.isEmpty else { return nil }
         let clampedSlot = max(0, min(slot, visibleFrames.count))
+        let isHorizontal = edge.isHorizontal
         
         if clampedSlot == 0 {
-            return visibleFrames[0].minX - (buttonSpacing / 2.0)
+            let minCoord = isHorizontal ? visibleFrames[0].minX : visibleFrames[0].minY
+            return minCoord - (buttonSpacing / 2.0)
         } else if clampedSlot == visibleFrames.count {
-            return visibleFrames[visibleFrames.count - 1].maxX + (buttonSpacing / 2.0)
+            let maxCoord = isHorizontal ? visibleFrames[visibleFrames.count - 1].maxX : visibleFrames[visibleFrames.count - 1].maxY
+            return maxCoord + (buttonSpacing / 2.0)
         } else {
-            let prevMaxX = visibleFrames[clampedSlot - 1].maxX
-            let nextMinX = visibleFrames[clampedSlot].minX
-            return (prevMaxX + nextMinX) / 2.0
+            let prevMax = isHorizontal ? visibleFrames[clampedSlot - 1].maxX : visibleFrames[clampedSlot - 1].maxY
+            let nextMin = isHorizontal ? visibleFrames[clampedSlot].minX : visibleFrames[clampedSlot].minY
+            return (prevMax + nextMin) / 2.0
         }
     }
     
-    /// Computes the horizontal center X coordinate for rendering the insertion indicator bar in the pinned area.
+    /// Backward-compatible helper for horizontal center X coordinate of the task insertion indicator.
+    public func taskInsertionIndicatorX(
+        forSlot slot: Int,
+        buttonSpacing: CGFloat = CGFloat(TaskbarConstants.Layout.defaultButtonSpacing)
+    ) -> CGFloat? {
+        taskInsertionIndicatorPosition(forSlot: slot, buttonSpacing: buttonSpacing, edge: .bottom)
+    }
+    
+    /// Computes the primary axis coordinate for rendering the insertion indicator bar in the pinned area.
+    public func pinnedInsertionIndicatorPosition(
+        forSlot slot: Int,
+        pinnedSpacing: CGFloat = CGFloat(TaskbarConstants.Layout.pinnedButtonSpacing),
+        edge: TaskbarEdge = .bottom
+    ) -> CGFloat? {
+        guard !pinnedButtonFrames.isEmpty else { return nil }
+        let clampedSlot = max(0, min(slot, pinnedButtonFrames.count))
+        let isHorizontal = edge.isHorizontal
+        
+        if clampedSlot == 0 {
+            let minCoord = isHorizontal ? pinnedButtonFrames[0].minX : pinnedButtonFrames[0].minY
+            return minCoord - (pinnedSpacing / 2.0)
+        } else if clampedSlot == pinnedButtonFrames.count {
+            let maxCoord = isHorizontal ? pinnedButtonFrames[pinnedButtonFrames.count - 1].maxX : pinnedButtonFrames[pinnedButtonFrames.count - 1].maxY
+            return maxCoord + (pinnedSpacing / 2.0)
+        } else {
+            let prevMax = isHorizontal ? pinnedButtonFrames[clampedSlot - 1].maxX : pinnedButtonFrames[clampedSlot - 1].maxY
+            let nextMin = isHorizontal ? pinnedButtonFrames[clampedSlot].minX : pinnedButtonFrames[clampedSlot].minY
+            return (prevMax + nextMin) / 2.0
+        }
+    }
+    
+    /// Backward-compatible helper for horizontal center X coordinate of the pinned insertion indicator.
     public func pinnedInsertionIndicatorX(
         forSlot slot: Int,
         pinnedSpacing: CGFloat = CGFloat(TaskbarConstants.Layout.pinnedButtonSpacing)
     ) -> CGFloat? {
-        guard !pinnedButtonFrames.isEmpty else { return nil }
-        let clampedSlot = max(0, min(slot, pinnedButtonFrames.count))
-        
-        if clampedSlot == 0 {
-            return pinnedButtonFrames[0].minX - (pinnedSpacing / 2.0)
-        } else if clampedSlot == pinnedButtonFrames.count {
-            return pinnedButtonFrames[pinnedButtonFrames.count - 1].maxX + (pinnedSpacing / 2.0)
-        } else {
-            let prevMaxX = pinnedButtonFrames[clampedSlot - 1].maxX
-            let nextMinX = pinnedButtonFrames[clampedSlot].minX
-            return (prevMaxX + nextMinX) / 2.0
-        }
+        pinnedInsertionIndicatorPosition(forSlot: slot, pinnedSpacing: pinnedSpacing, edge: .bottom)
     }
 }
 
 /// Pure Swift layout calculation engine for the Taskbar.
 public enum TaskbarLayoutEngine {
+    
+    /// Static helper for slot hit testing across any edge.
+    public static func slotIndex(
+        forPosition position: Double,
+        edge: TaskbarEdge = .bottom,
+        in plan: TaskbarLayoutPlan
+    ) -> Int? {
+        plan.slotIndex(forPosition: CGFloat(position), edge: edge)
+    }
+    
     /// Computes the complete geometry layout plan for all interactive components on the taskbar.
     public static func computeLayout(params: TaskbarLayoutParameters) -> TaskbarLayoutPlan {
-        let padY = params.verticalPadding
-        let btnH = max(params.minimumButtonHeight, params.containerSize.height - (padY * 2.0))
+        let isHorizontal = params.edge.isHorizontal
+        let padCross = params.verticalPadding
+        let crossDimension = CGFloat(params.crossDimension)
+        let primaryDimension = CGFloat(params.primaryDimension)
+        let btnThickness = max(params.minimumButtonHeight, crossDimension - (padCross * 2.0))
         
-        let startBtnFrame = CGRect(
-            x: params.startButtonLeadingMargin,
-            y: padY,
-            width: params.startButtonWidth,
-            height: btnH
+        func makeFrame(primary: CGFloat, length: CGFloat) -> CGRect {
+            if isHorizontal {
+                return CGRect(x: primary, y: padCross, width: length, height: btnThickness)
+            } else {
+                return CGRect(x: padCross, y: primary, width: btnThickness, height: length)
+            }
+        }
+        
+        let startBtnFrame = makeFrame(
+            primary: params.startButtonLeadingMargin,
+            length: params.startButtonWidth
         )
         
-        var currentX = startBtnFrame.maxX + params.startButtonTrailingMargin
+        var currentPrimary = params.startButtonLeadingMargin + params.startButtonWidth + params.startButtonTrailingMargin
         
         var pinnedFrames: [CGRect] = []
         pinnedFrames.reserveCapacity(params.pinnedItemCount)
         for _ in 0..<params.pinnedItemCount {
-            let frame = CGRect(
-                x: currentX,
-                y: padY,
-                width: btnH,
-                height: btnH
-            )
+            let frame = makeFrame(primary: currentPrimary, length: btnThickness)
             pinnedFrames.append(frame)
-            currentX += btnH + params.pinnedButtonSpacing
+            currentPrimary += btnThickness + params.pinnedButtonSpacing
         }
         
         if params.pinnedItemCount > 0 {
-            currentX += (params.pinnedSectionTrailingMargin - params.pinnedButtonSpacing)
+            currentPrimary += (params.pinnedSectionTrailingMargin - params.pinnedButtonSpacing)
         }
         
-        let startX = currentX
-        let totalAvailableW = max(0.0, params.containerSize.width - startX - params.taskbarTrailingMargin)
+        let startPrimary = currentPrimary
+        let totalAvailablePrimary = max(0.0, primaryDimension - startPrimary - params.taskbarTrailingMargin)
         
         var layout = ButtonLayout.computeLayout(
-            availableWidth: Double(totalAvailableW),
+            availableWidth: Double(totalAvailablePrimary),
             itemCount: params.taskItemCount,
             maxButtonWidth: params.maxButtonWidth,
             minButtonWidth: params.minButtonWidth,
@@ -220,9 +292,9 @@ public enum TaskbarLayoutEngine {
         let overflowBtnW = params.overflowButtonWidth
         
         if layout.hasOverflow {
-            let netAvailableW = max(0.0, totalAvailableW - overflowBtnW - CGFloat(params.buttonSpacing))
+            let netAvailablePrimary = max(0.0, totalAvailablePrimary - overflowBtnW - CGFloat(params.buttonSpacing))
             layout = ButtonLayout.computeLayout(
-                availableWidth: Double(netAvailableW),
+                availableWidth: Double(netAvailablePrimary),
                 itemCount: params.taskItemCount,
                 maxButtonWidth: params.maxButtonWidth,
                 minButtonWidth: params.minButtonWidth,
@@ -230,35 +302,31 @@ public enum TaskbarLayoutEngine {
                 titleVisibilityThreshold: params.titleVisibilityThreshold
             )
             
-            overflowFrame = CGRect(
-                x: params.containerSize.width - overflowBtnW - params.overflowButtonTrailingMargin,
-                y: padY,
-                width: overflowBtnW,
-                height: btnH
+            overflowFrame = makeFrame(
+                primary: primaryDimension - overflowBtnW - params.overflowButtonTrailingMargin,
+                length: overflowBtnW
             )
         }
         
         var taskFrames: [CGRect] = []
         taskFrames.reserveCapacity(params.taskItemCount)
-        var taskBtnX = startX
+        var taskBtnPrimary = startPrimary
         
         for index in 0..<params.taskItemCount {
             if index < layout.visibleCount {
-                let frame = CGRect(
-                    x: taskBtnX,
-                    y: padY,
-                    width: CGFloat(layout.buttonWidth),
-                    height: btnH
+                let frame = makeFrame(
+                    primary: taskBtnPrimary,
+                    length: CGFloat(layout.buttonWidth)
                 )
                 taskFrames.append(frame)
-                taskBtnX += CGFloat(layout.buttonWidth) + CGFloat(params.buttonSpacing)
+                taskBtnPrimary += CGFloat(layout.buttonWidth) + CGFloat(params.buttonSpacing)
             } else {
                 taskFrames.append(.zero)
             }
         }
         
         return TaskbarLayoutPlan(
-            buttonHeight: btnH,
+            buttonHeight: btnThickness,
             startButtonFrame: startBtnFrame,
             pinnedButtonFrames: pinnedFrames,
             taskButtonFrames: taskFrames,

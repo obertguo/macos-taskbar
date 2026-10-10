@@ -153,6 +153,12 @@ public enum TaskbarConstants {
         public static let minimumWindowDimension: CGFloat = 50.0
     }
     
+    // MARK: - Clamping & Boundary Tolerances
+    public enum Clamping {
+        /// Sub-pixel overlap threshold in points to ignore minor rounding differences when clamping windows.
+        public static let subpixelOverlapThreshold: Double = 2.0
+    }
+    
     // MARK: - Event Timing & Debounce (Seconds)
     public enum Timing {
         /// Target 60fps frame debounce interval (approx 16ms) for UI redraw coalescing.
