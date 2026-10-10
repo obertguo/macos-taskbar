@@ -2,6 +2,38 @@
 
 All notable changes to **Taskbar** will be documented in this file.
 
+## [0.3.2] - 2026-10-10
+
+### Modular Panel Decomposition & Multi-Edge Layout Foundation
+
+Version `0.3.2` is an architectural hardening and modularization patch release delivering Tier 2 view refactoring and Tier 3 pure domain models in `TaskbarCore` to prepare for multi-edge placement and auto-hide capabilities in `v0.4.0`.
+
+#### Added
+- **Multi-Edge Screen Anchor Model (`TaskbarCore`):**
+  - Introduced `TaskbarEdge` enum (`.bottom`, `.top`, `.left`, `.right`) with `isHorizontal` and `isVertical` axis properties.
+  - Added `taskbarEdge` property to `Settings` with full backward compatibility (defaulting to `.bottom` for existing serialized preferences).
+- **Axis-Agnostic Layout Solver (`TaskbarLayoutEngine`):**
+  - Generalized `TaskbarLayoutParameters` with `primaryDimension` and `crossDimension`.
+  - Added multi-edge geometry computation supporting horizontal and vertical taskbars.
+  - Added axis-agnostic slot hit testing and drop insertion indicator methods (`slotIndex(forPosition:edge:)`, `taskInsertionSlot(forPosition:edge:)`, `taskInsertionIndicatorPosition(forSlot:buttonSpacing:edge:)`) alongside backward-compatible horizontal forwarders.
+- **Multi-Edge Coordinate Clamping (`WorkAreaMath`):**
+  - Added `WorkAreaMath.clampedFrame(...)` and `isMaximized(...)` supporting `.top`, `.bottom`, `.left`, and `.right` taskbar edges with subpixel overlap tolerance filtering.
+- **Pure Auto-Hide State Machine (`AutoHideStateMachine`):**
+  - Pure Swift state machine governing taskbar visibility states (`.visible`, `.hiding`, `.hidden`, `.revealing`), hover dwell timers, animation lifecycles, and interactive locks (popup lock and drag session lock).
+- **Headless Unit Test Suite Expansion (`TaskbarCoreTests`):**
+  - Added 16 new headless unit tests (`TC-UNIT-013` through `TC-UNIT-016`), expanding `TaskbarCoreTests` to 110 unit tests and the total automated test count to 158 tests.
+
+#### Refactored
+- **Modular Window Grouping Popup Extraction (`TaskbarKit`):**
+  - Extracted `GroupWindowRowsView` (345 lines) handling row frames, mouse tracking, selection, custom bevel drawing, and active dot indicators.
+  - Extracted `GroupWindowContentView` (123 lines) managing layered background vibrancy, dynamic theme materials, and corner radii.
+  - Decomposed `GroupWindowPopup` from a 682-line monolithic panel down to a clean 225-line orchestration panel.
+- **Taskbar Drag-and-Drop Coordinator Extraction (`TaskbarKit`):**
+  - Extracted `TaskbarDragCoordinator` (280 lines) managing task and pinned button drag tracking, vertical escape thresholds, and drop insertion lines.
+  - Decomposed `TaskbarView` from 796 lines down to 601 lines, reducing cognitive complexity and decoupling drag math from view recycling.
+
+---
+
 ## [0.3.1] - 2026-10-09
 
 ### Window Grouping Responsiveness & Single-Window Focus Isolation
