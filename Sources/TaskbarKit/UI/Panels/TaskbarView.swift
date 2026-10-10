@@ -3,6 +3,7 @@
 import AppKit
 import TaskbarCore
 
+@MainActor
 public final class TaskbarView: NSView {
     public var theme: ThemeDefinition {
         didSet {

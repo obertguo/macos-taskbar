@@ -31,7 +31,7 @@ Verify that the active version string is strictly identical across:
 Verify that reported test counts in documentation match reality:
 1. Run `./scripts/test-functional.sh --all` and note total unit and integration tests.
 2. Check that the test counts in:
-   - `README.md` (e.g. `104 tests`)
+   - `README.md` (e.g. `142 tests`)
    - `docs/TESTING.md` (Breakdown: Unit + Integration per suite)
    - `docs/TEST_SPECIFICATIONS.md` (Complete list of `TC-*` entries)
    accurately reflect the executed test count.
@@ -71,6 +71,6 @@ Verify configuration references against actual code:
 ### Step 6: Agent Skills Staleness Audit & Synchronization
 Audit all skills under `.agents/skills/`:
 1. Check that `SKILL.md` and reference runbooks in `.agents/skills/*/references/` reflect current architectural structures, target names, class hierarchies, and invariants.
-2. Check that test counts and benchmark thresholds in skills match active project baselines (e.g. 112+ tests, $\le 45\text{ MB}$ RSS, $\sim 0.0\%$ idle CPU).
+2. Check that test counts and benchmark thresholds in skills match active project baselines (e.g. 142 tests, $\le 45\text{ MB}$ RSS, $\sim 0.0\%$ idle CPU).
 3. If new architectural patterns are introduced (e.g. `AXObserverContext`, `BaseTaskbarButton`, `TaskbarLayoutEngine`), ensure skill instructions do not prescribe obsolete patterns (e.g. direct unretained self unmanaged pointers or legacy callbacks).
 4. Update stale skill markdown files directly to maintain accuracy for future pairing and autonomous agent tasks.

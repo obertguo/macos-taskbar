@@ -6,6 +6,7 @@ import TaskbarCore
 /// A lightweight popup panel displaying all open windows belonging to a grouped application.
 /// Anchored directly above the corresponding taskbar button, supporting mouse selection,
 /// keyboard navigation (Up/Down/Return/Escape), individual window closing, and active focus indicators.
+@MainActor
 public final class GroupWindowPopup: NSPanel {
     public let group: WindowGroup
     public var theme: ThemeDefinition {
@@ -224,6 +225,7 @@ public final class GroupWindowPopup: NSPanel {
 
 // MARK: - Popup Content View (Container)
 
+@MainActor
 private final class GroupWindowContentView: NSView {
     var theme: ThemeDefinition {
         didSet {
@@ -342,6 +344,7 @@ private final class GroupWindowContentView: NSView {
 
 // MARK: - Foreground Rows View
 
+@MainActor
 private final class GroupWindowRowsView: NSView {
     var theme: ThemeDefinition {
         didSet {

@@ -3,6 +3,7 @@
 import AppKit
 import TaskbarCore
 
+@MainActor
 public final class TaskbarPanel: NSPanel {
     public let screenID: CGDirectDisplayID
     public let taskbarView: TaskbarView

@@ -230,6 +230,30 @@ This document provides the canonical specification catalog and requirements trac
 - **[TC-GROUP-002] Group Button Click Presents Window List Popup:** Clicking a multi-window group presents `GroupWindowPopup` anchored above the button displaying all constituent window titles and icons.
 - **[TC-GROUP-003] Selecting Window in Popup Focuses Target Window:** Selecting a window row in the popup (via click or `Return` key) raises and focuses that specific window without raising other application windows, and dismisses the popup.
 - **[TC-GROUP-004] Dynamic Grouping Mode Switching via ScreenManager:** Switching `WindowGroupingMode` via `ScreenManager` or Status Menu immediately reconfigures taskbar layout across all connected displays without restarting.
+- **[TC-GROUP-005] Popup Mouse Interaction, Close Button Trigger & Dynamic Resize:**
+  - **Category:** Window Grouping / Interactive Popup & Teardown
+  - **Preconditions:** Multi-window application group open in `GroupWindowPopup`.
+  - **Stimulus / Action:**
+    1. Click the close button (`✕`) on a specific window row.
+    2. Verify `onCloseWindow` fires for the target window key and remaining window count decrements.
+    3. Verify popup panel smoothly shrinks its vertical height to fit remaining items.
+    4. Close the final remaining window.
+  - **Expected Outcome:**
+    1. Target window closed, remaining windows retained in order.
+    2. Popup dynamically resizes.
+    3. Closing the last window automatically dismisses the popup panel.
+  - **Automated Verification:** `TC-GROUP-005` in `WindowGroupingIntegrationTests.swift`
+  - **Pass/Fail Criteria:** `closedKeys.contains(win.key)` and popup dismissed upon zero remaining windows.
+- **[TC-GROUP-006] Popup Dismissal on Loss of Key Focus or Outside Interaction:**
+  - **Category:** Window Grouping / Focus & Dismissal
+  - **Preconditions:** `GroupWindowPopup` open and key.
+  - **Stimulus / Action:**
+    1. Simulate user interaction with foreground window or clicking outside popup causing loss of key status (`resignKey()`).
+  - **Expected Outcome:**
+    1. Popup receives `windowDidResignKey` notification.
+    2. `TaskbarView.activeGroupPopup` is immediately set to `nil` and popup orders out.
+  - **Automated Verification:** `TC-GROUP-006` in `WindowGroupingIntegrationTests.swift`
+  - **Pass/Fail Criteria:** `view.activeGroupPopup == nil` immediately upon resigning key.
 
 ---
 
@@ -253,5 +277,5 @@ This document provides the canonical specification catalog and requirements trac
 | **Window Grouping Logic & Models** | `TC-UNIT-005`, `TC-UNIT-006`, `TC-UNIT-007`, `TC-UNIT-008` | `WindowGroupingLogicTests` |
 | **Window Ordering Logic & Persistence** | `TC-UNIT-009`, `TC-UNIT-010`, `TC-UNIT-011` | `WindowOrderingLogicTests` |
 | **Interactive Drag-and-Drop Reordering** | `TC-DRAG-001`, `TC-DRAG-002`, `TC-DRAG-003`, `TC-DRAG-004` | `WindowReorderingIntegrationTests`, `PinnedAppsIntegrationTests` |
-| **Application Window Grouping & Popup** | `TC-GROUP-001`, `TC-GROUP-002`, `TC-GROUP-003`, `TC-GROUP-004` | `WindowGroupingIntegrationTests`, `StatusMenuGroupingTests` |
+| **Application Window Grouping & Popup** | `TC-GROUP-001`, `TC-GROUP-002`, `TC-GROUP-003`, `TC-GROUP-004`, `TC-GROUP-005`, `TC-GROUP-006` | `WindowGroupingIntegrationTests`, `StatusMenuGroupingTests` |
 | **Memory Bound (< 45 MB RSS)** | `TC-PERF-001` | `scripts/test-functional.sh --all` |

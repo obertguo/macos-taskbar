@@ -69,7 +69,7 @@ All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SP
 - `ScreenAssignmentTests`: Primary/secondary monitor boundary partitioning (3 test cases).
 - `TaskbarCoreTests`: Build configuration sanity checks (1 test case).
 
-### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 46 Tests)
+### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 48 Tests)
 - **Window Lifecycle Suite (`WindowLifecycleIntegrationTests.swift` — 7 Tests):**
   - `TC-FUNC-001`: Window creation and store discovery within $\le 3\text{s}$.
   - `TC-FUNC-002`: Window minimization state tracking via AX notification.
@@ -94,11 +94,13 @@ All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SP
   - `TC-DRAG-002`: Vertical mouse escape and Escape key cancel drag session cleanly.
   - `TC-DRAG-003`: Multi-display drag isolation maintains independent custom ordering per monitor.
   - `TC-DRAG-004`: Dragging pinned button reorders Settings.pinnedApps and syncs across all displays in lockstep.
-- **Window Grouping & Popup Suite (`WindowGroupingIntegrationTests.swift` — 4 Tests):**
+- **Window Grouping & Popup Suite (`WindowGroupingIntegrationTests.swift` — 6 Tests):**
   - `TC-GROUP-001`: Multi-window application aggregates into single button with badge counter.
   - `TC-GROUP-002`: Group button click presents window list popup with matching titles.
   - `TC-GROUP-003`: Selecting window in popup triggers selection, focuses target window, and dismisses panel.
   - `TC-GROUP-004`: Dynamic grouping mode switching via ScreenManager reconfigures taskbar layout across all displays.
+  - `TC-GROUP-005`: Popup mouse interaction, close button trigger, and dynamic resize.
+  - `TC-GROUP-006`: Popup dismissal on loss of key focus or outside interaction.
 - **Pinned Applications Suite (`PinnedAppsIntegrationTests.swift` — 9 Tests):**
   - `BaseTaskbarButton` mouse tracking, hover state mutation, and configurable click dispatch.
   - `PinnedButton` properties, tracking, and dynamic context menu items.

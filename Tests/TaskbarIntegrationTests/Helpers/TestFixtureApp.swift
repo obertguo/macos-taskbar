@@ -78,40 +78,33 @@ public final class TestFixtureApp: @unchecked Sendable {
         return windowElement(index: index)
     }
 
-    private actor TestFixtureQueue {
+    private final class TestFixtureQueue: @unchecked Sendable {
         static let shared = TestFixtureQueue()
+        private let condition = NSCondition()
         private var isBusy = false
-        private var waiters: [CheckedContinuation<Void, Never>] = []
         
-        func acquire() async {
-            if !isBusy {
-                isBusy = true
-                return
+        func acquire() {
+            condition.lock()
+            while isBusy {
+                condition.wait()
             }
-            await withCheckedContinuation { cont in
-                waiters.append(cont)
-            }
+            isBusy = true
+            condition.unlock()
         }
         
         func release() {
-            if !waiters.isEmpty {
-                let next = waiters.removeFirst()
-                next.resume()
-            } else {
-                isBusy = false
-            }
+            condition.lock()
+            isBusy = false
+            condition.signal()
+            condition.unlock()
         }
     }
     
     /// Launches the application and creates an empty untitled document window.
     @discardableResult
     public static func launchTextEdit(documentTitle: String = "TaskbarTestDoc") async throws -> TestFixtureApp {
-        await TestFixtureQueue.shared.acquire()
+        TestFixtureQueue.shared.acquire()
         do {
-            // Ensure any previous dangling instances are cleanly quit before creating our fixture
-            terminateApp(appName: "TextEdit", bundleIdentifier: "com.apple.TextEdit")
-            try await Task.sleep(nanoseconds: 200_000_000)
-            
             let fixture = TestFixtureApp(appName: "TextEdit", bundleIdentifier: "com.apple.TextEdit")
             
             // Launch TextEdit and create a document
@@ -130,7 +123,7 @@ public final class TestFixtureApp: @unchecked Sendable {
             _ = await fixture.waitForWindowElement(index: 1, timeoutSeconds: 3.0)
             return fixture
         } catch {
-            Task { await TestFixtureQueue.shared.release() }
+            TestFixtureQueue.shared.release()
             throw error
         }
     }
@@ -144,7 +137,7 @@ public final class TestFixtureApp: @unchecked Sendable {
         isTerminated = true
         
         Self.terminateApp(appName: appName, bundleIdentifier: bundleIdentifier)
-        Task { await TestFixtureQueue.shared.release() }
+        TestFixtureQueue.shared.release()
     }
     
     /// Creates an additional document window for the fixture app.
