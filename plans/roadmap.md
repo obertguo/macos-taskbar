@@ -86,6 +86,7 @@ Before expanding feature surface area, establish a robust automated testing and 
 
 **Pre-requisite Refactoring & Technical Enablers:**
 - [Codebase Audit Report (v0.2.3)](./v0.3.X/codebase_audit_v0.2.3.md)
+- [Codebase Audit Report (v0.3.1)](./v0.3.X/codebase_audit_v0.3.1.md)
 - [Refactoring Implementation Plan](./v0.3.X/refactoring_implementation_plan.md)
 - [v0.3.0 Implementation Plan](./v0.3.X/v0.3.0_implementation_plan.md)
 
