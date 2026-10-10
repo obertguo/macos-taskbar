@@ -12,8 +12,8 @@ All build metadata, packaging properties, and test benchmarks are governed by [`
 # Build and Packaging Configuration
 APP_NAME="Taskbar"
 BUNDLE_ID="com.local.taskbar"
-APP_VERSION="0.3.0"
-BUILD_NUMBER="7"
+APP_VERSION="0.3.1"
+BUILD_NUMBER="8"
 MIN_MACOS_VERSION="14.0"
 INSTALL_DIR="~/Applications"
 
@@ -33,8 +33,8 @@ TEST_FIXTURE_APP="TextEdit"
 |---|---|---|---|
 | `APP_NAME` | Product display name and process name. | `"Taskbar"` | `build-app.sh`, `package-release.sh`, `test-functional.sh` |
 | `BUNDLE_ID` | macOS bundle identifier and `UserDefaults` domain. | `"com.local.taskbar"` | `generate-config.sh`, `BuildConfiguration.swift` |
-| `APP_VERSION` | Semantic release version (X.Y.Z). | `"0.3.0"` | `generate-config.sh`, `package-release.sh`, `Info.plist` |
-| `BUILD_NUMBER` | Monotonically increasing build integer. | `"7"` | `generate-config.sh`, `Info.plist` |
+| `APP_VERSION` | Semantic release version (X.Y.Z). | `"0.3.1"` | `generate-config.sh`, `package-release.sh`, `Info.plist` |
+| `BUILD_NUMBER` | Monotonically increasing build integer. | `"8"` | `generate-config.sh`, `Info.plist` |
 | `MIN_MACOS_VERSION` | Minimum supported macOS version. | `"14.0"` | `generate-config.sh`, `test-functional.sh` |
 | `INSTALL_DIR` | Destination directory for `--install` flag. | `"~/Applications"` | `build-app.sh` |
 | `SIGN_IDENTITY` | Codesigning certificate identity (`"auto"` searches Keychain). | `"auto"` | `build-app.sh` |
@@ -54,6 +54,7 @@ Settings are stored in the user's domain via `UserDefaults.standard` under the k
 - `buttonWidth`: Maximum width of task buttons before shrinking (default: `160.0`, range: `80.0` – `240.0`).
 - `fontSize`: Typography point size across buttons (default: `12.0`, range: `10.0` – `14.0`).
 - `iconSize`: Application icon dimensions in points (default: `16.0`, range: `14.0` – `24.0`).
+- `taskbarEdge`: Screen edge anchor for the taskbar (`.bottom`, `.top`, `.left`, `.right`, default: `.bottom`).
 - `windowGroupingMode`: Grouping policy for multi-window applications (`.always`, `.whenCrowded`, `.never`, default: `.always`).
 - `launcherAction`: Launcher invoked by Start button (`.spotlight`, `.raycast`, or `.custom(path)`).
 - `activeThemeId`: Active theme ID (`"modern-hybrid"`, `"retro-classic"`, `"windows-xp-luna"`, `"dark-minimal"`, or custom theme ID).

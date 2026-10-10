@@ -67,7 +67,7 @@ The codebase adheres strictly to a three-tiered library/executable structure to 
 
 1. **`TaskbarCore` (Library Target):**
    - Independent of UI view hierarchies and `NSView` lifecycles.
-   - Houses mathematical models, pure layout calculation engines (`TaskbarLayoutEngine`, `ButtonLayout`), window filtering rules, coordinate clamping math, configuration encoders/decoders, theme definitions and presets, file-based theme discovery, pinned application domain models, thread-safe `ThemeRegistry`, and unified `TaskbarLogger`.
+   - Houses mathematical models, multi-edge placement domain models (`TaskbarEdge`), proximity auto-hide state machine (`AutoHideStateMachine`), pure layout calculation engines (`TaskbarLayoutEngine`, `ButtonLayout`), window grouping and ordering logic (`WindowGroupingLogic`, `WindowOrderingLogic`), window filtering rules, multi-edge coordinate clamping math (`WorkAreaMath`), configuration encoders/decoders, theme definitions and presets, file-based theme discovery, pinned application domain models, thread-safe `ThemeRegistry`, and unified `TaskbarLogger`.
    - 100% covered by headless unit tests in `TaskbarCoreTests`.
 
 2. **`TaskbarKit` (Library Target):**
@@ -75,7 +75,7 @@ The codebase adheres strictly to a three-tiered library/executable structure to 
      - **Tracking:** `AppTracker`, `AXAppObserver`, `AXThread`, `WorkAreaEnforcer`.
      - **UI Subsystems:**
        - **Buttons:** `BaseTaskbarButton`, `TaskButton`, `StartButton`, `PinnedButton`, `OverflowButton`.
-       - **Panels:** `TaskbarPanel`, `TaskbarView`, `BevelDrawing`.
+       - **Panels & Popups:** `TaskbarPanel`, `TaskbarView`, `TaskbarDragCoordinator`, `GroupWindowPopup`, `GroupWindowContentView`, `GroupWindowRowsView`, `BevelDrawing`.
        - **Menu:** `StatusMenu`.
        - **Management:** `ScreenManager`, `IconCache`, `VisualEffectMapping`.
      - **Actions & System:** `WindowActions`, `DockController`, `Launcher`, `AccessibilityPermission`, `AppDelegate`.

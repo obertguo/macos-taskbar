@@ -51,12 +51,12 @@ swift test
 
 All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SPECIFICATIONS.md).
 
-### 3.1 Core Unit Tests (`Tests/TaskbarCoreTests/` — 94 Tests)
-- `TaskbarLayoutEngineTests`: Pure geometry plan calculations, empty/pinned/standard layouts, compression, overflow reservation, and slot hit testing (7 test cases).
+### 3.1 Core Unit Tests (`Tests/TaskbarCoreTests/` — 110 Tests)
+- `TaskbarLayoutEngineTests`: Pure geometry plan calculations, empty/pinned/standard layouts, compression, overflow reservation, slot hit testing, and vertical axis layout (`TC-UNIT-014`, 8 test cases).
 - `TaskbarLayoutEngineDragTests`: Drag insertion slot math, boundary clamping, and indicator line coordinates for task and pinned items (`TC-UNIT-012`, 6 test cases).
 - `WindowGroupingLogicTests`: Grouping rules across `always`, `whenCrowded`, and `never`, single-window apps, empty window lists, and group derived states (`TC-UNIT-005` – `TC-UNIT-008`, 6 test cases).
 - `WindowOrderingLogicTests`: Reordering slot shifts, manual order persistence across incoming windows, closed window order pruning, and empty inputs (`TC-UNIT-009` – `TC-UNIT-011`, 4 test cases).
-- `WorkAreaMathTests`: Clamping math, vertical maximization checks, multi-monitor coordinates, subpixel overlap tolerances (10 test cases).
+- `WorkAreaMathTests`: Clamping math, vertical maximization checks, multi-monitor coordinates, subpixel overlap tolerances, and multi-edge screen clamping (`TC-UNIT-013`, 14 test cases).
 - `ClickPolicyTests`: Taskbar click dispatch rules across unfocused, focused, minimized, hidden, and frontmost windows (5 test cases).
 - `ButtonLayoutTests`: Spacious, compressing, icon-only, overflow width calculations, and custom title visibility thresholds (6 test cases).
 - `WindowFilterTests`: Normal app inclusion, modal sheet rejection, 0x0 minimized preservation, system overlay exclusion (5 test cases).
@@ -64,7 +64,8 @@ All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SP
 - `ThemeTests`: Theme definition properties, JSON serialization round-trips, ThemeMaterials material/blendingMode decoding, and theme registry built-ins (6 test cases).
 - `ThemeFileLoaderTests`: Directory discovery, custom JSON deserialization with material/blendingMode, missing defaults tolerance, non-JSON filtering, built-in ID collision rejection, corrupted JSON resilience, export routines, and registry synchronization (9 test cases).
 - `PinnedAppTests`: PinnedApp model serialization, missing fields fallback, duplicate pin rejection, unpinning, reordering boundary checks, and UserDefaults storage (9 test cases).
-- `SettingsTests`: Default values, serialization, UserDefaults persistence, backward compatibility with v0.1 payloads, strings, presets, and window grouping mode (7 test cases).
+- `SettingsTests`: Default values, serialization, UserDefaults persistence, backward compatibility with v0.1 payloads, strings, presets, window grouping mode, and TaskbarEdge domain serialization (`TC-UNIT-015`, 10 test cases).
+- `AutoHideStateMachineTests`: Pure auto-hide visibility state machine transitions, mouse dwell triggers, and popup/drag interaction locks (`TC-UNIT-016`, 7 test cases).
 - `WindowStoreTests`: Window ordering, display assignment, sync snapshot reconciliation, full-screen transitions (4 test cases).
 - `ScreenAssignmentTests`: Primary/secondary monitor boundary partitioning (3 test cases).
 - `TaskbarCoreTests`: Build configuration sanity checks (1 test case).

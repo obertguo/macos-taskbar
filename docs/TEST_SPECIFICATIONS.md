@@ -212,6 +212,10 @@ This document provides the canonical specification catalog and requirements trac
 - **[TC-UNIT-010] Custom Order Persists Across New Windows:** Validates that newly opened applications append after manually ordered items without disturbing established order.
 - **[TC-UNIT-011] Custom Order Purges Closed Windows:** Validates that closed windows are cleanly pruned from custom order dictionaries without dangling slots.
 - **[TC-UNIT-012] Drag Slot Calculation & Boundary Clamping:** Validates `slotIndex(forHorizontalPosition:in:)` math and boundary clamping across task and pinned layout slots.
+- **[TC-UNIT-013] Multi-Edge Screen Clamping Geometry:** Validates coordinate clamping across all 4 display edges (`.top`, `.bottom`, `.left`, `.right`), subpixel threshold filtering (2.0pt), and non-maximized window pass-through behavior.
+- **[TC-UNIT-014] Primary/Cross Axis Layout Calculation:** Validates vertical taskbar layout computation when `edge == .left` or `.right`, vertical slot hit testing, and drag drop insertion indicator coordinates.
+- **[TC-UNIT-015] TaskbarEdge Domain Serialization & Settings:** Validates JSON encoding and decoding of `TaskbarEdge` and verifies fallback to `.bottom` when reading v0.1.0 – v0.3.1 configuration files lacking `taskbarEdge`.
+- **[TC-UNIT-016] AutoHide State Machine Transitions:** Validates pure state machine transitions across `.visible`, `.hiding`, `.hidden`, and `.revealing`, mouse dwell triggers, and popup/drag interaction locks.
 
 ---
 
@@ -278,4 +282,8 @@ This document provides the canonical specification catalog and requirements trac
 | **Window Ordering Logic & Persistence** | `TC-UNIT-009`, `TC-UNIT-010`, `TC-UNIT-011` | `WindowOrderingLogicTests` |
 | **Interactive Drag-and-Drop Reordering** | `TC-DRAG-001`, `TC-DRAG-002`, `TC-DRAG-003`, `TC-DRAG-004` | `WindowReorderingIntegrationTests`, `PinnedAppsIntegrationTests` |
 | **Application Window Grouping & Popup** | `TC-GROUP-001`, `TC-GROUP-002`, `TC-GROUP-003`, `TC-GROUP-004`, `TC-GROUP-005`, `TC-GROUP-006` | `WindowGroupingIntegrationTests`, `StatusMenuGroupingTests` |
+| **Multi-Edge Screen Clamping** | `TC-UNIT-013` | `WorkAreaMathTests` |
+| **Axis-Agnostic Layout Math** | `TC-UNIT-014` | `TaskbarLayoutEngineTests` |
+| **TaskbarEdge Domain Serialization** | `TC-UNIT-015` | `SettingsTests` |
+| **AutoHide State Machine** | `TC-UNIT-016` | `AutoHideStateMachineTests` |
 | **Memory Bound (< 45 MB RSS)** | `TC-PERF-001` | `scripts/test-functional.sh --all` |
