@@ -77,19 +77,29 @@ import CoreGraphics
         }
     }
     
-    public func setFocusedWindow(key: WindowKey?) {
+    @discardableResult
+    public func setFocusedWindow(key: WindowKey?) -> Bool {
+        if self.focusedWindowKey == key {
+            return false
+        }
         self.focusedWindowKey = key
-        guard let key = key else { return }
+        guard let key = key else { return true }
         if var win = windows[key] {
             focusOrderCounter += 1
             win.focusOrder = focusOrderCounter
             win.lastFocusedAt = Date()
             windows[key] = win
         }
+        return true
     }
     
-    public func setFrontmostPID(_ pid: pid_t?) {
+    @discardableResult
+    public func setFrontmostPID(_ pid: pid_t?) -> Bool {
+        if self.frontmostPID == pid {
+            return false
+        }
         self.frontmostPID = pid
+        return true
     }
     
     public func setAppHidden(pid: pid_t, isHidden: Bool) {
@@ -100,7 +110,35 @@ import CoreGraphics
     }
     
     /// Synchronizes the list of windows for a specific application PID.
-    public func syncSnapshot(forPID pid: pid_t, currentWindows: [WindowInfo]) {
+    @discardableResult
+    public func syncSnapshot(forPID pid: pid_t, currentWindows: [WindowInfo]) -> Bool {
+        let previousWindows = windows.filter { $0.value.pid == pid }
+        
+        var didChange = false
+        if previousWindows.count != currentWindows.count {
+            didChange = true
+        } else {
+            var seenKeys = Set<WindowKey>()
+            for current in currentWindows {
+                if !seenKeys.insert(current.key).inserted {
+                    didChange = true
+                    break
+                }
+                guard let prev = previousWindows[current.key] else {
+                    didChange = true
+                    break
+                }
+                if prev.title != current.title ||
+                   prev.isMinimized != current.isMinimized ||
+                   prev.isAppHidden != current.isAppHidden ||
+                   prev.isMain != current.isMain ||
+                   prev.isFullScreen != current.isFullScreen {
+                    didChange = true
+                    break
+                }
+            }
+        }
+        
         let currentKeys = Set(currentWindows.map { $0.key })
         
         // Remove windows for this PID that are no longer reported
@@ -112,6 +150,8 @@ import CoreGraphics
         for window in currentWindows {
             addOrUpdateWindow(window)
         }
+        
+        return didChange
     }
     
     /// Returns the ordered list of windows belonging to the specified display.

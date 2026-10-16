@@ -448,4 +448,209 @@ struct WindowGroupingIntegrationTests {
         
         #expect(view.activeGroupPopup == nil, "Popup must dismiss immediately when interacting with foreground window or resigning key")
     }
+    
+    // TC-GROUP-007: Live updating GroupWindowPopup when window title changes or a window closes
+    @Test("TC-GROUP-007: Live updating GroupWindowPopup when window title changes or a window closes")
+    func testLiveUpdatingGroupWindowPopup() {
+        let view = TaskbarView(theme: .modernHybrid, launcherAction: .spotlight)
+        view.frame = NSRect(x: 0, y: 0, width: 1200, height: 38)
+        
+        let win1 = WindowInfo(
+            key: WindowKey(id: 201, pid: 2100),
+            pid: 2100,
+            appName: "Xcode",
+            bundleID: "com.apple.dt.Xcode",
+            title: "ProjectA - AppKit",
+            frame: CGRect(x: 0, y: 0, width: 800, height: 600),
+            isMinimized: false
+        )
+        let win2 = WindowInfo(
+            key: WindowKey(id: 202, pid: 2100),
+            pid: 2100,
+            appName: "Xcode",
+            bundleID: "com.apple.dt.Xcode",
+            title: "ProjectB - TaskbarKit",
+            frame: CGRect(x: 100, y: 100, width: 800, height: 600),
+            isMinimized: false
+        )
+        let win3 = WindowInfo(
+            key: WindowKey(id: 203, pid: 2100),
+            pid: 2100,
+            appName: "Xcode",
+            bundleID: "com.apple.dt.Xcode",
+            title: "ProjectC - TaskbarCore",
+            frame: CGRect(x: 200, y: 200, width: 800, height: 600),
+            isMinimized: false
+        )
+        
+        view.updateWindows(windows: [win1, win2, win3], focusedKey: win1.key, frontmostPID: 2100)
+        guard let btn = view.button(forKey: win1.key) else {
+            Issue.record("Expected Xcode group button")
+            return
+        }
+        
+        // Open popup
+        btn.onClick?()
+        guard let popup = view.activeGroupPopup else {
+            Issue.record("Expected popup to open")
+            return
+        }
+        #expect(popup.windows.count == 3)
+        #expect(popup.windows[0].title == "ProjectA - AppKit")
+        
+        // 1. Update window title of win1
+        let win1Updated = WindowInfo(
+            key: win1.key,
+            pid: win1.pid,
+            appName: win1.appName,
+            bundleID: win1.bundleID,
+            title: "ProjectA - Modified Title",
+            frame: win1.frame,
+            isMinimized: win1.isMinimized
+        )
+        view.updateWindows(windows: [win1Updated, win2, win3], focusedKey: win1.key, frontmostPID: 2100)
+        
+        #expect(view.activeGroupPopup === popup, "Popup instance should remain active and open")
+        #expect(popup.windows.count == 3)
+        #expect(popup.windows[0].title == "ProjectA - Modified Title", "Popup row must live update its title")
+        
+        // 2. Close win3 (3 windows -> 2 windows)
+        let initialHeight = popup.frame.height
+        view.updateWindows(windows: [win1Updated, win2], focusedKey: win1.key, frontmostPID: 2100)
+        
+        #expect(view.activeGroupPopup === popup, "Popup instance should remain active with 2 windows")
+        #expect(popup.windows.count == 2)
+        #expect(popup.windows.map { $0.key } == [win1.key, win2.key])
+        #expect(popup.frame.height < initialHeight, "Popup frame height should adjust to remaining windows")
+    }
+    
+    // TC-GROUP-008: Auto-dismissing GroupWindowPopup when windows drop below 2
+    @Test("TC-GROUP-008: Auto-dismissing GroupWindowPopup when windows drop below 2")
+    func testAutoDismissingGroupWindowPopupWhenWindowsDropBelowTwo() {
+        let view = TaskbarView(theme: .modernHybrid, launcherAction: .spotlight)
+        view.frame = NSRect(x: 0, y: 0, width: 1200, height: 38)
+        
+        let win1 = WindowInfo(
+            key: WindowKey(id: 301, pid: 3100),
+            pid: 3100,
+            appName: "TextEdit",
+            bundleID: "com.apple.TextEdit",
+            title: "Doc 1",
+            frame: CGRect(x: 0, y: 0, width: 500, height: 400),
+            isMinimized: false
+        )
+        let win2 = WindowInfo(
+            key: WindowKey(id: 302, pid: 3100),
+            pid: 3100,
+            appName: "TextEdit",
+            bundleID: "com.apple.TextEdit",
+            title: "Doc 2",
+            frame: CGRect(x: 50, y: 50, width: 500, height: 400),
+            isMinimized: false
+        )
+        
+        view.updateWindows(windows: [win1, win2], focusedKey: nil, frontmostPID: nil)
+        guard let btn = view.button(forKey: win1.key) else {
+            Issue.record("Expected TextEdit button")
+            return
+        }
+        
+        btn.onClick?()
+        #expect(view.activeGroupPopup != nil, "Popup should be active")
+        
+        // Window 2 closes -> only 1 window remains
+        view.updateWindows(windows: [win1], focusedKey: nil, frontmostPID: nil)
+        
+        #expect(view.activeGroupPopup == nil, "Popup must auto-dismiss when window count drops below 2")
+    }
+    
+    // TC-GROUP-009: Preserving TaskButton instances when crossing the .whenCrowded threshold
+    @Test("TC-GROUP-009: Preserving TaskButton instances when crossing the .whenCrowded threshold")
+    func testTaskButtonPreservationCrossingWhenCrowdedThreshold() {
+        let view = TaskbarView(theme: .modernHybrid, launcherAction: .spotlight, groupingMode: .whenCrowded)
+        view.frame = NSRect(x: 0, y: 0, width: 1200, height: 38)
+        view.minButtonWidth = 100.0
+        view.buttonSpacing = 4.0
+        
+        let winSafari1 = WindowInfo(
+            key: WindowKey(id: 401, pid: 4100),
+            pid: 4100,
+            appName: "Safari",
+            bundleID: "com.apple.Safari",
+            title: "Safari Window 1",
+            frame: CGRect(x: 0, y: 0, width: 600, height: 500),
+            isMinimized: false
+        )
+        let winSafari2 = WindowInfo(
+            key: WindowKey(id: 402, pid: 4100),
+            pid: 4100,
+            appName: "Safari",
+            bundleID: "com.apple.Safari",
+            title: "Safari Window 2",
+            frame: CGRect(x: 50, y: 50, width: 600, height: 500),
+            isMinimized: false
+        )
+        
+        view.updateWindows(windows: [winSafari1, winSafari2], focusedKey: nil, frontmostPID: nil)
+        
+        guard let initialBtn1 = view.button(forKey: winSafari1.key),
+              let initialBtn2 = view.button(forKey: winSafari2.key) else {
+            Issue.record("Expected uncrowded distinct buttons")
+            return
+        }
+        #expect(initialBtn1 !== initialBtn2, "Uncrowded windows have separate buttons")
+        
+        // Shrink width drastically to force crowded grouping
+        view.frame = NSRect(x: 0, y: 0, width: 180, height: 38)
+        view.updateWindows(windows: [winSafari1, winSafari2], focusedKey: nil, frontmostPID: nil)
+        
+        guard let crowdedBtn1 = view.button(forKey: winSafari1.key),
+              let crowdedBtn2 = view.button(forKey: winSafari2.key) else {
+            Issue.record("Expected grouped button in crowded state")
+            return
+        }
+        #expect(crowdedBtn1 === crowdedBtn2, "Crowded windows must share one button")
+        #expect(crowdedBtn1.group.isGrouped == true, "Grouped in crowded state")
+        #expect(crowdedBtn1 === initialBtn1 || crowdedBtn1 === initialBtn2, "Existing TaskButton must be preserved across .whenCrowded threshold")
+        
+        // Expand width back to uncrowded
+        view.frame = NSRect(x: 0, y: 0, width: 1200, height: 38)
+        view.updateWindows(windows: [winSafari1, winSafari2], focusedKey: nil, frontmostPID: nil)
+        
+        guard let expandedBtn1 = view.button(forKey: winSafari1.key),
+              let expandedBtn2 = view.button(forKey: winSafari2.key) else {
+            Issue.record("Expected uncrowded buttons after expansion")
+            return
+        }
+        #expect(expandedBtn1 !== expandedBtn2, "Uncrowded buttons are distinct")
+        #expect(expandedBtn1 === crowdedBtn1 || expandedBtn2 === crowdedBtn1, "Crowded button instance must be recycled when expanding")
+    }
+    
+    // TC-GROUP-010: No-op updateWindows does not mark buttons for redraw
+    @Test("TC-GROUP-010: No-op updateWindows does not mark buttons for redraw")
+    func testNoOpUpdateWindowsDoesNotMarkButtonsForRedraw() {
+        let view = TaskbarView(theme: .modernHybrid, launcherAction: .spotlight)
+        view.frame = NSRect(x: 0, y: 0, width: 1200, height: 38)
+        
+        let win = WindowInfo(
+            key: WindowKey(id: 501, pid: 5100),
+            pid: 5100,
+            appName: "Notes",
+            bundleID: "com.apple.Notes",
+            title: "Shopping List",
+            frame: CGRect(x: 0, y: 0, width: 400, height: 500),
+            isMinimized: false
+        )
+        
+        view.updateWindows(windows: [win], focusedKey: nil, frontmostPID: nil)
+        guard let btn = view.button(forKey: win.key) else {
+            Issue.record("Expected Notes button")
+            return
+        }
+        
+        btn.needsDisplay = false
+        // Call updateWindows with identical parameters
+        view.updateWindows(windows: [win], focusedKey: nil, frontmostPID: nil)
+        #expect(!btn.needsDisplay, "No-op updateWindows must not set needsDisplay = true on unchanged button")
+    }
 }

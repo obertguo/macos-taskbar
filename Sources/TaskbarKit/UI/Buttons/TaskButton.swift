@@ -6,8 +6,12 @@ import TaskbarCore
 public final class TaskButton: BaseTaskbarButton {
     public var group: WindowGroup {
         didSet {
-            if oldValue != group {
-                toolTip = group.displayTitle
+            toolTip = group.displayTitle
+            if oldValue.displayTitle != group.displayTitle ||
+                oldValue.isMinimized != group.isMinimized ||
+                oldValue.isAppHidden != group.isAppHidden ||
+                oldValue.isGrouped != group.isGrouped ||
+                oldValue.count != group.count {
                 needsDisplay = true
             }
         }
@@ -32,9 +36,8 @@ public final class TaskButton: BaseTaskbarButton {
     
     public var isFocusedWindow: Bool {
         didSet {
-            if oldValue != isFocusedWindow {
-                needsDisplay = true
-            }
+            guard oldValue != isFocusedWindow else { return }
+            needsDisplay = true
         }
     }
     
@@ -53,7 +56,12 @@ public final class TaskButton: BaseTaskbarButton {
         }
     }
     
-    public var isPinned: Bool = false
+    public var isPinned: Bool = false {
+        didSet {
+            guard oldValue != isPinned else { return }
+            needsDisplay = true
+        }
+    }
     public var onMinimizeOrRestore: (() -> Void)?
     public var onClose: (() -> Void)?
     public var onCloseAll: (() -> Void)?
@@ -157,16 +165,17 @@ public final class TaskButton: BaseTaskbarButton {
     public override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         
+        let resolved = ResolvedTheme.resolve(theme)
         if theme.is3DBeveled {
-            drawRetro(dirtyRect)
+            drawRetro(dirtyRect, resolved: resolved)
         } else {
-            drawHybrid(dirtyRect)
+            drawHybrid(dirtyRect, resolved: resolved)
         }
     }
     
-    private func drawRetro(_ dirtyRect: NSRect) {
+    private func drawRetro(_ dirtyRect: NSRect, resolved: ResolvedTheme) {
         let isDown = isFocusedWindow || isPressed
-        let bg = isDown ? NSColor(rgba: theme.buttonPressedBackground) : NSColor(rgba: theme.buttonNormalBackground)
+        let bg = isDown ? resolved.buttonPressedBackground : resolved.buttonNormalBackground
         bg.setFill()
         bounds.fill()
         
@@ -188,18 +197,19 @@ public final class TaskButton: BaseTaskbarButton {
             let maxTextW = max(0, bounds.maxX - textX - TaskbarConstants.Layout.taskButtonIconMarginRetro)
             
             let isDimmed = group.isMinimized || group.isAppHidden
-            let baseColor = NSColor(rgba: isFocusedWindow ? theme.textPressedColor : theme.textColor)
-            let textColor = isDimmed ? (theme.bevelShadow.map { NSColor(rgba: $0) } ?? baseColor.withAlphaComponent(0.5)) : baseColor
-            
-            let font = NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: isFocusedWindow ? .bold : .regular)
-            let para = NSMutableParagraphStyle()
-            para.lineBreakMode = .byTruncatingTail
-            
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .foregroundColor: textColor,
-                .paragraphStyle: para
-            ]
+            let attrs: [NSAttributedString.Key: Any]
+            if isDimmed {
+                let baseColor = isFocusedWindow ? resolved.textPressedColor : resolved.textColor
+                let textColor = theme.bevelShadow.map { _ in resolved.bevelShadow } ?? baseColor.withAlphaComponent(0.5)
+                let font = isFocusedWindow ? resolved.boldFont : resolved.regularFont
+                attrs = [
+                    .font: font,
+                    .foregroundColor: textColor,
+                    .paragraphStyle: resolved.paragraphStyle
+                ]
+            } else {
+                attrs = isFocusedWindow ? resolved.boldPressedTextAttributes : resolved.normalTextAttributes
+            }
             let str = NSAttributedString(string: group.displayTitle, attributes: attrs)
             let lineHeight = ceil(str.size().height)
             let textY = bounds.midY - (lineHeight / 2.0) - iconOffset
@@ -211,8 +221,8 @@ public final class TaskButton: BaseTaskbarButton {
             let ridgeX = bounds.maxX - 5.0 + iconOffset
             let ridgeY1 = bounds.minY + 4.0
             let ridgeY2 = bounds.maxY - 4.0
-            if let shadow = theme.bevelShadow {
-                NSColor(rgba: shadow).setStroke()
+            if theme.bevelShadow != nil {
+                resolved.bevelShadow.setStroke()
                 let path = NSBezierPath()
                 path.move(to: NSPoint(x: ridgeX, y: ridgeY1))
                 path.line(to: NSPoint(x: ridgeX, y: ridgeY2))
@@ -222,7 +232,7 @@ public final class TaskButton: BaseTaskbarButton {
         }
     }
     
-    private func drawHybrid(_ dirtyRect: NSRect) {
+    private func drawHybrid(_ dirtyRect: NSRect, resolved: ResolvedTheme) {
         let cornerRadius = CGFloat(theme.buttonCornerRadius)
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 1.0, dy: 1.0), xRadius: cornerRadius, yRadius: cornerRadius)
         
@@ -231,17 +241,17 @@ public final class TaskButton: BaseTaskbarButton {
         
         let bgColor: NSColor
         if isPressed || isFocusedWindow {
-            bgColor = NSColor(rgba: theme.buttonPressedBackground).withAlphaComponent(CGFloat(theme.buttonPressedBackground.alpha) * alphaMultiplier)
+            bgColor = resolved.buttonPressedBackground.withAlphaComponent(CGFloat(theme.buttonPressedBackground.alpha) * alphaMultiplier)
         } else if isHovered {
-            bgColor = NSColor(rgba: theme.buttonHoverBackground).withAlphaComponent(CGFloat(theme.buttonHoverBackground.alpha) * alphaMultiplier)
+            bgColor = resolved.buttonHoverBackground.withAlphaComponent(CGFloat(theme.buttonHoverBackground.alpha) * alphaMultiplier)
         } else {
-            bgColor = NSColor(rgba: theme.buttonNormalBackground).withAlphaComponent(CGFloat(theme.buttonNormalBackground.alpha) * alphaMultiplier)
+            bgColor = resolved.buttonNormalBackground.withAlphaComponent(CGFloat(theme.buttonNormalBackground.alpha) * alphaMultiplier)
         }
         
         bgColor.setFill()
         path.fill()
         
-        let borderColor = (isFocusedWindow || isPressed) ? NSColor(rgba: theme.buttonBorderPressed) : NSColor(rgba: theme.buttonBorderNormal)
+        let borderColor = (isFocusedWindow || isPressed) ? resolved.buttonBorderPressed : resolved.buttonBorderNormal
         borderColor.setStroke()
         path.lineWidth = 1.0
         path.stroke()
@@ -261,17 +271,20 @@ public final class TaskButton: BaseTaskbarButton {
             let textX = iconX + iconSize + TaskbarConstants.Layout.taskButtonIconMarginHybrid
             let maxTextW = max(0, bounds.maxX - textX - TaskbarConstants.Layout.taskButtonIconMarginHybrid)
             
-            let font = NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: isFocusedWindow ? .bold : .medium)
-            let para = NSMutableParagraphStyle()
-            para.lineBreakMode = .byTruncatingTail
-            
-            let textColor = (isFocusedWindow ? NSColor(rgba: theme.textPressedColor) : NSColor(rgba: theme.textColor)).withAlphaComponent(alphaMultiplier)
-            
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .foregroundColor: textColor,
-                .paragraphStyle: para
-            ]
+            let attrs: [NSAttributedString.Key: Any]
+            if isDimmed {
+                let textColor = (isFocusedWindow ? resolved.textPressedColor : resolved.textColor).withAlphaComponent(alphaMultiplier)
+                let font = isFocusedWindow ? resolved.boldFont : resolved.mediumFont
+                attrs = [
+                    .font: font,
+                    .foregroundColor: textColor,
+                    .paragraphStyle: resolved.paragraphStyle
+                ]
+            } else if isFocusedWindow {
+                attrs = resolved.boldPressedTextAttributes
+            } else {
+                attrs = resolved.normalTextAttributes
+            }
             let str = NSAttributedString(string: group.displayTitle, attributes: attrs)
             let lineHeight = ceil(str.size().height)
             let textY = bounds.midY - (lineHeight / 2.0)
@@ -298,7 +311,7 @@ public final class TaskButton: BaseTaskbarButton {
                 xRadius: TaskbarConstants.Layout.groupBadgeCornerRadius,
                 yRadius: TaskbarConstants.Layout.groupBadgeCornerRadius
             )
-            NSColor(rgba: theme.buttonBorderPressed).setFill()
+            resolved.buttonBorderPressed.setFill()
             badgePath.fill()
             let textPoint = NSPoint(
                 x: badgeRect.midX - (badgeTextSize.width / 2.0),

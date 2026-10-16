@@ -6,7 +6,19 @@ import AppKit
 public final class IconCache {
     public static let shared = IconCache()
     
-    private var cache: [String: NSImage] = [:]
+    public struct CacheKey: Hashable, Sendable {
+        public let appKey: String
+        public let width: Int
+        public let height: Int
+        
+        public init(appKey: String, width: Int, height: Int) {
+            self.appKey = appKey
+            self.width = width
+            self.height = height
+        }
+    }
+    
+    private var cache: [CacheKey: NSImage] = [:]
     private let fallbackIcon: NSImage
     
     private init() {
@@ -14,8 +26,8 @@ public final class IconCache {
         self.fallbackIcon = Self.prepareIcon(defaultImg, targetSize: NSSize(width: 16, height: 16))
     }
     
-    public func icon(for bundleID: String, pid: pid_t) -> NSImage {
-        icon(for: bundleID, customPath: nil, pid: pid)
+    public func icon(for bundleID: String, pid: pid_t, size: NSSize = NSSize(width: 16, height: 16)) -> NSImage {
+        icon(for: bundleID, customPath: nil, pid: pid, size: size)
     }
     
     public func icon(
@@ -24,9 +36,9 @@ public final class IconCache {
         pid: pid_t? = nil,
         size: NSSize = NSSize(width: 16, height: 16)
     ) -> NSImage {
-        let baseKey = !bundleID.isEmpty ? bundleID : (customPath ?? "")
-        let cacheKey = baseKey.isEmpty ? "" : "\(baseKey)_\(Int(size.width))x\(Int(size.height))"
-        if let cached = cache[cacheKey], !cacheKey.isEmpty {
+        let appKey = !bundleID.isEmpty ? bundleID : (customPath ?? (pid != nil ? "pid:\(pid!)" : ""))
+        let cacheKey = CacheKey(appKey: appKey, width: Int(size.width), height: Int(size.height))
+        if !appKey.isEmpty, let cached = cache[cacheKey] {
             return cached
         }
         
@@ -54,20 +66,31 @@ public final class IconCache {
             resolvedIcon = Self.prepareIcon(icon, targetSize: size)
         }
         
-        let finalIcon = resolvedIcon ?? fallbackIcon
-        if !cacheKey.isEmpty {
-            cache[cacheKey] = finalIcon
+        // If resolution succeeded, cache and return
+        if let resolved = resolvedIcon {
+            if !appKey.isEmpty {
+                cache[cacheKey] = resolved
+            }
+            return resolved
         }
-        return finalIcon
+        
+        // Do not cache fallbackIcon permanently when NSRunningApplication returns nil during app startup
+        return fallback(for: size)
+    }
+    
+    private func fallback(for size: NSSize) -> NSImage {
+        if size.width == 16 && size.height == 16 {
+            return fallbackIcon
+        }
+        let defaultImg = NSWorkspace.shared.icon(for: .application)
+        return Self.prepareIcon(defaultImg, targetSize: size)
     }
     
     /// Prepares an application icon to ensure crisp rendering across all display scales (1x and 2x).
     ///
-    /// Some application bundles (such as Antigravity / Electron apps) contain corrupt or uninitialized
-    /// legacy 1x bitmaps (e.g. 16x16 or 32x32) inside their `.icns` asset while having clean high-resolution
-    /// representations (64px, 128px, 256px, etc.). By filtering out representations below 64px when high-resolution
-    /// representations exist, AppKit's rendering engine automatically and smoothly downsamples from the clean
-    /// high-resolution source for non-Retina (1x) displays, eliminating noise/glitches.
+    /// Some application bundles contain corrupt or uninitialized legacy 1x bitmaps (< 64px)
+    /// while having clean high-resolution representations. By filtering out representations below 64px
+    /// when high-resolution representations exist, AppKit downsamples smoothly from high-resolution sources.
     public static func prepareIcon(_ rawIcon: NSImage, targetSize: NSSize) -> NSImage {
         let reps = rawIcon.representations
         let hasHighRes = reps.contains { $0.pixelsWide >= 64 }
@@ -88,7 +111,59 @@ public final class IconCache {
         }
     }
     
-    /// Clears the icon cache.
+    /// Pre-rasterizes an icon to exact backing scale pixels to eliminate downsampling overhead in draw passes.
+    public static func rasterize(_ sourceIcon: NSImage, targetSize: NSSize, scale: CGFloat? = nil) -> NSImage {
+        let effectiveScale = scale ?? (NSScreen.main?.backingScaleFactor ?? 2.0)
+        let pixelWidth = max(1, Int(targetSize.width * effectiveScale))
+        let pixelHeight = max(1, Int(targetSize.height * effectiveScale))
+        
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: pixelWidth,
+            pixelsHigh: pixelHeight,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else {
+            guard let copy = sourceIcon.copy() as? NSImage else {
+                sourceIcon.size = targetSize
+                return sourceIcon
+            }
+            copy.size = targetSize
+            return copy
+        }
+        
+        rep.size = targetSize
+        NSGraphicsContext.saveGraphicsState()
+        let context = NSGraphicsContext(bitmapImageRep: rep)
+        NSGraphicsContext.current = context
+        context?.imageInterpolation = .high
+        sourceIcon.draw(in: NSRect(origin: .zero, size: targetSize), from: .zero, operation: .copy, fraction: 1.0)
+        NSGraphicsContext.restoreGraphicsState()
+        
+        let rasterizedImage = NSImage(size: targetSize)
+        rasterizedImage.addRepresentation(rep)
+        return rasterizedImage
+    }
+    
+    /// Evicts all cached icons for the specified bundle identifier.
+    public func evict(bundleID: String) {
+        guard !bundleID.isEmpty else { return }
+        cache = cache.filter { $0.key.appKey != bundleID }
+    }
+    
+    /// Evicts all cached icons for the specified process identifier.
+    public func evict(pid: pid_t) {
+        guard pid > 0 else { return }
+        let pidPrefix = "pid:\(pid)"
+        cache = cache.filter { $0.key.appKey != pidPrefix }
+    }
+    
+    /// Clears the entire icon cache.
     public func clearCache() {
         cache.removeAll()
     }

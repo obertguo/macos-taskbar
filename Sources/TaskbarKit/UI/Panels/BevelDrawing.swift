@@ -94,4 +94,32 @@ public enum BevelDrawing {
         bottomPath.lineWidth = 1.0
         bottomPath.stroke()
     }
+    
+    /// Draws a classic 3D raised border using palette bevel colors with standard fallbacks
+    public static func drawRaisedBevel(in rect: NSRect, palette: ThemePalette) {
+        let highlight = palette.bevelHighlight.map(NSColor.init(rgba:)) ?? .white
+        let shadow = palette.bevelShadow.map(NSColor.init(rgba:)) ?? NSColor(white: 128.0 / 255.0, alpha: 1.0)
+        let darkShadow = palette.bevelDarkShadow.map(NSColor.init(rgba:)) ?? NSColor(white: 64.0 / 255.0, alpha: 1.0)
+        drawRaisedBevel(in: rect, highlight: highlight, shadow: shadow, darkShadow: darkShadow)
+    }
+    
+    /// Draws a classic 3D sunken border using palette bevel colors with standard fallbacks
+    public static func drawSunkenBevel(in rect: NSRect, palette: ThemePalette) {
+        let darkShadow = palette.bevelDarkShadow.map(NSColor.init(rgba:)) ?? NSColor(white: 64.0 / 255.0, alpha: 1.0)
+        let shadow = palette.bevelShadow.map(NSColor.init(rgba:)) ?? NSColor(white: 128.0 / 255.0, alpha: 1.0)
+        let highlight = palette.bevelHighlight.map(NSColor.init(rgba:)) ?? .white
+        drawSunkenBevel(in: rect, darkShadow: darkShadow, shadow: shadow, highlight: highlight)
+    }
+    
+    /// Draws a classic 3D raised border using precomputed `ResolvedTheme` colors
+    @MainActor
+    public static func drawRaisedBevel(in rect: NSRect, theme: ResolvedTheme) {
+        drawRaisedBevel(in: rect, highlight: theme.bevelHighlight, shadow: theme.bevelShadow, darkShadow: theme.bevelDarkShadow)
+    }
+    
+    /// Draws a classic 3D sunken border using precomputed `ResolvedTheme` colors
+    @MainActor
+    public static func drawSunkenBevel(in rect: NSRect, theme: ResolvedTheme) {
+        drawSunkenBevel(in: rect, darkShadow: theme.bevelDarkShadow, shadow: theme.bevelShadow, highlight: theme.bevelHighlight)
+    }
 }

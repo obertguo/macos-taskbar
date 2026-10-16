@@ -109,8 +109,8 @@ internal final class GroupWindowRowsView: NSView {
         let count = max(1, windows.count)
         let height = CGFloat(count) * TaskbarConstants.GroupPopup.rowHeight + TaskbarConstants.GroupPopup.contentVerticalPadding * 2.0
         
-        let font = NSFont.systemFont(ofSize: CGFloat(theme.fontSize))
-        let attrs: [NSAttributedString.Key: Any] = [.font: font]
+        let resolved = ResolvedTheme.resolve(theme)
+        let attrs = resolved.normalTextAttributes
         var maxTitleW: CGFloat = 0.0
         for win in windows {
             let title = win.displayTitle as NSString
@@ -228,27 +228,30 @@ internal final class GroupWindowRowsView: NSView {
     }
     
     private func drawRetroBackground() {
-        let bg = NSColor(rgba: theme.backgroundColor)
+        let resolved = ResolvedTheme.resolve(theme)
+        let bg = resolved.backgroundColor
         bg.setFill()
         bounds.fill()
-        BevelDrawing.drawRaisedBevel(in: bounds)
+        BevelDrawing.drawRaisedBevel(in: bounds, palette: theme.palette)
     }
     
     private func drawHybridBackground() {
+        let resolved = ResolvedTheme.resolve(theme)
         let cornerRadius = TaskbarConstants.GroupPopup.cornerRadius
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: cornerRadius, yRadius: cornerRadius)
         
         if !theme.useTranslucency || theme.backgroundColor.alpha > 0.0 {
-            NSColor(rgba: theme.backgroundColor).setFill()
+            resolved.backgroundColor.setFill()
             path.fill()
         }
         
-        NSColor(rgba: theme.buttonBorderNormal).setStroke()
+        resolved.buttonBorderNormal.setStroke()
         path.lineWidth = 1.0
         path.stroke()
     }
     
     private func drawRows() {
+        let resolved = ResolvedTheme.resolve(theme)
         for (index, win) in windows.enumerated() {
             let row = rowRect(forRow: index)
             let isSelected = (index == selectedIndex)
@@ -258,9 +261,9 @@ internal final class GroupWindowRowsView: NSView {
             if isSelected || isHovered {
                 let highlightColor: NSColor
                 if theme.is3DBeveled {
-                    highlightColor = NSColor(rgba: theme.buttonPressedBackground)
+                    highlightColor = resolved.buttonPressedBackground
                 } else {
-                    highlightColor = NSColor(rgba: theme.buttonHoverBackground)
+                    highlightColor = resolved.buttonHoverBackground
                 }
                 highlightColor.setFill()
                 let rowPath = NSBezierPath(
@@ -281,7 +284,7 @@ internal final class GroupWindowRowsView: NSView {
                 height: dotSize
             )
             if isActive {
-                let dotColor = NSColor(rgba: theme.buttonBorderPressed)
+                let dotColor = resolved.buttonBorderPressed
                 dotColor.setFill()
                 let dotPath = NSBezierPath(ovalIn: dotRect)
                 dotPath.fill()
@@ -296,7 +299,11 @@ internal final class GroupWindowRowsView: NSView {
                 width: iconSize,
                 height: iconSize
             )
-            let icon = IconCache.shared.icon(for: win.bundleID, pid: win.pid)
+            let icon = IconCache.shared.icon(
+                for: win.bundleID,
+                pid: win.pid,
+                size: NSSize(width: theme.iconSize, height: theme.iconSize)
+            )
             let isDimmed = win.isMinimized || win.isAppHidden
             let alpha: CGFloat = isDimmed ? TaskbarConstants.Layout.dimmedButtonAlpha : 1.0
             icon.draw(in: iconRect, from: .zero, operation: .sourceOver, fraction: alpha)
@@ -311,7 +318,7 @@ internal final class GroupWindowRowsView: NSView {
                 bgPath.fill()
             }
             let closeFont = NSFont.systemFont(ofSize: 11.0, weight: isCloseHovered ? .bold : .regular)
-            let closeColor = isCloseHovered ? NSColor.red : (isSelected ? NSColor(rgba: theme.textPressedColor) : NSColor(rgba: theme.textColor)).withAlphaComponent(0.6)
+            let closeColor = isCloseHovered ? NSColor.red : (isSelected ? resolved.textPressedColor : resolved.textColor).withAlphaComponent(0.6)
             let closeAttrs: [NSAttributedString.Key: Any] = [
                 .font: closeFont,
                 .foregroundColor: closeColor
@@ -327,15 +334,18 @@ internal final class GroupWindowRowsView: NSView {
             // 5. Window Title
             let titleX = iconRect.maxX + TaskbarConstants.GroupPopup.itemSpacing
             let titleW = max(0, closeRect.minX - titleX - TaskbarConstants.GroupPopup.itemSpacing)
-            let font = NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: isSelected ? .bold : .regular)
-            let textColor = (isSelected ? NSColor(rgba: theme.textPressedColor) : NSColor(rgba: theme.textColor)).withAlphaComponent(alpha)
-            let para = NSMutableParagraphStyle()
-            para.lineBreakMode = .byTruncatingTail
-            let titleAttrs: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .foregroundColor: textColor,
-                .paragraphStyle: para
-            ]
+            
+            let baseAttrs = isSelected ? resolved.boldPressedTextAttributes : resolved.normalTextAttributes
+            let titleAttrs: [NSAttributedString.Key: Any]
+            if isDimmed {
+                let textColor = (isSelected ? resolved.textPressedColor : resolved.textColor).withAlphaComponent(alpha)
+                var dimmedAttrs = baseAttrs
+                dimmedAttrs[.foregroundColor] = textColor
+                titleAttrs = dimmedAttrs
+            } else {
+                titleAttrs = baseAttrs
+            }
+            
             let titleStr = NSAttributedString(string: win.displayTitle, attributes: titleAttrs)
             let textH = ceil(titleStr.size().height)
             let textY = row.midY - (textH / 2.0)

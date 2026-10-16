@@ -35,23 +35,19 @@ public final class OverflowButton: BaseTaskbarButton {
     }
     
     private func drawRetro(_ dirtyRect: NSRect) {
-        let bg = isPressed ? NSColor(rgba: theme.buttonPressedBackground) : NSColor(rgba: theme.buttonNormalBackground)
+        let resolved = ResolvedTheme.resolve(theme)
+        let bg = isPressed ? resolved.buttonPressedBackground : resolved.buttonNormalBackground
         bg.setFill()
         bounds.fill()
         
         if isPressed {
-            BevelDrawing.drawSunkenBevel(in: bounds)
+            BevelDrawing.drawSunkenBevel(in: bounds, palette: theme.palette)
         } else {
-            BevelDrawing.drawRaisedBevel(in: bounds)
+            BevelDrawing.drawRaisedBevel(in: bounds, palette: theme.palette)
         }
         
         // Draw double chevron "»"
-        let font = NSFont.boldSystemFont(ofSize: CGFloat(theme.fontSize))
-        let textColor = isPressed ? NSColor(rgba: theme.textPressedColor) : NSColor(rgba: theme.textColor)
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: textColor
-        ]
+        let attrs = isPressed ? resolved.boldPressedTextAttributes : resolved.boldTextAttributes
         
         let text = TaskbarStrings.Overflow.buttonGlyph as NSString
         let textSize = text.size(withAttributes: attrs)
@@ -65,27 +61,24 @@ public final class OverflowButton: BaseTaskbarButton {
     }
     
     private func drawHybrid(_ dirtyRect: NSRect) {
-        let cornerRadius: CGFloat = 4.0
+        let resolved = ResolvedTheme.resolve(theme)
+        let cornerRadius = CGFloat(theme.buttonCornerRadius)
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 1.0, dy: 1.0), xRadius: cornerRadius, yRadius: cornerRadius)
         
         if isPressed {
-            NSColor(rgba: theme.buttonPressedBackground).setFill()
+            resolved.buttonPressedBackground.setFill()
             path.fill()
         } else if isHovered {
-            NSColor(rgba: theme.buttonHoverBackground).setFill()
+            resolved.buttonHoverBackground.setFill()
             path.fill()
         }
         
-        NSColor(rgba: theme.buttonBorderNormal).setStroke()
+        let borderColor = isPressed ? resolved.buttonBorderPressed : resolved.buttonBorderNormal
+        borderColor.setStroke()
         path.lineWidth = 1.0
         path.stroke()
         
-        let font = NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: .semibold)
-        let textColor = isPressed ? NSColor(rgba: theme.textPressedColor) : NSColor(rgba: theme.textColor)
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: textColor
-        ]
+        let attrs = isPressed ? resolved.semiboldPressedTextAttributes : resolved.semiboldTextAttributes
         
         let text = TaskbarStrings.Overflow.buttonGlyph as NSString
         let textSize = text.size(withAttributes: attrs)

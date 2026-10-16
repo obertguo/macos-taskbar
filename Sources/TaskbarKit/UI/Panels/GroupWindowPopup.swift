@@ -8,7 +8,7 @@ import TaskbarCore
 /// keyboard navigation (Up/Down/Return/Escape), individual window closing, and active focus indicators.
 @MainActor
 public final class GroupWindowPopup: NSPanel {
-    public let group: WindowGroup
+    public private(set) var group: WindowGroup
     public var theme: ThemeDefinition {
         didSet {
             popupContentView.theme = theme
@@ -121,6 +121,29 @@ public final class GroupWindowPopup: NSPanel {
         makeKey()
         
         installEventMonitor()
+    }
+    
+    public func updateGroup(
+        _ group: WindowGroup,
+        focusedKey: WindowKey?,
+        frontmostPID: pid_t?,
+        theme: ThemeDefinition
+    ) {
+        self.group = group
+        self.theme = theme
+        popupContentView.theme = theme
+        popupContentView.focusedKey = focusedKey
+        popupContentView.frontmostPID = frontmostPID
+        popupContentView.windows = group.windows
+        popupContentView.needsDisplay = true
+        
+        let preferredSize = popupContentView.preferredSize()
+        var newFrame = frame
+        let heightDelta = preferredSize.height - newFrame.height
+        newFrame.size.width = preferredSize.width
+        newFrame.size.height = preferredSize.height
+        newFrame.origin.y -= heightDelta
+        setFrame(newFrame, display: true, animate: false)
     }
     
     public func dismiss() {

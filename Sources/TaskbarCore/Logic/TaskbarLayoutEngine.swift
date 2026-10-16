@@ -241,6 +241,19 @@ public enum TaskbarLayoutEngine {
         plan.slotIndex(forPosition: CGFloat(position), edge: edge)
     }
     
+    /// Computes the total available primary-axis length allocated for the task buttons area.
+    public static func availableTaskAreaLength(params: TaskbarLayoutParameters) -> CGFloat {
+        let primaryDimension = CGFloat(params.primaryDimension)
+        let startPrimary = params.startButtonLeadingMargin + params.startButtonWidth + params.startButtonTrailingMargin
+        let btnThickness = max(params.minimumButtonHeight, CGFloat(params.crossDimension) - (params.verticalPadding * 2.0))
+        
+        var currentPrimary = startPrimary
+        if params.pinnedItemCount > 0 {
+            currentPrimary += CGFloat(params.pinnedItemCount) * btnThickness + CGFloat(params.pinnedItemCount - 1) * params.pinnedButtonSpacing + params.pinnedSectionTrailingMargin
+        }
+        return max(0.0, primaryDimension - currentPrimary - params.taskbarTrailingMargin)
+    }
+    
     /// Computes the complete geometry layout plan for all interactive components on the taskbar.
     public static func computeLayout(params: TaskbarLayoutParameters) -> TaskbarLayoutPlan {
         let isHorizontal = params.edge.isHorizontal

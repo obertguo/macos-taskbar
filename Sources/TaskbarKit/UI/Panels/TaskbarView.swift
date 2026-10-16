@@ -19,6 +19,7 @@ public final class TaskbarView: NSView {
     internal var taskButtons: [TaskButton] = []
     private var groupButtonMap: [String: TaskButton] = [:]
     public private(set) var activeGroupPopup: GroupWindowPopup?
+    private var activePopupGroupID: String?
     
     public var groupingMode: WindowGroupingMode = .always {
         didSet {
@@ -46,7 +47,13 @@ public final class TaskbarView: NSView {
     
     public var minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth {
         didSet {
-            if oldValue != minButtonWidth { layoutComponents() }
+            if oldValue != minButtonWidth {
+                if groupingMode == .whenCrowded {
+                    updateWindows(windows: currentWindows, focusedKey: focusedKey, frontmostPID: frontmostPID)
+                } else {
+                    layoutComponents()
+                }
+            }
         }
     }
     public var maxButtonWidth: Double = TaskbarConstants.Layout.defaultMaxButtonWidth {
@@ -56,7 +63,13 @@ public final class TaskbarView: NSView {
     }
     public var buttonSpacing: Double = TaskbarConstants.Layout.defaultButtonSpacing {
         didSet {
-            if oldValue != buttonSpacing { layoutComponents() }
+            if oldValue != buttonSpacing {
+                if groupingMode == .whenCrowded {
+                    updateWindows(windows: currentWindows, focusedKey: focusedKey, frontmostPID: frontmostPID)
+                } else {
+                    layoutComponents()
+                }
+            }
         }
     }
     public var titleVisibilityThreshold: Double = TaskbarConstants.Layout.defaultTitleVisibilityThreshold {
@@ -149,10 +162,7 @@ public final class TaskbarView: NSView {
         }
         
         // Compute available horizontal space for the dynamic task button area
-        let startW = startButton.preferredWidth()
-        let pinnedW = CGFloat(pinnedButtons.count) * (CGFloat(theme.iconSize) + CGFloat(TaskbarConstants.Layout.pinnedButtonSpacing) + 8.0)
-        let margins = TaskbarConstants.Layout.startButtonLeadingMargin + TaskbarConstants.Layout.startButtonTrailingMargin + TaskbarConstants.Layout.pinnedSectionTrailingMargin + TaskbarConstants.Layout.taskbarTrailingMargin
-        let availableWidth = max(0, bounds.width - startW - pinnedW - margins)
+        let availableWidth = TaskbarLayoutEngine.availableTaskAreaLength(params: currentLayoutParams())
         
         // 1. Group windows according to active WindowGroupingMode
         let groups = WindowGroupingLogic.groupWindows(
@@ -173,21 +183,18 @@ public final class TaskbarView: NSView {
         
         let currentGroupIDs = Set(orderedGroups.map { $0.id })
         
-        // 3. Remove buttons for closed groups
-        for (id, btn) in groupButtonMap {
-            if !currentGroupIDs.contains(id) {
-                btn.removeFromSuperview()
-                groupButtonMap.removeValue(forKey: id)
+        // 3. Synchronize active popup or dismiss if no longer valid
+        if let popup = activeGroupPopup, let popupGroupID = activePopupGroupID {
+            if let matchingGroup = orderedGroups.first(where: { $0.id == popupGroupID }), matchingGroup.windows.count >= 2 {
+                popup.updateGroup(matchingGroup, focusedKey: focusedKey, frontmostPID: frontmostPID, theme: theme)
+            } else {
+                popup.dismiss()
+                activeGroupPopup = nil
+                activePopupGroupID = nil
             }
         }
         
-        // If active popup belongs to a closed group, dismiss it
-        if let active = activeGroupPopup, !currentGroupIDs.contains(active.group.id) {
-            active.dismiss()
-            activeGroupPopup = nil
-        }
-        
-        // 4. Re-use existing buttons or instantiate new ones
+        // 4. Re-use existing buttons, recycle across grouping threshold, or instantiate new ones
         var orderedButtons: [TaskButton] = []
         for grp in orderedGroups {
             let isFocused = grp.isFocused(focusedKey: focusedKey, frontmostPID: frontmostPID)
@@ -199,6 +206,14 @@ public final class TaskbarView: NSView {
                 existing.isPinned = isPinned
                 existing.theme = theme
                 orderedButtons.append(existing)
+            } else if let recycled = groupButtonMap.values.first(where: { !currentGroupIDs.contains($0.group.id) && $0.group.bundleID == grp.bundleID }) {
+                groupButtonMap.removeValue(forKey: recycled.group.id)
+                groupButtonMap[grp.id] = recycled
+                recycled.group = grp
+                recycled.isFocusedWindow = isFocused
+                recycled.isPinned = isPinned
+                recycled.theme = theme
+                orderedButtons.append(recycled)
             } else {
                 let btn = TaskButton(
                     group: grp,
@@ -296,6 +311,14 @@ public final class TaskbarView: NSView {
                 addSubview(btn)
                 groupButtonMap[grp.id] = btn
                 orderedButtons.append(btn)
+            }
+        }
+        
+        // 5. Remove buttons for closed groups
+        for (id, btn) in groupButtonMap {
+            if !currentGroupIDs.contains(id) {
+                btn.removeFromSuperview()
+                groupButtonMap.removeValue(forKey: id)
             }
         }
         
@@ -480,13 +503,15 @@ public final class TaskbarView: NSView {
     
     /// Displays or toggles the lightweight window list popup anchored above the given task button.
     public func showGroupPopup(for btn: TaskButton) {
-        if let active = activeGroupPopup, active.group.id == btn.group.id {
+        if let active = activeGroupPopup, activePopupGroupID == btn.group.id {
             active.dismiss()
             activeGroupPopup = nil
+            activePopupGroupID = nil
             return
         }
         
         activeGroupPopup?.dismiss()
+        activePopupGroupID = nil
         
         let screen = self.window?.screen ?? NSScreen.main ?? NSScreen.screens.first ?? NSScreen()
         let buttonRectOnScreen: NSRect
@@ -511,8 +536,10 @@ public final class TaskbarView: NSView {
         }
         popup.onDismiss = { [weak self] in
             self?.activeGroupPopup = nil
+            self?.activePopupGroupID = nil
         }
         self.activeGroupPopup = popup
+        self.activePopupGroupID = btn.group.id
         popup.show(
             anchoredTo: buttonRectOnScreen,
             in: screen,
@@ -525,6 +552,7 @@ public final class TaskbarView: NSView {
     public func dismissGroupPopup() {
         activeGroupPopup?.dismiss()
         activeGroupPopup = nil
+        activePopupGroupID = nil
     }
     
     private func showOverflowMenu() {

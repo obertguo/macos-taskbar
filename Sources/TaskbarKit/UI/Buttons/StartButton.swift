@@ -22,15 +22,7 @@ public final class StartButton: BaseTaskbarButton {
     
     /// Computes minimum width required to render the Start icon and text cleanly without clipping.
     public func preferredWidth() -> CGFloat {
-        let weight: NSFont.Weight = theme.is3DBeveled ? .bold : .medium
-        let font = NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: weight)
-        let textWidth = (TaskbarStrings.StartButton.title as NSString).size(withAttributes: [.font: font]).width
-        let iconWidth: CGFloat = theme.is3DBeveled ? 13.0 : 10.0
-        let baseMin = theme.is3DBeveled
-            ? TaskbarConstants.Layout.startButtonWidthRetro
-            : TaskbarConstants.Layout.startButtonWidthHybrid
-        let padding: CGFloat = theme.is3DBeveled ? 17.0 : 24.0
-        return max(baseMin, ceil(textWidth + iconWidth + padding))
+        ResolvedTheme.resolve(theme).startButtonPreferredWidth
     }
     
     public override func draw(_ dirtyRect: NSRect) {
@@ -44,14 +36,15 @@ public final class StartButton: BaseTaskbarButton {
     }
     
     private func drawRetro(_ dirtyRect: NSRect) {
-        let bg = isPressed ? NSColor(rgba: theme.buttonPressedBackground) : NSColor(rgba: theme.buttonNormalBackground)
+        let resolved = ResolvedTheme.resolve(theme)
+        let bg = isPressed ? resolved.buttonPressedBackground : resolved.buttonNormalBackground
         bg.setFill()
         bounds.fill()
         
         if isPressed {
-            BevelDrawing.drawSunkenBevel(in: bounds)
+            BevelDrawing.drawSunkenBevel(in: bounds, palette: theme.palette)
         } else {
-            BevelDrawing.drawRaisedBevel(in: bounds)
+            BevelDrawing.drawRaisedBevel(in: bounds, palette: theme.palette)
         }
         
         // Draw retro 4-color flag icon (2x2 grid)
@@ -78,10 +71,7 @@ public final class StartButton: BaseTaskbarButton {
         
         // Draw "Start" label
         let textX = iconX + (boxSize * 2) + spacing + 5.0
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: .bold),
-            .foregroundColor: NSColor(rgba: theme.textColor)
-        ]
+        let attrs = resolved.boldTextAttributes
         let str = NSAttributedString(string: TaskbarStrings.StartButton.title, attributes: attrs)
         let lineHeight = ceil(str.size().height)
         let textY = bounds.midY - (lineHeight / 2.0) + (isPressed ? -1.0 : 0.0)
@@ -89,26 +79,23 @@ public final class StartButton: BaseTaskbarButton {
     }
     
     private func drawHybrid(_ dirtyRect: NSRect) {
+        let resolved = ResolvedTheme.resolve(theme)
         let cornerRadius = CGFloat(theme.buttonCornerRadius)
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 1.0, dy: 1.0), xRadius: cornerRadius, yRadius: cornerRadius)
         
-        let normalBg = theme.palette.startButtonNormal ?? theme.buttonNormalBackground
-        let hoverBg = theme.palette.startButtonHover ?? theme.buttonHoverBackground
-        let pressedBg = theme.palette.startButtonPressed ?? theme.buttonPressedBackground
-        
         let bgColor: NSColor
         if isPressed {
-            bgColor = NSColor(rgba: pressedBg)
+            bgColor = resolved.startButtonPressed
         } else if isHovered {
-            bgColor = NSColor(rgba: hoverBg)
+            bgColor = resolved.startButtonHover
         } else {
-            bgColor = NSColor(rgba: normalBg)
+            bgColor = resolved.startButtonNormal
         }
         
         bgColor.setFill()
         path.fill()
         
-        let borderColor = isPressed ? NSColor(rgba: theme.buttonBorderPressed) : NSColor(rgba: theme.buttonBorderNormal)
+        let borderColor = isPressed ? resolved.buttonBorderPressed : resolved.buttonBorderNormal
         borderColor.setStroke()
         path.lineWidth = 1.0
         path.stroke()
@@ -119,8 +106,7 @@ public final class StartButton: BaseTaskbarButton {
         let dotSize: CGFloat = 4.0
         let dotSpacing: CGFloat = 2.0
         
-        let textRgba = theme.palette.startButtonText ?? theme.textColor
-        let iconColor = NSColor(rgba: textRgba).withAlphaComponent(isPressed ? 1.0 : 0.85)
+        let iconColor = resolved.startButtonText.withAlphaComponent(isPressed ? 1.0 : 0.85)
         iconColor.setFill()
         
         NSBezierPath(roundedRect: NSRect(x: iconX, y: iconY + dotSize + dotSpacing, width: dotSize, height: dotSize), xRadius: 1, yRadius: 1).fill()
@@ -130,11 +116,7 @@ public final class StartButton: BaseTaskbarButton {
         
         // Text
         let textX = iconX + (dotSize * 2) + dotSpacing + 6.0
-        let weight: NSFont.Weight = theme.fontBold ? .bold : .medium
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: CGFloat(theme.fontSize), weight: weight),
-            .foregroundColor: NSColor(rgba: textRgba)
-        ]
+        let attrs = resolved.startButtonTextAttributes
         let str = NSAttributedString(string: TaskbarStrings.StartButton.title, attributes: attrs)
         let lineHeight = ceil(str.size().height)
         let textY = bounds.midY - (lineHeight / 2.0)

@@ -6,6 +6,7 @@ import TaskbarCore
 @MainActor
 public final class ScreenManager {
     private var panels: [CGDirectDisplayID: TaskbarPanel] = [:]
+    private var cachedFullScreenDisplayIDs: Set<CGDirectDisplayID> = []
     public let settingsStore: SettingsStore
     public var settings: Settings { settingsStore.settings }
     public var currentTheme: ThemeDefinition { settingsStore.currentTheme }
@@ -168,6 +169,14 @@ public final class ScreenManager {
     }
     
     @objc private func handleScreenParametersChanged() {
+        var fs = Set<CGDirectDisplayID>()
+        for screen in NSScreen.screens {
+            let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
+            if displayID != 0 && isScreenInFullScreen(screen: screen) {
+                fs.insert(displayID)
+            }
+        }
+        self.cachedFullScreenDisplayIDs = fs
         refreshPanels()
     }
     
@@ -252,13 +261,40 @@ public final class ScreenManager {
         let screens = NSScreen.screens
         let runningBundleIDs = Set(store.allWindows.map { $0.bundleID })
         
+        var windowsByScreen: [UInt32: [WindowInfo]] = [:]
+        for win in store.allWindows {
+            let assignedScreen = ScreenAssignment.assignScreen(for: win.frame, across: descriptors) ?? descriptors.first(where: { $0.isPrimary })?.id ?? descriptors.first?.id ?? 0
+            windowsByScreen[assignedScreen, default: []].append(win)
+        }
+        for (screenID, list) in windowsByScreen {
+            let screenOrder = store.customOrder(forScreenID: screenID)
+            if !screenOrder.isEmpty {
+                windowsByScreen[screenID] = list.enumerated().sorted { left, right in
+                    let leftKey = TaskbarConstants.Identifiers.windowID(pid: left.element.key.pid, id: left.element.key.id)
+                    let rightKey = TaskbarConstants.Identifiers.windowID(pid: right.element.key.pid, id: right.element.key.id)
+                    let leftSlot = screenOrder[leftKey]
+                    let rightSlot = screenOrder[rightKey]
+                    switch (leftSlot, rightSlot) {
+                    case let (l?, r?):
+                        return l != r ? l < r : left.offset < right.offset
+                    case (.some, .none):
+                        return true
+                    case (.none, .some):
+                        return false
+                    case (.none, .none):
+                        return left.offset < right.offset
+                    }
+                }.map { $0.element }
+            }
+        }
+        
         for (displayID, panel) in panels {
-            guard let screen = screens.first(where: {
+            guard screens.contains(where: {
                 ((($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0) == displayID)
             }) else { continue }
             
-            let screenWindows = store.windows(forScreenID: UInt32(displayID), screens: descriptors)
-            let isFullScreen = isScreenInFullScreen(screen: screen)
+            let screenWindows = windowsByScreen[UInt32(displayID)] ?? []
+            let isFullScreen = screenWindows.contains { $0.isFullScreen } || cachedFullScreenDisplayIDs.contains(displayID)
             
             if isFullScreen {
                 if panel.isVisible {

@@ -112,17 +112,18 @@ public final class PinnedButton: BaseTaskbarButton {
     }
     
     private func drawRetro(_ dirtyRect: NSRect) {
+        let resolved = ResolvedTheme.resolve(theme)
         let isDown = isPressed
         if isDown {
-            let bg = NSColor(rgba: theme.buttonPressedBackground)
+            let bg = resolved.buttonPressedBackground
             bg.setFill()
             bounds.fill()
-            BevelDrawing.drawSunkenBevel(in: bounds)
+            BevelDrawing.drawSunkenBevel(in: bounds, palette: theme.palette)
         } else if isHovered {
-            let bg = NSColor(rgba: theme.buttonNormalBackground)
+            let bg = resolved.buttonNormalBackground
             bg.setFill()
             bounds.fill()
-            BevelDrawing.drawRaisedBevel(in: bounds)
+            BevelDrawing.drawRaisedBevel(in: bounds, palette: theme.palette)
         }
         
         let iconSize = CGFloat(theme.iconSize)
@@ -134,7 +135,7 @@ public final class PinnedButton: BaseTaskbarButton {
         let icon = IconCache.shared.icon(
             for: pinnedApp.bundleIdentifier,
             customPath: pinnedApp.customPath,
-            size: NSSize(width: iconSize, height: iconSize)
+            size: NSSize(width: theme.iconSize, height: theme.iconSize)
         )
         icon.draw(in: NSRect(x: iconX, y: iconY, width: iconSize, height: iconSize))
         
@@ -142,29 +143,30 @@ public final class PinnedButton: BaseTaskbarButton {
             let dotSize: CGFloat = 3.0
             let dotX = round(bounds.midX - (dotSize / 2.0)) + iconOffset
             let dotY = bounds.minY + 2.0 - iconOffset
-            let dotColor = NSColor(rgba: theme.textColor)
+            let dotColor = resolved.textColor
             dotColor.setFill()
             NSRect(x: dotX, y: dotY, width: dotSize, height: dotSize).fill()
         }
     }
     
     private func drawHybrid(_ dirtyRect: NSRect) {
+        let resolved = ResolvedTheme.resolve(theme)
         let cornerRadius = CGFloat(theme.buttonCornerRadius)
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 1.0, dy: 1.0), xRadius: cornerRadius, yRadius: cornerRadius)
         
         if isPressed {
-            let bgColor = NSColor(rgba: theme.buttonPressedBackground)
+            let bgColor = resolved.buttonPressedBackground
             bgColor.setFill()
             path.fill()
-            let borderColor = NSColor(rgba: theme.buttonBorderPressed)
+            let borderColor = resolved.buttonBorderPressed
             borderColor.setStroke()
             path.lineWidth = 1.0
             path.stroke()
         } else if isHovered {
-            let bgColor = NSColor(rgba: theme.buttonHoverBackground)
+            let bgColor = resolved.buttonHoverBackground
             bgColor.setFill()
             path.fill()
-            let borderColor = NSColor(rgba: theme.buttonBorderNormal)
+            let borderColor = resolved.buttonBorderNormal
             borderColor.setStroke()
             path.lineWidth = 1.0
             path.stroke()
@@ -178,7 +180,7 @@ public final class PinnedButton: BaseTaskbarButton {
         let icon = IconCache.shared.icon(
             for: pinnedApp.bundleIdentifier,
             customPath: pinnedApp.customPath,
-            size: NSSize(width: iconSize, height: iconSize)
+            size: NSSize(width: theme.iconSize, height: theme.iconSize)
         )
         icon.draw(in: NSRect(x: iconX, y: iconY, width: iconSize, height: iconSize))
         
@@ -188,7 +190,7 @@ public final class PinnedButton: BaseTaskbarButton {
             let dotY = bounds.minY + 2.0
             let dotRect = NSRect(x: dotX, y: dotY, width: dotDiameter, height: dotDiameter)
             let dotPath = NSBezierPath(ovalIn: dotRect)
-            let dotColor = NSColor(rgba: theme.buttonBorderPressed).withAlphaComponent(1.0)
+            let dotColor = resolved.buttonBorderPressed
             dotColor.setFill()
             dotPath.fill()
         }

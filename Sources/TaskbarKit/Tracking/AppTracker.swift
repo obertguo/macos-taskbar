@@ -112,6 +112,8 @@ public final class AppTracker {
     
     @objc private func handleAppTerminated(_ notification: Notification) {
         guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+        IconCache.shared.evict(bundleID: app.bundleIdentifier ?? "")
+        IconCache.shared.evict(pid: app.processIdentifier)
         untrackApp(app.processIdentifier)
     }
     
@@ -269,6 +271,7 @@ public final class AppTracker {
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 let store = self.store
+                var didChange = false
                 
                 // Prune any stored windows and observers for PIDs that have terminated
                 let activePIDs = Set(runningApps.map { $0.processIdentifier })
@@ -278,17 +281,24 @@ public final class AppTracker {
                     if let observer = self.observers.removeValue(forKey: stalePID) {
                         observer.invalidate()
                     }
+                    didChange = true
                 }
                 
                 store.setFrontmostPID(frontmostPID)
-                store.setFocusedWindow(key: currentFocusedKey)
+                if store.setFocusedWindow(key: currentFocusedKey) {
+                    didChange = true
+                }
                 
                 for (pid, wins) in updatedWindows {
-                    store.syncSnapshot(forPID: pid, currentWindows: wins)
+                    if store.syncSnapshot(forPID: pid, currentWindows: wins) {
+                        didChange = true
+                    }
                 }
                 
                 self.isRefreshing = false
-                self.onWindowsChanged?()
+                if didChange {
+                    self.onWindowsChanged?()
+                }
                 
                 if self.needsReconcileAgain {
                     self.needsReconcileAgain = false
