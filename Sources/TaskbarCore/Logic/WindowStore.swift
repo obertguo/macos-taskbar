@@ -5,7 +5,7 @@ import CoreGraphics
 
 @MainActor public final class WindowStore {
     private var windows: [WindowKey: WindowInfo] = [:]
-    private var customOrders: [UInt32: [String: Int]] = [:]
+    private var customOrders: [UInt32: [OrderKey: Int]] = [:]
     public private(set) var focusedWindowKey: WindowKey?
     public private(set) var frontmostPID: pid_t?
     private var openOrderCounter: UInt64 = 0
@@ -49,29 +49,60 @@ import CoreGraphics
     }
     
     public func removeWindow(key: WindowKey) {
-        windows.removeValue(forKey: key)
+        let removedWindow = windows.removeValue(forKey: key)
         if focusedWindowKey == key {
             focusedWindowKey = nil
         }
-        let keyString = TaskbarConstants.Identifiers.windowID(pid: key.pid, id: key.id)
+        
+        let bundleID = removedWindow?.bundleID
+        let hasRemainingWindowsForApp: Bool
+        if let bundleID = bundleID {
+            hasRemainingWindowsForApp = windows.values.contains { $0.bundleID == bundleID }
+        } else {
+            hasRemainingWindowsForApp = true
+        }
+        
         for (screenID, order) in customOrders {
-            if order[keyString] != nil {
-                var updated = order
-                updated.removeValue(forKey: keyString)
+            var updated = order
+            let removedWin = updated.removeValue(forKey: .window(key)) != nil
+            var removedApp = false
+            if let bundleID = bundleID, !hasRemainingWindowsForApp {
+                removedApp = updated.removeValue(forKey: .app(bundleID)) != nil
+            }
+            if removedWin || removedApp {
                 customOrders[screenID] = updated
             }
         }
     }
     
     public func removeWindows(forPID pid: pid_t) {
+        let removedWindows = windows.values.filter { $0.pid == pid }
+        let removedBundleIDs = Set(removedWindows.map { $0.bundleID })
         windows = windows.filter { $0.value.pid != pid }
+        
         if let focused = focusedWindowKey, focused.pid == pid {
             focusedWindowKey = nil
         }
-        let pidPrefix = TaskbarConstants.Identifiers.windowPIDPrefix(pid: pid)
+        
+        let remainingBundleIDs = Set(windows.values.map { $0.bundleID })
+        let orphanedBundleIDs = removedBundleIDs.subtracting(remainingBundleIDs)
+        
         for (screenID, order) in customOrders {
-            let updated = order.filter { !$0.key.hasPrefix(pidPrefix) }
-            if updated.count != order.count {
+            var updated = order
+            var changed = false
+            for orderKey in order.keys {
+                switch orderKey {
+                case let .window(key) where key.pid == pid:
+                    updated.removeValue(forKey: orderKey)
+                    changed = true
+                case let .app(bundleID) where orphanedBundleIDs.contains(bundleID):
+                    updated.removeValue(forKey: orderKey)
+                    changed = true
+                default:
+                    break
+                }
+            }
+            if changed {
                 customOrders[screenID] = updated
             }
         }
@@ -140,6 +171,9 @@ import CoreGraphics
         }
         
         let currentKeys = Set(currentWindows.map { $0.key })
+        let closedWindows = previousWindows.filter { !currentKeys.contains($0.key) }
+        let closedKeys = Set(closedWindows.keys)
+        let closedBundleIDs = Set(closedWindows.values.map { $0.bundleID })
         
         // Remove windows for this PID that are no longer reported
         windows = windows.filter { key, info in
@@ -149,6 +183,35 @@ import CoreGraphics
         // Update or insert current windows
         for window in currentWindows {
             addOrUpdateWindow(window)
+        }
+        
+        // Clear focusedWindowKey if the previously focused window is no longer present in windows
+        if let focused = focusedWindowKey, windows[focused] == nil {
+            focusedWindowKey = nil
+        }
+        
+        // Check if any closed window belonged to an app with no remaining windows
+        let remainingBundleIDs = Set(windows.values.map { $0.bundleID })
+        let orphanedBundleIDs = closedBundleIDs.subtracting(remainingBundleIDs)
+        
+        if !closedKeys.isEmpty || !orphanedBundleIDs.isEmpty {
+            for (screenID, order) in customOrders {
+                var updated = order
+                var changed = false
+                for closedKey in closedKeys {
+                    if updated.removeValue(forKey: .window(closedKey)) != nil {
+                        changed = true
+                    }
+                }
+                for bundleID in orphanedBundleIDs {
+                    if updated.removeValue(forKey: .app(bundleID)) != nil {
+                        changed = true
+                    }
+                }
+                if changed {
+                    customOrders[screenID] = updated
+                }
+            }
         }
         
         return didChange
@@ -163,12 +226,15 @@ import CoreGraphics
         guard let screenOrder = customOrders[screenID], !screenOrder.isEmpty else {
             return naturalOrder
         }
-        return naturalOrder.enumerated().sorted { left, right in
-            let leftKey = TaskbarConstants.Identifiers.windowID(pid: left.element.key.pid, id: left.element.key.id)
-            let rightKey = TaskbarConstants.Identifiers.windowID(pid: right.element.key.pid, id: right.element.key.id)
-            let leftSlot = screenOrder[leftKey]
-            let rightSlot = screenOrder[rightKey]
-            switch (leftSlot, rightSlot) {
+        
+        // Single-pass Decorate-Sort-Undecorate using OrderKey
+        let decorated: [(offset: Int, window: WindowInfo, slot: Int?)] = naturalOrder.enumerated().map { offset, win in
+            let slot = screenOrder[.window(win.key)] ?? screenOrder[.app(win.bundleID)]
+            return (offset, win, slot)
+        }
+        
+        let sorted = decorated.sorted { left, right in
+            switch (left.slot, right.slot) {
             case let (l?, r?):
                 return l != r ? l < r : left.offset < right.offset
             case (.some, .none):
@@ -178,16 +244,18 @@ import CoreGraphics
             case (.none, .none):
                 return left.offset < right.offset
             }
-        }.map { $0.element }
+        }
+        
+        return sorted.map { $0.window }
     }
     
     /// Retrieves the custom order slot mapping for a specific display, if set.
-    public func customOrder(forScreenID screenID: UInt32) -> [String: Int] {
+    public func customOrder(forScreenID screenID: UInt32) -> [OrderKey: Int] {
         customOrders[screenID] ?? [:]
     }
     
     /// Commits a new custom order slot mapping for a specific display.
-    public func setCustomOrder(_ order: [String: Int], forScreenID screenID: UInt32) {
+    public func setCustomOrder(_ order: [OrderKey: Int], forScreenID screenID: UInt32) {
         customOrders[screenID] = order
     }
     

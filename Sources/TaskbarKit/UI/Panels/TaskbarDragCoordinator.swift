@@ -7,14 +7,15 @@ import TaskbarCore
 /// and layout requests back to the owning `TaskbarView`.
 @MainActor
 internal protocol TaskbarDragCoordinatorDelegate: AnyObject {
-    var taskButtons: [TaskButton] { get set }
-    var pinnedButtons: [PinnedButton] { get set }
-    var currentPinnedApps: [PinnedApp] { get set }
+    var taskButtons: [TaskButton] { get }
+    var pinnedButtons: [PinnedButton] { get }
+    var currentPinnedApps: [PinnedApp] { get }
     var buttonSpacing: Double { get }
     
     func currentLayoutParams() -> TaskbarLayoutParameters
-    func dragCoordinatorDidCommitTaskReorder(from fromIndex: Int, to toIndex: Int)
-    func dragCoordinatorDidCommitPinnedReorder(from fromIndex: Int, to toIndex: Int, updatedPinnedApps: [PinnedApp])
+    func moveTaskButton(from fromIndex: Int, to toIndex: Int)
+    func movePinnedButton(from fromIndex: Int, to toIndex: Int, updatedPinnedApps: [PinnedApp])
+    func dragCoordinatorDidEndDrag()
     func dragCoordinatorRequiresLayoutUpdate()
     func dragCoordinatorDidRequestPopupDismissal()
 }
@@ -23,13 +24,15 @@ internal protocol TaskbarDragCoordinatorDelegate: AnyObject {
 /// managing drag session states, insertion indicator rendering, and drop commits.
 @MainActor
 internal final class TaskbarDragCoordinator {
-    internal enum DragSessionTarget {
-        case task(button: TaskButton, initialIndex: Int)
-        case pinned(button: PinnedButton, initialIndex: Int)
+    internal enum DragKind: Sendable {
+        case task
+        case pinned
     }
     
     internal struct DragSession {
-        let target: DragSessionTarget
+        let kind: DragKind
+        let button: NSView
+        let initialIndex: Int
         var currentTargetSlot: Int
         let initialFrame: NSRect
         let startMouseWindowX: CGFloat
@@ -38,14 +41,13 @@ internal final class TaskbarDragCoordinator {
     internal private(set) var activeDragSession: DragSession?
     internal let insertionIndicatorView = NSView()
     
+    internal var isDragging: Bool {
+        activeDragSession != nil
+    }
+    
     internal func isDragging(button: NSView) -> Bool {
         guard let session = activeDragSession else { return false }
-        switch session.target {
-        case let .task(btn, _):
-            return btn === button
-        case let .pinned(btn, _):
-            return btn === button
-        }
+        return session.button === button
     }
     
     internal weak var delegate: TaskbarDragCoordinatorDelegate?
@@ -69,162 +71,90 @@ internal final class TaskbarDragCoordinator {
         insertionIndicatorView.layer?.backgroundColor = indicatorColor.cgColor
     }
     
-    // MARK: - Task Button Drag Configuration
+    // MARK: - Drag Configuration
     
     func configureTaskButtonDrag(_ btn: TaskButton) {
         btn.onDragStarted = { [weak self, weak btn] in
             guard let self = self, let btn = btn else { return }
-            self.handleTaskDragStarted(btn)
+            guard let initialIndex = self.delegate?.taskButtons.firstIndex(where: { $0 === btn }) else { return }
+            self.handleDragStarted(kind: .task, button: btn, initialIndex: initialIndex)
         }
         btn.onDragged = { [weak self, weak btn] loc in
             guard let self = self, let btn = btn else { return }
-            self.handleTaskDragged(btn, currentWindowLocation: loc)
+            self.handleDragged(kind: .task, button: btn, currentWindowLocation: loc)
         }
         btn.onDragEnded = { [weak self, weak btn] cancelled in
             guard let self = self, let btn = btn else { return }
-            self.handleTaskDragEnded(btn, cancelled: cancelled)
+            self.handleDragEnded(kind: .task, button: btn, cancelled: cancelled)
         }
     }
-    
-    private func handleTaskDragStarted(_ btn: TaskButton) {
-        guard let delegate = delegate, let hostView = hostView else { return }
-        delegate.dragCoordinatorDidRequestPopupDismissal()
-        
-        guard let initialIndex = delegate.taskButtons.firstIndex(where: { $0 === btn }) else { return }
-        let startX = btn.window?.mouseLocationOutsideOfEventStream.x ?? btn.frame.midX
-        activeDragSession = DragSession(
-            target: .task(button: btn, initialIndex: initialIndex),
-            currentTargetSlot: initialIndex,
-            initialFrame: btn.frame,
-            startMouseWindowX: startX
-        )
-        btn.alphaValue = TaskbarConstants.Drag.draggedButtonAlpha
-        btn.layer?.zPosition = TaskbarConstants.Drag.draggedButtonZPosition
-        showTaskInsertionIndicator(forSlot: initialIndex, in: hostView)
-    }
-    
-    private func handleTaskDragged(_ btn: TaskButton, currentWindowLocation: NSPoint) {
-        guard let session = activeDragSession, let delegate = delegate, let hostView = hostView else { return }
-        let deltaX = currentWindowLocation.x - session.startMouseWindowX
-        var draggedFrame = session.initialFrame
-        draggedFrame.origin.x += deltaX
-        btn.frame = draggedFrame
-        
-        let localPoint = hostView.convert(currentWindowLocation, from: nil)
-        let params = delegate.currentLayoutParams()
-        let plan = TaskbarLayoutEngine.computeLayout(params: params)
-        let slot = plan.taskInsertionSlot(atX: localPoint.x)
-        activeDragSession?.currentTargetSlot = slot
-        showTaskInsertionIndicator(forSlot: slot, in: hostView)
-    }
-    
-    private func handleTaskDragEnded(_ btn: TaskButton, cancelled: Bool) {
-        insertionIndicatorView.isHidden = true
-        btn.alphaValue = 1.0
-        btn.layer?.zPosition = 0
-        
-        guard let session = activeDragSession, let delegate = delegate else {
-            delegate?.dragCoordinatorRequiresLayoutUpdate()
-            return
-        }
-        activeDragSession = nil
-        
-        if cancelled {
-            btn.frame = session.initialFrame
-            delegate.dragCoordinatorRequiresLayoutUpdate()
-            return
-        }
-        
-        let initialIndex: Int
-        switch session.target {
-        case let .task(draggedBtn, idx):
-            guard draggedBtn === btn else {
-                delegate.dragCoordinatorRequiresLayoutUpdate()
-                return
-            }
-            initialIndex = idx
-        case .pinned:
-            delegate.dragCoordinatorRequiresLayoutUpdate()
-            return
-        }
-        
-        let targetSlot = session.currentTargetSlot
-        let destinationIndex = (initialIndex < targetSlot) ? (targetSlot - 1) : targetSlot
-        
-        if initialIndex != destinationIndex && initialIndex >= 0 && initialIndex < delegate.taskButtons.count && destinationIndex >= 0 && destinationIndex < delegate.taskButtons.count {
-            delegate.dragCoordinatorDidCommitTaskReorder(from: initialIndex, to: destinationIndex)
-        }
-        delegate.dragCoordinatorRequiresLayoutUpdate()
-    }
-    
-    private func showTaskInsertionIndicator(forSlot slot: Int, in hostView: NSView) {
-        guard let delegate = delegate else { return }
-        let params = delegate.currentLayoutParams()
-        let plan = TaskbarLayoutEngine.computeLayout(params: params)
-        if let indX = plan.taskInsertionIndicatorX(forSlot: slot, buttonSpacing: CGFloat(delegate.buttonSpacing)) {
-            let indicatorW: CGFloat = TaskbarConstants.Drag.insertionIndicatorWidth
-            let indicatorH = max(TaskbarConstants.Drag.insertionIndicatorMinHeight, hostView.bounds.height - TaskbarConstants.Drag.insertionIndicatorVerticalInset)
-            let indicatorY = (hostView.bounds.height - indicatorH) / 2.0
-            insertionIndicatorView.frame = NSRect(x: round(indX - (indicatorW / 2.0)), y: indicatorY, width: indicatorW, height: indicatorH)
-            insertionIndicatorView.isHidden = false
-        } else {
-            insertionIndicatorView.isHidden = true
-        }
-    }
-    
-    // MARK: - Pinned Button Drag Configuration
     
     func configurePinnedButtonDrag(_ btn: PinnedButton) {
         btn.onDragStarted = { [weak self, weak btn] in
             guard let self = self, let btn = btn else { return }
-            self.handlePinnedDragStarted(btn)
+            guard let initialIndex = self.delegate?.pinnedButtons.firstIndex(where: { $0 === btn }) else { return }
+            self.handleDragStarted(kind: .pinned, button: btn, initialIndex: initialIndex)
         }
         btn.onDragged = { [weak self, weak btn] loc in
             guard let self = self, let btn = btn else { return }
-            self.handlePinnedDragged(btn, currentWindowLocation: loc)
+            self.handleDragged(kind: .pinned, button: btn, currentWindowLocation: loc)
         }
         btn.onDragEnded = { [weak self, weak btn] cancelled in
             guard let self = self, let btn = btn else { return }
-            self.handlePinnedDragEnded(btn, cancelled: cancelled)
+            self.handleDragEnded(kind: .pinned, button: btn, cancelled: cancelled)
         }
     }
     
-    private func handlePinnedDragStarted(_ btn: PinnedButton) {
+    // MARK: - Shared Drag Handling
+    
+    private func handleDragStarted(kind: DragKind, button: NSView, initialIndex: Int) {
         guard let delegate = delegate, let hostView = hostView else { return }
         delegate.dragCoordinatorDidRequestPopupDismissal()
         
-        guard let initialIndex = delegate.pinnedButtons.firstIndex(where: { $0 === btn }) else { return }
-        let startX = btn.window?.mouseLocationOutsideOfEventStream.x ?? btn.frame.midX
+        let startX = button.window?.mouseLocationOutsideOfEventStream.x ?? button.frame.midX
         activeDragSession = DragSession(
-            target: .pinned(button: btn, initialIndex: initialIndex),
+            kind: kind,
+            button: button,
+            initialIndex: initialIndex,
             currentTargetSlot: initialIndex,
-            initialFrame: btn.frame,
+            initialFrame: button.frame,
             startMouseWindowX: startX
         )
-        btn.alphaValue = TaskbarConstants.Drag.draggedButtonAlpha
-        btn.layer?.zPosition = TaskbarConstants.Drag.draggedButtonZPosition
-        showPinnedInsertionIndicator(forSlot: initialIndex, in: hostView)
+        button.alphaValue = TaskbarConstants.Drag.draggedButtonAlpha
+        button.layer?.zPosition = TaskbarConstants.Drag.draggedButtonZPosition
+        
+        let params = delegate.currentLayoutParams()
+        let plan = TaskbarLayoutEngine.computeLayout(params: params)
+        showInsertionIndicator(kind: kind, plan: plan, slot: initialIndex, hostView: hostView)
     }
     
-    private func handlePinnedDragged(_ btn: PinnedButton, currentWindowLocation: NSPoint) {
+    private func handleDragged(kind: DragKind, button: NSView, currentWindowLocation: NSPoint) {
         guard let session = activeDragSession, let delegate = delegate, let hostView = hostView else { return }
         let deltaX = currentWindowLocation.x - session.startMouseWindowX
         var draggedFrame = session.initialFrame
         draggedFrame.origin.x += deltaX
-        btn.frame = draggedFrame
+        button.frame = draggedFrame
         
         let localPoint = hostView.convert(currentWindowLocation, from: nil)
         let params = delegate.currentLayoutParams()
         let plan = TaskbarLayoutEngine.computeLayout(params: params)
-        let slot = plan.pinnedInsertionSlot(atX: localPoint.x)
+        
+        let slot: Int
+        switch kind {
+        case .task:
+            slot = plan.taskInsertionSlot(atX: localPoint.x)
+        case .pinned:
+            slot = plan.pinnedInsertionSlot(atX: localPoint.x)
+        }
+        
         activeDragSession?.currentTargetSlot = slot
-        showPinnedInsertionIndicator(forSlot: slot, in: hostView)
+        showInsertionIndicator(kind: kind, plan: plan, slot: slot, hostView: hostView)
     }
     
-    private func handlePinnedDragEnded(_ btn: PinnedButton, cancelled: Bool) {
+    private func handleDragEnded(kind: DragKind, button: NSView, cancelled: Bool) {
         insertionIndicatorView.isHidden = true
-        btn.alphaValue = 1.0
-        btn.layer?.zPosition = 0
+        button.alphaValue = 1.0
+        button.layer?.zPosition = 0
         
         guard let session = activeDragSession, let delegate = delegate else {
             delegate?.dragCoordinatorRequiresLayoutUpdate()
@@ -233,41 +163,58 @@ internal final class TaskbarDragCoordinator {
         activeDragSession = nil
         
         if cancelled {
-            btn.frame = session.initialFrame
+            button.frame = session.initialFrame
+            delegate.dragCoordinatorDidEndDrag()
             delegate.dragCoordinatorRequiresLayoutUpdate()
             return
         }
         
-        let initialIndex: Int
-        switch session.target {
-        case let .pinned(draggedBtn, idx):
-            guard draggedBtn === btn else {
-                delegate.dragCoordinatorRequiresLayoutUpdate()
-                return
-            }
-            initialIndex = idx
-        case .task:
+        guard session.button === button, session.kind == kind else {
+            delegate.dragCoordinatorDidEndDrag()
             delegate.dragCoordinatorRequiresLayoutUpdate()
             return
         }
         
+        let initialIndex = session.initialIndex
         let targetSlot = session.currentTargetSlot
         let destinationIndex = (initialIndex < targetSlot) ? (targetSlot - 1) : targetSlot
         
-        if initialIndex != destinationIndex && initialIndex >= 0 && initialIndex < delegate.currentPinnedApps.count && destinationIndex >= 0 && destinationIndex < delegate.currentPinnedApps.count {
-            var updated = delegate.currentPinnedApps
-            let moved = updated.remove(at: initialIndex)
-            updated.insert(moved, at: destinationIndex)
-            delegate.dragCoordinatorDidCommitPinnedReorder(from: initialIndex, to: destinationIndex, updatedPinnedApps: updated)
+        switch kind {
+        case .task:
+            if initialIndex != destinationIndex && initialIndex >= 0 && initialIndex < delegate.taskButtons.count && destinationIndex >= 0 && destinationIndex < delegate.taskButtons.count {
+                delegate.moveTaskButton(from: initialIndex, to: destinationIndex)
+            } else {
+                delegate.dragCoordinatorDidEndDrag()
+            }
+        case .pinned:
+            if initialIndex != destinationIndex && initialIndex >= 0 && initialIndex < delegate.currentPinnedApps.count && destinationIndex >= 0 && destinationIndex < delegate.currentPinnedApps.count {
+                var updated = delegate.currentPinnedApps
+                let moved = updated.remove(at: initialIndex)
+                updated.insert(moved, at: destinationIndex)
+                delegate.movePinnedButton(from: initialIndex, to: destinationIndex, updatedPinnedApps: updated)
+            } else {
+                delegate.dragCoordinatorDidEndDrag()
+            }
         }
         delegate.dragCoordinatorRequiresLayoutUpdate()
     }
     
-    private func showPinnedInsertionIndicator(forSlot slot: Int, in hostView: NSView) {
+    private func showInsertionIndicator(
+        kind: DragKind,
+        plan: TaskbarLayoutPlan,
+        slot: Int,
+        hostView: NSView
+    ) {
         guard let delegate = delegate else { return }
-        let params = delegate.currentLayoutParams()
-        let plan = TaskbarLayoutEngine.computeLayout(params: params)
-        if let indX = plan.pinnedInsertionIndicatorX(forSlot: slot, pinnedSpacing: CGFloat(TaskbarConstants.Layout.pinnedButtonSpacing)) {
+        let indX: CGFloat?
+        switch kind {
+        case .task:
+            indX = plan.taskInsertionIndicatorX(forSlot: slot, buttonSpacing: CGFloat(delegate.buttonSpacing))
+        case .pinned:
+            indX = plan.pinnedInsertionIndicatorX(forSlot: slot, pinnedSpacing: CGFloat(TaskbarConstants.Layout.pinnedButtonSpacing))
+        }
+        
+        if let indX = indX {
             let indicatorW: CGFloat = TaskbarConstants.Drag.insertionIndicatorWidth
             let indicatorH = max(TaskbarConstants.Drag.insertionIndicatorMinHeight, hostView.bounds.height - TaskbarConstants.Drag.insertionIndicatorVerticalInset)
             let indicatorY = (hostView.bounds.height - indicatorH) / 2.0

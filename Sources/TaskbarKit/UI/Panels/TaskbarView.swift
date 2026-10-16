@@ -16,7 +16,7 @@ public final class TaskbarView: NSView {
     private let visualEffectView = NSVisualEffectView()
     public let startButton: StartButton
     public let overflowButton: OverflowButton
-    internal var taskButtons: [TaskButton] = []
+    public internal(set) var taskButtons: [TaskButton] = []
     private var groupButtonMap: [String: TaskButton] = [:]
     public private(set) var activeGroupPopup: GroupWindowPopup?
     private var activePopupGroupID: String?
@@ -29,7 +29,7 @@ public final class TaskbarView: NSView {
         }
     }
     
-    internal var pinnedButtons: [PinnedButton] = []
+    public internal(set) var pinnedButtons: [PinnedButton] = []
     private var pinnedButtonMap: [String: PinnedButton] = [:]
     public internal(set) var currentPinnedApps: [PinnedApp] = []
     
@@ -44,6 +44,7 @@ public final class TaskbarView: NSView {
     private var currentWindows: [WindowInfo] = []
     private var focusedKey: WindowKey?
     private var frontmostPID: pid_t?
+    private var pendingWindowUpdate: (windows: [WindowInfo], focusedKey: WindowKey?, frontmostPID: pid_t?)?
     
     public var minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth {
         didSet {
@@ -149,6 +150,11 @@ public final class TaskbarView: NSView {
     }
     
     public func updateWindows(windows: [WindowInfo], focusedKey: WindowKey?, frontmostPID: pid_t?) {
+        if dragCoordinator != nil && (dragCoordinator.isDragging || dragCoordinator.activeDragSession != nil) {
+            pendingWindowUpdate = (windows: windows, focusedKey: focusedKey, frontmostPID: frontmostPID)
+            return
+        }
+        
         self.currentWindows = windows
         self.focusedKey = focusedKey
         self.frontmostPID = frontmostPID
@@ -481,17 +487,15 @@ public final class TaskbarView: NSView {
     }
     
     private func commitCustomOrderToStore() {
-        var orderMap: [String: Int] = [:]
-        for (idx, b) in taskButtons.enumerated() {
-            orderMap[b.group.id] = idx
-            for win in b.group.windows {
-                let winKey = TaskbarConstants.Identifiers.windowID(pid: win.key.pid, id: win.key.id)
-                orderMap[winKey] = idx
-            }
-        }
-        if let screenID = self.screenID {
-            store?.setCustomOrder(orderMap, forScreenID: UInt32(screenID))
-        }
+        guard let screenID = self.screenID else { return }
+        let orderMap = WindowOrderingLogic.rebuildOrderMap(for: taskButtons.map(\.group))
+        store?.setCustomOrder(orderMap, forScreenID: UInt32(screenID))
+    }
+    
+    private func flushPendingWindowUpdate() {
+        guard dragCoordinator?.activeDragSession == nil, let pending = pendingWindowUpdate else { return }
+        pendingWindowUpdate = nil
+        updateWindows(windows: pending.windows, focusedKey: pending.focusedKey, frontmostPID: pending.frontmostPID)
     }
     
     public override func layout() {
@@ -641,20 +645,39 @@ public final class TaskbarView: NSView {
 // MARK: - TaskbarDragCoordinatorDelegate
 
 extension TaskbarView: TaskbarDragCoordinatorDelegate {
+    func moveTaskButton(from fromIndex: Int, to toIndex: Int) {
+        dragCoordinatorDidCommitTaskReorder(from: fromIndex, to: toIndex)
+    }
+    
     func dragCoordinatorDidCommitTaskReorder(from fromIndex: Int, to toIndex: Int) {
+        guard fromIndex >= 0, fromIndex < taskButtons.count,
+              toIndex >= 0, toIndex < taskButtons.count else { return }
         let moved = taskButtons.remove(at: fromIndex)
         taskButtons.insert(moved, at: toIndex)
         commitCustomOrderToStore()
+        flushPendingWindowUpdate()
+    }
+    
+    func movePinnedButton(from fromIndex: Int, to toIndex: Int, updatedPinnedApps: [PinnedApp]) {
+        dragCoordinatorDidCommitPinnedReorder(from: fromIndex, to: toIndex, updatedPinnedApps: updatedPinnedApps)
     }
     
     func dragCoordinatorDidCommitPinnedReorder(from fromIndex: Int, to toIndex: Int, updatedPinnedApps: [PinnedApp]) {
         self.currentPinnedApps = updatedPinnedApps
+        guard fromIndex >= 0, fromIndex < pinnedButtons.count,
+              toIndex >= 0, toIndex < pinnedButtons.count else { return }
         let movedBtn = pinnedButtons.remove(at: fromIndex)
         pinnedButtons.insert(movedBtn, at: toIndex)
         onPinnedReorderRequested?(updatedPinnedApps)
+        flushPendingWindowUpdate()
+    }
+    
+    func dragCoordinatorDidEndDrag() {
+        flushPendingWindowUpdate()
     }
     
     func dragCoordinatorRequiresLayoutUpdate() {
+        flushPendingWindowUpdate()
         layoutComponents()
     }
     

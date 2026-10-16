@@ -266,27 +266,6 @@ public final class ScreenManager {
             let assignedScreen = ScreenAssignment.assignScreen(for: win.frame, across: descriptors) ?? descriptors.first(where: { $0.isPrimary })?.id ?? descriptors.first?.id ?? 0
             windowsByScreen[assignedScreen, default: []].append(win)
         }
-        for (screenID, list) in windowsByScreen {
-            let screenOrder = store.customOrder(forScreenID: screenID)
-            if !screenOrder.isEmpty {
-                windowsByScreen[screenID] = list.enumerated().sorted { left, right in
-                    let leftKey = TaskbarConstants.Identifiers.windowID(pid: left.element.key.pid, id: left.element.key.id)
-                    let rightKey = TaskbarConstants.Identifiers.windowID(pid: right.element.key.pid, id: right.element.key.id)
-                    let leftSlot = screenOrder[leftKey]
-                    let rightSlot = screenOrder[rightKey]
-                    switch (leftSlot, rightSlot) {
-                    case let (l?, r?):
-                        return l != r ? l < r : left.offset < right.offset
-                    case (.some, .none):
-                        return true
-                    case (.none, .some):
-                        return false
-                    case (.none, .none):
-                        return left.offset < right.offset
-                    }
-                }.map { $0.element }
-            }
-        }
         
         for (displayID, panel) in panels {
             guard screens.contains(where: {

@@ -127,9 +127,9 @@ struct WindowReorderingIntegrationTests {
         
         // Verify store customOrder persisted
         let order = store.customOrder(forScreenID: 1)
-        #expect(order["win_2_102"] == 0) // Terminal
-        #expect(order["win_3_103"] == 1) // Notes
-        #expect(order["win_1_101"] == 2) // Safari
+        #expect(order[.window(win2.key)] == 0) // Terminal
+        #expect(order[.window(win3.key)] == 1) // Notes
+        #expect(order[.window(win1.key)] == 2) // Safari
         
         // Verify store.windows queries return the new custom order
         let queriedWindows = store.windows(forScreenID: 1, screens: screens)
@@ -290,8 +290,8 @@ struct WindowReorderingIntegrationTests {
         // Verify custom orders in store
         let order1 = store.customOrder(forScreenID: 1)
         let order2 = store.customOrder(forScreenID: 2)
-        #expect(order1["win_20_2"] == 0)
-        #expect(order1["win_10_1"] == 1)
+        #expect(order1[.window(win2.key)] == 0)
+        #expect(order1[.window(win1.key)] == 1)
         #expect(order2.isEmpty, "Screen 2 custom order must remain unperturbed")
         
         // Verify queried windows
@@ -346,5 +346,92 @@ struct WindowReorderingIntegrationTests {
         }
         
         manager.closeAll()
+    }
+    
+    // TC-DRAG-005: Mid-drag window update buffering: concurrent updateWindows during active drag is buffered and applied only after drop/end.
+    @Test("TC-DRAG-005: Mid-drag updateWindows calls are buffered until drag session completes")
+    func testMidDragWindowUpdateBuffering() {
+        let store = WindowStore()
+        let win1 = WindowInfo(
+            key: WindowKey(id: 1, pid: 10),
+            pid: 10,
+            appName: "AppA",
+            bundleID: "com.test.a",
+            title: "A",
+            frame: CGRect(x: 100, y: 100, width: 400, height: 300)
+        )
+        let win2 = WindowInfo(
+            key: WindowKey(id: 2, pid: 20),
+            pid: 20,
+            appName: "AppB",
+            bundleID: "com.test.b",
+            title: "B",
+            frame: CGRect(x: 200, y: 200, width: 400, height: 300)
+        )
+        let win3 = WindowInfo(
+            key: WindowKey(id: 3, pid: 30),
+            pid: 30,
+            appName: "AppC",
+            bundleID: "com.test.c",
+            title: "C",
+            frame: CGRect(x: 300, y: 300, width: 400, height: 300)
+        )
+        
+        store.addOrUpdateWindow(win1)
+        store.addOrUpdateWindow(win2)
+        store.addOrUpdateWindow(win3)
+        
+        let view = TaskbarView(
+            theme: ModernHybridTheme.definition,
+            launcherAction: .spotlight,
+            store: store
+        )
+        view.screenID = 1
+        view.frame = NSRect(x: 0, y: 0, width: 800, height: 30)
+        view.updateWindows(windows: [win1, win2, win3], focusedKey: nil, frontmostPID: nil)
+        view.layout()
+        
+        #expect(view.taskButtons.count == 3)
+        guard let btnA = view.button(forKey: win1.key),
+              let btnB = view.button(forKey: win2.key),
+              let btnC = view.button(forKey: win3.key) else {
+            Issue.record("Expected all three buttons to exist initially")
+            return
+        }
+        
+        // 1. Begin drag on btnA
+        let startLoc = NSPoint(x: btnA.frame.midX, y: btnA.frame.midY)
+        btnA.mouseDown(with: makeMouseEvent(type: .leftMouseDown, location: startLoc))
+        btnA.mouseDragged(with: makeMouseEvent(type: .leftMouseDragged, location: NSPoint(x: startLoc.x + 10.0, y: startLoc.y)))
+        #expect(btnA.isDragging, "Drag session should be active")
+        
+        // 2. Mid-drag reconcile: AppC closes while drag is in flight
+        store.removeWindow(key: win3.key)
+        view.updateWindows(windows: [win1, win2], focusedKey: nil, frontmostPID: nil)
+        
+        // Verify taskButtons array is NOT mutated out from under the active drag!
+        #expect(view.taskButtons.count == 3, "taskButtons must NOT be mutated while drag session is active")
+        #expect(view.taskButtons.contains(where: { $0 === btnC }), "Closed window button must remain buffered until drag completion")
+        #expect(btnA.isDragging, "Drag session remains active")
+        
+        // 3. Drag btnA past btnB and release
+        let dropLoc = NSPoint(x: btnB.frame.maxX + 20.0, y: btnB.frame.midY)
+        btnA.mouseDragged(with: makeMouseEvent(type: .leftMouseDragged, location: dropLoc))
+        btnA.mouseUp(with: makeMouseEvent(type: .leftMouseUp, location: dropLoc))
+        
+        #expect(!btnA.isDragging, "Drag session must terminate upon drop")
+        
+        // 4. Verify buffered update is applied immediately: btnC is removed, remaining buttons are reordered [B, A]
+        #expect(view.taskButtons.count == 2, "taskButtons count must reflect the buffered window update immediately")
+        #expect(!view.taskButtons.contains(where: { $0 === btnC }), "btnC must be removed after buffered update is flushed")
+        #expect(view.button(forKey: win3.key) == nil)
+        
+        // Verify reorder was preserved: B is now to the left of A
+        guard let finalBtnA = view.button(forKey: win1.key),
+              let finalBtnB = view.button(forKey: win2.key) else {
+            Issue.record("Expected buttons A and B to exist after flush")
+            return
+        }
+        #expect(finalBtnB.frame.minX < finalBtnA.frame.minX, "Drop reordering (B before A) must be preserved")
     }
 }
