@@ -105,7 +105,7 @@ struct StressIntegrationTests {
         
         // Assert that the exact same TaskButton view instance was recycled without recreation
         #expect(recycledButton === initialButton, "TaskbarView must reuse the identical TaskButton instance (pointer equality)")
-        #expect(recycledButton?.windowInfo.title == "Recycled Title")
-        #expect(recycledButton?.windowInfo.isMinimized == true)
+        #expect(recycledButton?.group.displayTitle == "Recycled Title")
+        #expect(recycledButton?.group.isMinimized == true)
     }
 }

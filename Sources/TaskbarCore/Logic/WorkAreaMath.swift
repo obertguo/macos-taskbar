@@ -145,23 +145,6 @@ public enum WorkAreaMath {
         }
     }
     
-    /// Backward-compatible method calculating clamped frame for bottom-anchored taskbar.
-    public static func clampWindowFrame(
-        _ windowFrame: CGRect,
-        screenFrame: CGRect,
-        taskbarHeight: CGFloat,
-        allowNonMaximized: Bool = true
-    ) -> CGRect? {
-        clampedFrame(
-            windowFrame: windowFrame,
-            screenBounds: screenFrame,
-            barDimension: Double(taskbarHeight),
-            edge: .bottom,
-            overlapThreshold: Double(overlapThreshold),
-            allowNonMaximized: allowNonMaximized
-        )
-    }
-    
     /// Resolves the appropriate screen from `screens` and computes the clamped frame for multi-edge taskbars.
     public static func clampedFrameForWindow(
         _ windowFrame: CGRect,
@@ -181,23 +164,6 @@ public enum WorkAreaMath {
             barDimension: barDimension,
             edge: edge,
             overlapThreshold: overlapThreshold,
-            allowNonMaximized: allowNonMaximized
-        )
-    }
-    
-    /// Backward-compatible resolution across screens for bottom-anchored taskbar.
-    public static func clampedFrameForWindow(
-        _ windowFrame: CGRect,
-        across screens: [ScreenDescriptor],
-        taskbarHeight: CGFloat,
-        allowNonMaximized: Bool = true
-    ) -> CGRect? {
-        clampedFrameForWindow(
-            windowFrame,
-            across: screens,
-            barDimension: Double(taskbarHeight),
-            edge: .bottom,
-            overlapThreshold: Double(overlapThreshold),
             allowNonMaximized: allowNonMaximized
         )
     }

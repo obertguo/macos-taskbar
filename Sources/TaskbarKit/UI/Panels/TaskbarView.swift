@@ -388,7 +388,7 @@ public final class TaskbarView: NSView {
         
         // Refresh isPinned on existing task buttons
         for btn in taskButtons {
-            btn.isPinned = newIDs.contains(btn.windowInfo.bundleID)
+            btn.isPinned = newIDs.contains(btn.group.bundleID)
         }
         
         layoutComponents()

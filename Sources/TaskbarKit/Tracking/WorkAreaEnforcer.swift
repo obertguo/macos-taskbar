@@ -402,7 +402,8 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
         guard let clampedFrame = WorkAreaMath.clampedFrameForWindow(
             currentFrame,
             across: screens,
-            taskbarHeight: currentBarHeight,
+            barDimension: Double(currentBarHeight),
+            edge: .bottom,
             allowNonMaximized: isResize
         ) else {
             logNudge("evaluateAndClamp NO CLAMP: frame=\(currentFrame), screens=\(screens.count), barH=\(currentBarHeight), allowNonMax=\(isResize)")

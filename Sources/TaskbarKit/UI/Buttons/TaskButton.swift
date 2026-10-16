@@ -16,23 +16,7 @@ public final class TaskButton: BaseTaskbarButton {
             }
         }
     }
-    
-    public var windowInfo: WindowInfo {
-        get {
-            group.primaryWindow ?? WindowInfo(
-                key: WindowKey(id: 0, pid: 0),
-                pid: 0,
-                appName: group.appName,
-                bundleID: group.bundleID,
-                title: group.appName,
-                frame: .zero,
-                isMinimized: false
-            )
-        }
-        set {
-            group = .singleWindow(newValue)
-        }
-    }
+
     
     public var isFocusedWindow: Bool {
         didSet {

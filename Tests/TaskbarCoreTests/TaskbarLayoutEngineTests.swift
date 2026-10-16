@@ -165,67 +165,77 @@ final class TaskbarLayoutEngineTests: XCTestCase {
         XCTAssertNil(plan.slotIndex(atX: 799.0)) // Past tasks
     }
     
-    // MARK: - TC-UNIT-014: Primary/Cross Axis Slot Calculation
+    // MARK: - TC-UNIT-014: Primary Axis Slot Calculation (Horizontal Layout)
     
-    func testVerticalTaskbarLayoutLeftEdge() {
+    func testHorizontalTaskbarLayoutSlotCalculations() {
+        // Vertical layout is quarantined until v0.4.0; layout engine strictly operates horizontally.
         let params = TaskbarLayoutParameters(
-            containerSize: CGSize(width: 40, height: 800),
+            containerSize: CGSize(width: 800, height: 30),
             startButtonWidth: 50,
             pinnedItemCount: 2,
             taskItemCount: 3,
-            edge: .left,
+            edge: .bottom,
             minButtonWidth: 80,
             maxButtonWidth: 160,
             buttonSpacing: 4
         )
         
         XCTAssertEqual(params.primaryDimension, 800.0)
-        XCTAssertEqual(params.crossDimension, 40.0)
+        XCTAssertEqual(params.crossDimension, 30.0)
         
         let plan = TaskbarLayoutEngine.computeLayout(params: params)
         
-        // Button cross thickness: 40 - 2*2 = 36
-        XCTAssertEqual(plan.buttonHeight, 36.0)
+        // Button cross thickness: 30 - 2*2 = 26
+        XCTAssertEqual(plan.buttonHeight, 26.0)
         
-        // Start button: x = 2 (padCross), y = 3 (leadingMargin), width = 36, height = 50
-        XCTAssertEqual(plan.startButtonFrame, CGRect(x: 2, y: 3, width: 36, height: 50))
+        // Start button: x = 3 (leadingMargin), y = 2 (padCross), width = 50, height = 26
+        XCTAssertEqual(plan.startButtonFrame, CGRect(x: 3, y: 2, width: 50, height: 26))
         
-        // Pinned buttons: square 36x36
-        // Pinned 0: y = 3 + 50 + 4 = 57
+        // Pinned buttons: square 26x26
+        // Pinned 0: x = 3 + 50 + 4 = 57
         XCTAssertEqual(plan.pinnedButtonFrames.count, 2)
-        XCTAssertEqual(plan.pinnedButtonFrames[0], CGRect(x: 2, y: 57, width: 36, height: 36))
-        // Pinned 1: 57 + 36 + 2 = 95
-        XCTAssertEqual(plan.pinnedButtonFrames[1], CGRect(x: 2, y: 95, width: 36, height: 36))
+        XCTAssertEqual(plan.pinnedButtonFrames[0], CGRect(x: 57, y: 2, width: 26, height: 26))
+        // Pinned 1: 57 + 26 + 2 = 85
+        XCTAssertEqual(plan.pinnedButtonFrames[1], CGRect(x: 85, y: 2, width: 26, height: 26))
         
-        // Task buttons along vertical axis Y
+        // Task buttons along horizontal axis X
         XCTAssertEqual(plan.visibleTaskCount, 3)
         XCTAssertEqual(plan.taskButtonFrames.count, 3)
         for frame in plan.taskButtonFrames {
-            XCTAssertEqual(frame.minX, 2.0)
-            XCTAssertEqual(frame.width, 36.0)
+            XCTAssertEqual(frame.minY, 2.0)
+            XCTAssertEqual(frame.height, 26.0)
         }
         
-        // Hit-testing along vertical axis Y
-        let task0MidY = plan.taskButtonFrames[0].midY
-        let task1MidY = plan.taskButtonFrames[1].midY
-        let task2MidY = plan.taskButtonFrames[2].midY
+        // Hit-testing along horizontal axis X
+        let task0MidX = plan.taskButtonFrames[0].midX
+        let task1MidX = plan.taskButtonFrames[1].midX
+        let task2MidX = plan.taskButtonFrames[2].midX
         
-        XCTAssertEqual(plan.slotIndex(forPosition: task0MidY, edge: .left), 0)
-        XCTAssertEqual(plan.slotIndex(forPosition: task1MidY, edge: .left), 1)
-        XCTAssertEqual(plan.slotIndex(forPosition: task2MidY, edge: .left), 2)
-        XCTAssertEqual(TaskbarLayoutEngine.slotIndex(forPosition: Double(task1MidY), edge: .left, in: plan), 1)
+        XCTAssertEqual(plan.slotIndex(forPosition: task0MidX, edge: .bottom), 0)
+        XCTAssertEqual(plan.slotIndex(forPosition: task1MidX, edge: .bottom), 1)
+        XCTAssertEqual(plan.slotIndex(forPosition: task2MidX, edge: .bottom), 2)
+        XCTAssertEqual(TaskbarLayoutEngine.slotIndex(forPosition: Double(task1MidX), edge: .bottom, in: plan), 1)
         
-        // Insertion slots along vertical axis
-        XCTAssertEqual(plan.taskInsertionSlot(forPosition: plan.taskButtonFrames[0].minY - 1, edge: .left), 0)
-        XCTAssertEqual(plan.taskInsertionSlot(forPosition: plan.taskButtonFrames[2].maxY + 10, edge: .left), 3)
+        // Insertion slots along horizontal axis
+        XCTAssertEqual(plan.taskInsertionSlot(forPosition: plan.taskButtonFrames[0].minX - 1, edge: .bottom), 0)
+        XCTAssertEqual(plan.taskInsertionSlot(forPosition: plan.taskButtonFrames[2].maxX + 10, edge: .bottom), 3)
         
-        // Insertion indicator position along vertical axis
-        let indicator0 = plan.taskInsertionIndicatorPosition(forSlot: 0, buttonSpacing: 4, edge: .left)
+        // Insertion indicator position along horizontal axis
+        let indicator0 = plan.taskInsertionIndicatorPosition(forSlot: 0, buttonSpacing: 4, edge: .bottom)
         XCTAssertNotNil(indicator0)
-        XCTAssertEqual(indicator0!, plan.taskButtonFrames[0].minY - 2.0)
+        XCTAssertEqual(indicator0!, plan.taskButtonFrames[0].minX - 2.0)
         
-        let indicator3 = plan.taskInsertionIndicatorPosition(forSlot: 3, buttonSpacing: 4, edge: .left)
+        let indicator3 = plan.taskInsertionIndicatorPosition(forSlot: 3, buttonSpacing: 4, edge: .bottom)
         XCTAssertNotNil(indicator3)
-        XCTAssertEqual(indicator3!, plan.taskButtonFrames[2].maxY + 2.0)
+        XCTAssertEqual(indicator3!, plan.taskButtonFrames[2].maxX + 2.0)
+        
+        // Pinned insertion slots along horizontal axis
+        XCTAssertEqual(plan.pinnedInsertionSlot(forPosition: plan.pinnedButtonFrames[0].minX - 1, edge: .bottom), 0)
+        XCTAssertEqual(plan.pinnedInsertionSlot(forPosition: plan.pinnedButtonFrames[1].maxX + 1, edge: .bottom), 2)
+        
+        // Pinned insertion indicator position along horizontal axis
+        let pinnedIndicator0 = plan.pinnedInsertionIndicatorPosition(forSlot: 0, pinnedSpacing: 2, edge: .bottom)
+        XCTAssertNotNil(pinnedIndicator0)
+        XCTAssertEqual(pinnedIndicator0!, plan.pinnedButtonFrames[0].minX - 1.0)
     }
 }
