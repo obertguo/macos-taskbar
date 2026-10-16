@@ -10,7 +10,7 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
     public static let shared = WorkAreaEnforcer()
     
     private let lock = NSLock()
-    private var _isEnabled: Bool = true
+    private var _isEnabled: Bool = NSClassFromString("XCTestCase") == nil
     private var _barHeight: CGFloat = CGFloat(TaskbarConstants.Layout.defaultBarHeight)
     private var _screens: [ScreenDescriptor] = []
     

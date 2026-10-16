@@ -62,7 +62,7 @@ public final class TestFixtureApp: @unchecked Sendable {
             if !NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == bundleIdentifier }) {
                 break
             }
-            Thread.sleep(forTimeInterval: 0.05)
+            usleep(20_000)
         }
     }
 
@@ -73,7 +73,7 @@ public final class TestFixtureApp: @unchecked Sendable {
             if let win = windowElement(index: index) {
                 return win
             }
-            try? await Task.sleep(nanoseconds: 100_000_000)
+            try? await Task.sleep(nanoseconds: 20_000_000)
         }
         return windowElement(index: index)
     }

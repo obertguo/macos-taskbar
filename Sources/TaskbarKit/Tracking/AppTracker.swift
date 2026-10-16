@@ -5,7 +5,7 @@ import ApplicationServices
 import TaskbarCore
 
 @MainActor
-public final class AppTracker {
+public final class AppTracker: WindowSource {
     public let store: WindowStore
     public var onWindowsChanged: (() -> Void)?
     
@@ -33,6 +33,10 @@ public final class AppTracker {
         center.addObserver(self, selector: #selector(handleAppHidden(_:)), name: NSWorkspace.didHideApplicationNotification, object: nil)
         center.addObserver(self, selector: #selector(handleAppUnhidden(_:)), name: NSWorkspace.didUnhideApplicationNotification, object: nil)
         center.addObserver(self, selector: #selector(handleActiveSpaceChanged(_:)), name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
+    }
+    
+    public func startTracking() {
+        startTrackingAllRunningApps()
     }
     
     public func startTrackingAllRunningApps() {

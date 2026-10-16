@@ -29,6 +29,7 @@ struct WindowLifecycleIntegrationTests {
     
     @Test("TC-FUNC-001: Window creation and taskbar store discovery")
     func testWindowCreation() async throws {
+        guard ProcessInfo.processInfo.environment["TASKBAR_RUN_LIVE_AX_TESTS"] == "1" else { return }
         guard AccessibilityPermission.isGranted() else {
             print("Skipping TC-FUNC-001: Accessibility permission not granted in current test environment.")
             return
@@ -51,6 +52,7 @@ struct WindowLifecycleIntegrationTests {
     
     @Test("TC-FUNC-002: Window minimization state tracking")
     func testWindowMinimization() async throws {
+        guard ProcessInfo.processInfo.environment["TASKBAR_RUN_LIVE_AX_TESTS"] == "1" else { return }
         guard AccessibilityPermission.isGranted() else {
             print("Skipping TC-FUNC-002: Accessibility permission not granted.")
             return
@@ -82,6 +84,7 @@ struct WindowLifecycleIntegrationTests {
     
     @Test("TC-FUNC-003: Window restoration / deminiaturization state tracking")
     func testWindowRestoration() async throws {
+        guard ProcessInfo.processInfo.environment["TASKBAR_RUN_LIVE_AX_TESTS"] == "1" else { return }
         guard AccessibilityPermission.isGranted() else {
             print("Skipping TC-FUNC-003: Accessibility permission not granted.")
             return
@@ -112,6 +115,7 @@ struct WindowLifecycleIntegrationTests {
     
     @Test("TC-FUNC-004: Window focus targeting specific window without raising other windows of the same application")
     func testSingleWindowFocusIsolation() async throws {
+        guard ProcessInfo.processInfo.environment["TASKBAR_RUN_LIVE_AX_TESTS"] == "1" else { return }
         guard AccessibilityPermission.isGranted() else {
             print("Skipping TC-FUNC-004: Accessibility permission not granted.")
             return
@@ -234,6 +238,7 @@ struct WindowLifecycleIntegrationTests {
     
     @Test("TC-FUNC-005: Dynamic window title mutation")
     func testWindowTitleMutation() async throws {
+        guard ProcessInfo.processInfo.environment["TASKBAR_RUN_LIVE_AX_TESTS"] == "1" else { return }
         guard AccessibilityPermission.isGranted() else {
             print("Skipping TC-FUNC-005: Accessibility permission not granted.")
             return
@@ -264,6 +269,7 @@ struct WindowLifecycleIntegrationTests {
     
     @Test("TC-FUNC-006: Window close and taskbar store teardown")
     func testWindowClose() async throws {
+        guard ProcessInfo.processInfo.environment["TASKBAR_RUN_LIVE_AX_TESTS"] == "1" else { return }
         guard AccessibilityPermission.isGranted() else {
             print("Skipping TC-FUNC-006: Accessibility permission not granted.")
             return
@@ -292,6 +298,7 @@ struct WindowLifecycleIntegrationTests {
     
     @Test("TC-FUNC-007: Application termination and observer cleanup")
     func testApplicationTermination() async throws {
+        guard ProcessInfo.processInfo.environment["TASKBAR_RUN_LIVE_AX_TESTS"] == "1" else { return }
         guard AccessibilityPermission.isGranted() else {
             print("Skipping TC-FUNC-007: Accessibility permission not granted.")
             return

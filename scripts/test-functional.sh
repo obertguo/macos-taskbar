@@ -13,9 +13,10 @@ load_build_env
 
 # Default test mode
 MODE="all"
+COVERAGE=0
 
 usage() {
-    echo -e "${BOLD}Usage:${NC} ./scripts/test-functional.sh [MODE]"
+    echo -e "${BOLD}Usage:${NC} ./scripts/test-functional.sh [MODE] [OPTIONS]"
     echo ""
     echo -e "${BOLD}Test Modes:${NC}"
     echo "  --quick        Run fast window lifecycle tests (TC-FUNC-*, ~15s)"
@@ -24,6 +25,9 @@ usage() {
     echo "  --reordering   Run drag-and-drop slot reordering suite (TC-DRAG-*)"
     echo "  --grouping     Run application window grouping & popup suite (TC-GROUP-*)"
     echo "  --all          Run complete test suite (Unit + Functional + Edge + Stress + Reordering + Grouping, default)"
+    echo ""
+    echo -e "${BOLD}Options:${NC}"
+    echo "  --coverage     Enable code coverage measurement and generate llvm-cov report"
     echo "  --help, -h     Show this help message"
     echo ""
     echo -e "${BOLD}Configuration (from config/build.env):${NC}"
@@ -62,6 +66,10 @@ while [[ $# -gt 0 ]]; do
             MODE="all"
             shift
             ;;
+        --coverage)
+            COVERAGE=1
+            shift
+            ;;
         --help|-h)
             usage
             exit 0
@@ -74,7 +82,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-log_header "${APP_NAME} Automated Test Runner (Mode: ${MODE})"
+log_header "${APP_NAME} Automated Test Runner (Mode: ${MODE}, Coverage: $([[ ${COVERAGE} -eq 1 ]] && echo 'ON' || echo 'OFF'))"
 
 # 1. Pre-flight Checks: macOS Version against MIN_MACOS_VERSION from build.env
 check_min_macos_version "${MIN_MACOS_VERSION}"
@@ -124,8 +132,14 @@ cleanup_fixtures() {
     pkill -9 -x "${TEST_FIXTURE_APP}" 2>/dev/null || true
 }
 
+# Export TASKBAR_RUN_LIVE_AX_TESTS=1 for modes that involve live tests
+if [[ "${MODE}" == "quick" || "${MODE}" == "edge-cases" || "${MODE}" == "all" ]]; then
+    export TASKBAR_RUN_LIVE_AX_TESTS=1
+    log_info "Enabled live Accessibility integration tests (TASKBAR_RUN_LIVE_AX_TESTS=1)"
+fi
+
 # Run pre-flight checks
-if [[ "${MODE}" == "quick" || "${MODE}" == "all" ]]; then
+if [[ "${MODE}" == "quick" || "${MODE}" == "edge-cases" || "${MODE}" == "all" ]]; then
     check_accessibility
 fi
 cleanup_fixtures
@@ -139,6 +153,16 @@ cd "${PROJECT_ROOT}"
 APP_PID=$(find_app_pid "${APP_NAME}")
 BASELINE_RSS=$(get_process_rss_kb "${APP_PID}")
 
+# Helper to execute a swift test suite with optional coverage instrumentation
+run_test_suite() {
+    local filter="$1"
+    if [[ "${COVERAGE}" -eq 1 ]]; then
+        swift test --enable-code-coverage --filter "${filter}" || FAILED=1
+    else
+        swift test --filter "${filter}" || FAILED=1
+    fi
+}
+
 # 5. Run Test Target
 START_TIME=$(date +%s)
 FAILED=0
@@ -146,55 +170,55 @@ FAILED=0
 case "${MODE}" in
     quick)
         log_info "Running Quick Window Lifecycle Suite (TC-FUNC-*)..."
-        swift test --filter WindowLifecycleIntegrationTests || FAILED=1
+        run_test_suite WindowLifecycleIntegrationTests
         ;;
     edge-cases)
         log_info "Running Edge Cases Suite (TC-EDGE-*)..."
-        swift test --filter EdgeCasesIntegrationTests || FAILED=1
+        run_test_suite EdgeCasesIntegrationTests
         ;;
     stress)
         log_info "Running Stress & Capacity Suite (TC-STRESS-*, TC-PERF-*)..."
-        swift test --filter StressIntegrationTests || FAILED=1
+        run_test_suite StressIntegrationTests
         ;;
     reordering)
         log_info "Running Window Reordering & Drag Suite (TC-DRAG-*)..."
-        swift test --filter WindowReorderingIntegrationTests || FAILED=1
+        run_test_suite WindowReorderingIntegrationTests
         ;;
     grouping)
         log_info "Running Window Grouping Suite (TC-GROUP-*)..."
-        swift test --filter WindowGroupingIntegrationTests || FAILED=1
-        swift test --filter StatusMenuGroupingTests || FAILED=1
+        run_test_suite WindowGroupingIntegrationTests
+        run_test_suite StatusMenuGroupingTests
         ;;
     all)
         log_info "Running Core Unit Tests (TC-UNIT-*)..."
-        swift test --filter TaskbarCoreTests || FAILED=1
+        run_test_suite TaskbarCoreTests
         
         log_info "Running Edge Cases Suite (TC-EDGE-*)..."
-        swift test --filter EdgeCasesIntegrationTests || FAILED=1
+        run_test_suite EdgeCasesIntegrationTests
         
         log_info "Running Stress Suite (TC-STRESS-*)..."
-        swift test --filter StressIntegrationTests || FAILED=1
+        run_test_suite StressIntegrationTests
         
         log_info "Running Pinned Applications Suite..."
-        swift test --filter PinnedAppsIntegrationTests || FAILED=1
+        run_test_suite PinnedAppsIntegrationTests
         
         log_info "Running Window Reordering & Drag Suite (TC-DRAG-*)..."
-        swift test --filter WindowReorderingIntegrationTests || FAILED=1
+        run_test_suite WindowReorderingIntegrationTests
         
         log_info "Running Window Grouping Suite (TC-GROUP-*)..."
-        swift test --filter WindowGroupingIntegrationTests || FAILED=1
+        run_test_suite WindowGroupingIntegrationTests
         
         log_info "Running Theme Expansion Suite..."
-        swift test --filter ThemeExpansionIntegrationTests || FAILED=1
+        run_test_suite ThemeExpansionIntegrationTests
         
         log_info "Running Status Menu Theme Suite..."
-        swift test --filter StatusMenuThemeTests || FAILED=1
+        run_test_suite StatusMenuThemeTests
         
         log_info "Running Status Menu Window Grouping Suite..."
-        swift test --filter StatusMenuGroupingTests || FAILED=1
+        run_test_suite StatusMenuGroupingTests
         
         log_info "Running Functional Lifecycle Suite (TC-FUNC-*)..."
-        swift test --filter WindowLifecycleIntegrationTests || FAILED=1
+        run_test_suite WindowLifecycleIntegrationTests
         ;;
 esac
 
@@ -232,6 +256,68 @@ if [[ "${BASELINE_RSS}" != "0" ]]; then
             log_success "Idle CPU: CPU usage is well within bounds (${CPU_USAGE}% <= ${TEST_MAX_CPU_PERCENT}%)"
         fi
     fi
+fi
+
+# 7. Code Coverage Report
+generate_coverage_report() {
+    log_header "Code Coverage Report"
+
+    # Locate the profdata file
+    local profdata
+    profdata=$(find .build -name "default.profdata" 2>/dev/null | head -n 1)
+    if [[ -z "${profdata}" ]]; then
+        profdata=$(find .build -name "*.profdata" 2>/dev/null | head -n 1)
+    fi
+
+    # Locate test binaries
+    local binaries=()
+    local bin_dir=".build/debug"
+    if [[ ! -d "${bin_dir}" ]]; then
+        bin_dir=".build"
+    fi
+
+    while IFS= read -r bin; do
+        if [[ -n "${bin}" && -x "${bin}" ]]; then
+            binaries+=("${bin}")
+        fi
+    done < <(find -L "${bin_dir}" -type f \( -path "*/Contents/MacOS/*Tests" -o -name "*PackageTests" \) 2>/dev/null | sort -u)
+
+    if [[ ${#binaries[@]} -eq 0 ]]; then
+        while IFS= read -r bin; do
+            if [[ -n "${bin}" && -x "${bin}" ]]; then
+                binaries+=("${bin}")
+            fi
+        done < <(find .build -type f \( -path "*/Contents/MacOS/*Tests" -o -name "*PackageTests" \) 2>/dev/null | sort -u)
+    fi
+
+    if [[ -n "${profdata}" && ${#binaries[@]} -gt 0 ]]; then
+        log_info "Profile data: ${profdata}"
+        local primary_bin="${binaries[0]}"
+        local extra_objects=()
+        for ((i=1; i<${#binaries[@]}; i++)); do
+            extra_objects+=("-object" "${binaries[i]}")
+        done
+
+        echo ""
+        if [[ ${#binaries[@]} -gt 1 ]]; then
+            xcrun llvm-cov report "${primary_bin}" "${extra_objects[@]}" -instr-profile="${profdata}" -ignore-filename-regex=".build|Tests" || log_warn "llvm-cov report returned an error"
+        else
+            xcrun llvm-cov report "${primary_bin}" -instr-profile="${profdata}" -ignore-filename-regex=".build|Tests" || log_warn "llvm-cov report returned an error"
+        fi
+        echo ""
+    else
+        log_warn "Could not generate coverage report: profdata or test binary not found."
+        if [[ -z "${profdata}" ]]; then
+            log_warn "No .profdata file found under .build"
+        fi
+        if [[ ${#binaries[@]} -eq 0 ]]; then
+            log_warn "No test binary found under .build"
+        fi
+    fi
+}
+
+if [[ "${COVERAGE}" -eq 1 ]]; then
+    generate_coverage_report
 fi
 
 if [[ "${FAILED}" -eq 0 ]]; then

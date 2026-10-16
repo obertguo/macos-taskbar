@@ -136,6 +136,7 @@ struct EdgeCasesIntegrationTests {
     
     @Test("TC-EDGE-005: Full-screen window resize debounce and animation settle clamping")
     func testFullScreenWindowResizeDebounceAndSettle() async throws {
+        guard ProcessInfo.processInfo.environment["TASKBAR_RUN_LIVE_AX_TESTS"] == "1" else { return }
         let fixture = try await TestFixtureApp.launchTextEdit(documentTitle: "NudgeTestDoc")
         defer { fixture.terminate() }
         
@@ -196,6 +197,7 @@ struct EdgeCasesIntegrationTests {
     
     @Test("TC-EDGE-006: Immediate initial maximize nudging with custom bar height without defocus")
     func testInitialMaximizeNudgingWithCustomBarHeight() async throws {
+        guard ProcessInfo.processInfo.environment["TASKBAR_RUN_LIVE_AX_TESTS"] == "1" else { return }
         let fixture = try await TestFixtureApp.launchTextEdit(documentTitle: "InitialMaximizeDoc")
         defer { fixture.terminate() }
         
