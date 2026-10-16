@@ -9,7 +9,6 @@ public final class PinnedButton: BaseTaskbarButton {
         didSet {
             if oldValue != pinnedApp {
                 toolTip = pinnedApp.displayName
-                setAccessibilityLabel(pinnedApp.displayName)
                 needsDisplay = true
             }
         }
@@ -44,9 +43,6 @@ public final class PinnedButton: BaseTaskbarButton {
         super.init(frame: .zero)
         
         self.toolTip = pinnedApp.displayName
-        self.setAccessibilityElement(true)
-        self.setAccessibilityRole(.button)
-        self.setAccessibilityLabel(pinnedApp.displayName)
     }
     
     public required init?(coder: NSCoder) {
@@ -194,5 +190,10 @@ public final class PinnedButton: BaseTaskbarButton {
             dotColor.setFill()
             dotPath.fill()
         }
+    }
+    
+    // MARK: - NSAccessibility
+    public override func accessibilityLabel() -> String? {
+        pinnedApp.displayName
     }
 }

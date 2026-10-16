@@ -1,15 +1,18 @@
 // Tests/TaskbarCoreTests/TaskbarCoreTests.swift
 
-import XCTest
+import Foundation
+import Testing
 @testable import TaskbarCore
 
-final class TaskbarCoreTests: XCTestCase {
+@Suite("TaskbarCore Build Configuration Tests")
+struct TaskbarCoreTests {
+    @Test("Build configuration properties")
     func testBuildConfiguration() {
-        XCTAssertEqual(TaskbarCoreInfo.version, BuildConfiguration.appVersion)
-        XCTAssertEqual(TaskbarCoreInfo.name, BuildConfiguration.appName)
-        XCTAssertEqual(TaskbarCoreInfo.bundleID, BuildConfiguration.bundleID)
-        XCTAssertFalse(BuildConfiguration.appName.isEmpty)
-        XCTAssertFalse(BuildConfiguration.bundleID.isEmpty)
-        XCTAssertFalse(BuildConfiguration.appVersion.isEmpty)
+        #expect(TaskbarCoreInfo.version == BuildConfiguration.appVersion)
+        #expect(TaskbarCoreInfo.name == BuildConfiguration.appName)
+        #expect(TaskbarCoreInfo.bundleID == BuildConfiguration.bundleID)
+        #expect(!BuildConfiguration.appName.isEmpty)
+        #expect(!BuildConfiguration.bundleID.isEmpty)
+        #expect(!BuildConfiguration.appVersion.isEmpty)
     }
 }

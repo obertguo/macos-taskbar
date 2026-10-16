@@ -9,9 +9,9 @@ Individual release cycles will have their own dedicated, detailed implementation
 ## 1. Guiding Vision & Principles
 
 1. **Lightweight & High Performance:** Target $< 40\text{ MB}$ memory footprint, $\sim 0.0\%$ idle CPU, and zero main UI thread hangs.
-2. **100% Public Apple APIs:** Rely strictly on public Accessibility (`AXUIElement`) and `NSWorkspace` APIs for rock-solid stability across macOS versions. No private SkyLight dependencies or screen recording prompts.
+2. **Isolated Low-Level SPIs & Zero Screen Capture:** Rely strictly on Apple Accessibility (`AXUIElement`) and `NSWorkspace` APIs. Low-level WindowServer SPIs (`_AXUIElementGetWindow`, `_SLPSSetFrontProcessWithOptions`) are strictly isolated in `PrivateAPI.swift` with safe public fallbacks, zero screen capture permissions, and zero polling loops.
 3. **Taskbar-Focused Simplicity:** Avoid bloat and feature creep. Maintain focus on fast, seamless window switching, raising, and minimizing.
-4. **Clean Decoupling:** Keep business logic, layout algorithms, and geometry calculations isolated in [`TaskbarCore`](../Sources/TaskbarCore) with 100% automated test coverage.
+4. **Clean Decoupling:** Keep business logic, layout algorithms, and geometry calculations isolated in [`TaskbarCore`](../Sources/TaskbarCore) with 100% automated test coverage using modern `Swift Testing`.
 
 ---
 
@@ -21,7 +21,7 @@ Individual release cycles will have their own dedicated, detailed implementation
 flowchart LR
     v010["v0.1.0<br/>Initial Release<br/>(Complete)"] --> v011["v0.1.1<br/>Foundational Quality<br/>& Stress Testing<br/>(Complete)"]
     v011 --> v020["v0.2.0 - v0.2.3<br/>Personalization &<br/>Quick Launch<br/>(Complete)"]
-    v020 --> v030["v0.3.0<br/>Window Re-ordering &<br/>Optional Grouping<br/>(Complete)"]
+    v020 --> v030["v0.3.0 - v0.3.3<br/>Master Remediation &<br/>Hardened Architecture<br/>(Complete)"]
     v030 --> v040["v0.4.0<br/>Edge Placement &<br/>Auto-Hide"]
 ```
 
@@ -30,7 +30,7 @@ flowchart LR
 | **v0.1.0** | **Initial Core Release** *(Completed)* | Dual themes, 1-to-1 task buttons, AX Nudger (`WorkAreaEnforcer`), Dock hiding with configurable delays, button overflow chevron, and packaging pipeline. |
 | **v0.1.1** | **Foundational Quality & Hardening** *(Completed)* | Automated functional & stress test harness, codebase audit & refactoring, ecosystem research. |
 | **v0.2.0 – v0.2.3** | **Personalization & Quick Launch** *(Completed)* | Data-driven custom theming (JSON import/export), Quick Launch / pinned applications, multi-resolution icon sanitization, focus isolation, in-flight debounce protection, and robust work area clamping. |
-| **v0.3.0 – v0.3.2** | **Advanced Window Organization & Architectural Hardening** *(Completed)* | Drag-and-drop window re-ordering, application window grouping, single-window focus isolation, modular panel extractions, multi-edge layout enablers, pure auto-hide state machine, and 158 automated tests. |
+| **v0.3.0 – v0.3.3** | **Master Remediation & Hardened Architecture (Phases 0–8)** *(Completed)* | Settings store reactivity, ChangeSet-driven UI pipeline, zero-allocation drawing, icon raster cache with LRU eviction, `AppEnvironment` dependency injection, 3-tier delta AX router & circuit breaker, single-timer monotonic `WorkAreaEnforcer`, resilient `DockController`, typed `OrderKey` drag coordinator, quarantined `v0.4.0` scaffolding, isolated `PrivateAPI`, VoiceOver accessibility (`NSAccessibility.Role.button`), and 100% unified `Swift Testing` (217 tests across 32 suites). |
 | **v0.4.0** | **Layout & Placement Flexibility** | Multi-edge placement (Top/Left/Right/Bottom), taskbar auto-hide mode, button alignment (Left vs. Center). |
 
 ---

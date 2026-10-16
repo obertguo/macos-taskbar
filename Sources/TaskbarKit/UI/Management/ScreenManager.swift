@@ -60,7 +60,7 @@ public final class ScreenManager {
     
     public func screenDescriptors() -> [ScreenDescriptor] {
         NSScreen.screens.map { screen in
-            let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
+            let displayID = screen.displayID ?? 0
             let isPrimary = (screen == NSScreen.screens.first)
             let frame = displayID != 0 ? CGDisplayBounds(displayID) : screen.frame
             return ScreenDescriptor(id: UInt32(displayID), frame: frame, isPrimary: isPrimary)
@@ -171,7 +171,7 @@ public final class ScreenManager {
     @objc private func handleScreenParametersChanged() {
         var fs = Set<CGDirectDisplayID>()
         for screen in NSScreen.screens {
-            let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
+            let displayID = screen.displayID ?? 0
             if displayID != 0 && isScreenInFullScreen(screen: screen) {
                 fs.insert(displayID)
             }
@@ -182,7 +182,7 @@ public final class ScreenManager {
     
     /// Determines whether the active space on a physical display is currently showing a native full-screen app.
     private func isScreenInFullScreen(screen: NSScreen) -> Bool {
-        let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
+        let displayID = screen.displayID ?? 0
         let screenBounds = displayID != 0 ? CGDisplayBounds(displayID) : screen.frame
         
         let onScreenWindows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
@@ -215,7 +215,7 @@ public final class ScreenManager {
         let runningBundleIDs = Set(store.allWindows.map { $0.bundleID })
         
         for screen in screens {
-            let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
+            let displayID = screen.displayID ?? 0
             activeDisplayIDs.insert(displayID)
             
             let height = CGFloat(settings.barHeight)
@@ -269,7 +269,7 @@ public final class ScreenManager {
         
         for (displayID, panel) in panels {
             guard screens.contains(where: {
-                ((($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0) == displayID)
+                $0.displayID == displayID
             }) else { continue }
             
             let screenWindows = windowsByScreen[UInt32(displayID)] ?? []

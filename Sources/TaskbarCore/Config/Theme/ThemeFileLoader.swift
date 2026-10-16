@@ -53,8 +53,9 @@ public final class ThemeFileLoader: Sendable {
                 let decoded = try decoder.decode(ThemeDefinition.self, from: data)
                 
                 let themeId = decoded.id.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !themeId.isEmpty else {
-                    TaskbarLogger.ui.warning("Skipping theme in '\(fileURL.lastPathComponent)' because its 'id' is empty.")
+                let displayName = decoded.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !themeId.isEmpty, !displayName.isEmpty else {
+                    TaskbarLogger.ui.warning("Skipping theme in '\(fileURL.lastPathComponent)' because its 'id' or 'displayName' is empty.")
                     continue
                 }
                 

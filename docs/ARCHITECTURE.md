@@ -6,7 +6,7 @@ This document provides a comprehensive technical breakdown of **Taskbar** archit
 
 ## 1. High-Level Architectural Overview
 
-Taskbar is a native macOS agent application (`LSUIElement`) built strictly using public Apple frameworks (`AppKit`, `ApplicationServices`, `CoreGraphics`, `os`). It delivers a high-performance Windows-style taskbar with zero private APIs, zero screen capture permissions, and zero polling loops.
+Taskbar is a native macOS agent application (`LSUIElement`) built using Apple frameworks (`AppKit`, `ApplicationServices`, `CoreGraphics`, `os`). Private WindowServer and SkyLight SPIs (`_AXUIElementGetWindow`, `_SLPSSetFrontProcessWithOptions`) are strictly isolated inside `PrivateAPI.swift` with safe public fallbacks, zero screen capture permissions, and zero polling loops.
 
 ```mermaid
 flowchart TD
@@ -67,19 +67,19 @@ The codebase adheres strictly to a three-tiered library/executable structure to 
 
 1. **`TaskbarCore` (Library Target):**
    - Independent of UI view hierarchies and `NSView` lifecycles.
-   - Houses mathematical models, multi-edge placement domain models (`TaskbarEdge`), proximity auto-hide state machine (`AutoHideStateMachine`), pure layout calculation engines (`TaskbarLayoutEngine`, `ButtonLayout`), window grouping and ordering logic (`WindowGroupingLogic`, `WindowOrderingLogic`), window filtering rules, multi-edge coordinate clamping math (`WorkAreaMath`), configuration encoders/decoders, theme definitions and presets, file-based theme discovery, pinned application domain models, thread-safe `ThemeRegistry`, and unified `TaskbarLogger`.
-   - 100% covered by headless unit tests in `TaskbarCoreTests`.
+   - Houses mathematical models, multi-edge placement domain models (`TaskbarEdge`), pure horizontal layout calculation engines (`TaskbarLayoutEngine`, `ButtonLayout`), window grouping and ordering logic (`WindowGroupingLogic`, `WindowOrderingLogic`), window filtering rules, coordinate clamping math (`WorkAreaMath`), configuration encoders/decoders, theme definitions and presets, file-based theme discovery, pinned application domain models, thread-safe `ThemeRegistry`, and unified `TaskbarLogger`.
+   - 100% covered by headless unit tests in `TaskbarCoreTests` using modern `Swift Testing`.
 
 2. **`TaskbarKit` (Library Target):**
    - Contains all macOS system integration and UI view code:
-     - **Tracking:** `AppTracker`, `AXAppObserver`, `AXThread`, `WorkAreaEnforcer`.
+     - **Tracking & System:** `AppTracker` (delta-driven 3-tier AX router, circuit breaker, live AX recovery), `AXAppObserver`, `AXThread`, `WorkAreaEnforcer` (single-timer 3-pass settle, monotonic clock, zero GCD contention), `AppEnvironment` (dependency injection), `PrivateAPI` (isolated SkyLight/HIServices SPIs).
      - **UI Subsystems:**
-       - **Buttons:** `BaseTaskbarButton`, `TaskButton`, `StartButton`, `PinnedButton`, `OverflowButton`.
-       - **Panels & Popups:** `TaskbarPanel`, `TaskbarView`, `TaskbarDragCoordinator`, `GroupWindowPopup`, `GroupWindowContentView`, `GroupWindowRowsView`, `BevelDrawing`.
-       - **Menu:** `StatusMenu`.
-       - **Management:** `ScreenManager`, `IconCache`, `VisualEffectMapping`.
-     - **Actions & System:** `WindowActions`, `DockController`, `Launcher`, `AccessibilityPermission`, `AppDelegate`.
-   - Publicly exported for deterministic integration testing in `TaskbarIntegrationTests`.
+       - **Buttons:** `BaseTaskbarButton` (with full VoiceOver `NSAccessibility` button role/label/press), `TaskButton`, `StartButton`, `PinnedButton`, `OverflowButton`.
+       - **Panels & Popups:** `TaskbarPanel`, `TaskbarView` (single-pass change set pipeline, view recycling), `TaskbarDragCoordinator` (deduplicated drag kinds), `GroupWindowPopup`, `GroupWindowContentView`, `GroupWindowRowsView`, `BevelDrawing`.
+       - **Menu:** `StatusMenu` (reactive settings subscription, zero NSStatusItem leaks).
+       - **Management & Extensions:** `ScreenManager`, `NSScreen+DisplayID`, `NSColor+RGBA`, `IconCache` (multi-resolution raster cache with LRU eviction), `VisualEffectMapping`.
+     - **Actions & System:** `WindowActions` (isolated process activation), `DockController` (in-process CFPreferences reader, serial queue writer, dirty sentinel crash recovery), `Launcher`, `AccessibilityPermission`, `AppDelegate`.
+   - Publicly exported for deterministic integration testing in `TaskbarIntegrationTests` using `Swift Testing`.
 
 3. **`TaskbarApp` (Executable Target):**
    - Lightweight executable wrapper containing only `main.swift`.
@@ -207,13 +207,13 @@ In multi-window and multi-monitor environments, activating an application using 
 To guarantee strict single-window focus and multi-display isolation:
 - **Native Window ID Resolution:** In `AXElement+Attributes.swift`, `windowID` resolves the native `CGWindowID` via dynamic link to `_AXUIElementGetWindow`, ensuring numerical window identifiers match WindowServer.
 - **Targeted AX Window Elevation:** `WindowActions.performAction(.focus, for: key)` locates the specific `AXUIElement` window for the requested key, executes `AXUIElementPerformAction(window, kAXRaiseAction)`, and sets `kAXMainAttribute` to `true`.
-- **Single-Window Process Activation:** Instead of AppKit's `NSRunningApplication.activate` (which brings the entire application window group forward), `WindowActions.activateSingleWindow` targets the specific window via Carbon and SkyLight WindowServer APIs:
+- **Single-Window Process Activation:** Instead of AppKit's `NSRunningApplication.activate` (which brings the entire application window group forward), `WindowActions.activateSingleWindow` delegates to `PrivateAPI.activateSingleWindow`, targeting the specific window via Carbon and SkyLight WindowServer APIs:
   ```swift
   // 1. Activate process front window only (kSetFrontProcessFrontWindowOnly = 0x0001)
   SetFrontProcessWithOptions(&psn, 1)
 
   // 2. Target specific window ID in WindowServer (kCPSUserGenerated = 0x200)
-  _SLPSSetFrontProcessWithOptions(&psn, UInt32(key.id), 0x200)
+  _SLPSSetFrontProcessWithOptions(&psn, windowID, 0x200)
   ```
 - **Outcome:** Only the targeted window is raised and given keyboard focus; sibling windows of the same application on any screen remain undisturbed behind intervening windows from other applications in their existing on-screen z-order.
 

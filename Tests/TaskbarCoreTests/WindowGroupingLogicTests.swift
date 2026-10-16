@@ -1,10 +1,12 @@
 // Tests/TaskbarCoreTests/WindowGroupingLogicTests.swift
 
-import XCTest
 import CoreGraphics
+import Foundation
+import Testing
 @testable import TaskbarCore
 
-final class WindowGroupingLogicTests: XCTestCase {
+@Suite("Window Grouping Logic Tests")
+struct WindowGroupingLogicTests {
     
     private func makeWindow(
         id: UInt64,
@@ -46,73 +48,77 @@ final class WindowGroupingLogicTests: XCTestCase {
     }
     
     // TC-UNIT-005: Never Grouping Mode leaves all windows separate
+    @Test("Never Grouping mode leaves all windows separate")
     func testNeverGroupingModeLeavesAllSeparate() {
         let windows = createTestWindows()
-        XCTAssertEqual(windows.count, 10)
+        #expect(windows.count == 10)
         
         let groups = WindowGroupingLogic.groupWindows(windows, mode: .never)
         
-        XCTAssertEqual(groups.count, 10)
+        #expect(groups.count == 10)
         for (index, group) in groups.enumerated() {
-            XCTAssertFalse(group.isGrouped, "Ungrouped items must have isGrouped == false")
-            XCTAssertEqual(group.count, 1)
-            XCTAssertEqual(group.windows.count, 1)
-            XCTAssertEqual(group.primaryWindow?.key, windows[index].key)
-            XCTAssertEqual(group.displayTitle, windows[index].displayTitle)
-            XCTAssertEqual(group.id, "win_\(windows[index].key.pid)_\(windows[index].key.id)")
+            #expect(!group.isGrouped)
+            #expect(group.count == 1)
+            #expect(group.windows.count == 1)
+            #expect(group.primaryWindow?.key == windows[index].key)
+            #expect(group.displayTitle == windows[index].displayTitle)
+            #expect(group.id == "win_\(windows[index].key.pid)_\(windows[index].key.id)")
         }
     }
     
     // TC-UNIT-006: Always Grouping Mode aggregates by bundleID
+    @Test("Always Grouping mode aggregates by bundleID")
     func testAlwaysGroupingModeAggregatesByBundleID() {
         let windows = createTestWindows()
         
         let groups = WindowGroupingLogic.groupWindows(windows, mode: .always)
         
-        XCTAssertEqual(groups.count, 3)
+        #expect(groups.count == 3)
         
         // Safari
         let safariGroup = groups[0]
-        XCTAssertEqual(safariGroup.bundleID, "com.apple.Safari")
-        XCTAssertEqual(safariGroup.appName, "Safari")
-        XCTAssertEqual(safariGroup.count, 4)
-        XCTAssertTrue(safariGroup.isGrouped)
-        XCTAssertEqual(safariGroup.displayTitle, "Safari (4)")
-        XCTAssertEqual(safariGroup.id, "group_com.apple.Safari")
+        #expect(safariGroup.bundleID == "com.apple.Safari")
+        #expect(safariGroup.appName == "Safari")
+        #expect(safariGroup.count == 4)
+        #expect(safariGroup.isGrouped)
+        #expect(safariGroup.displayTitle == "Safari (4)")
+        #expect(safariGroup.id == "group_com.apple.Safari")
         
         // Terminal
         let terminalGroup = groups[1]
-        XCTAssertEqual(terminalGroup.bundleID, "com.apple.Terminal")
-        XCTAssertEqual(terminalGroup.appName, "Terminal")
-        XCTAssertEqual(terminalGroup.count, 3)
-        XCTAssertTrue(terminalGroup.isGrouped)
-        XCTAssertEqual(terminalGroup.displayTitle, "Terminal (3)")
-        XCTAssertEqual(terminalGroup.id, "group_com.apple.Terminal")
+        #expect(terminalGroup.bundleID == "com.apple.Terminal")
+        #expect(terminalGroup.appName == "Terminal")
+        #expect(terminalGroup.count == 3)
+        #expect(terminalGroup.isGrouped)
+        #expect(terminalGroup.displayTitle == "Terminal (3)")
+        #expect(terminalGroup.id == "group_com.apple.Terminal")
         
         // Finder
         let finderGroup = groups[2]
-        XCTAssertEqual(finderGroup.bundleID, "com.apple.finder")
-        XCTAssertEqual(finderGroup.appName, "Finder")
-        XCTAssertEqual(finderGroup.count, 3)
-        XCTAssertTrue(finderGroup.isGrouped)
-        XCTAssertEqual(finderGroup.displayTitle, "Finder (3)")
-        XCTAssertEqual(finderGroup.id, "group_com.apple.finder")
+        #expect(finderGroup.bundleID == "com.apple.finder")
+        #expect(finderGroup.appName == "Finder")
+        #expect(finderGroup.count == 3)
+        #expect(finderGroup.isGrouped)
+        #expect(finderGroup.displayTitle == "Finder (3)")
+        #expect(finderGroup.id == "group_com.apple.finder")
     }
     
     // TC-UNIT-006 Edge: Single-window app under Always mode is not marked as isGrouped
+    @Test("Always Grouping single-window app is not marked as grouped")
     func testAlwaysGroupingSingleWindowApp() {
         let windows = [
             makeWindow(id: 1, pid: 100, bundleID: "com.apple.Safari", appName: "Safari", title: "Apple Inc.")
         ]
         
         let groups = WindowGroupingLogic.groupWindows(windows, mode: .always)
-        XCTAssertEqual(groups.count, 1)
-        XCTAssertFalse(groups[0].isGrouped)
-        XCTAssertEqual(groups[0].count, 1)
-        XCTAssertEqual(groups[0].displayTitle, "Apple Inc.")
+        #expect(groups.count == 1)
+        #expect(!groups[0].isGrouped)
+        #expect(groups[0].count == 1)
+        #expect(groups[0].displayTitle == "Apple Inc.")
     }
     
     // TC-UNIT-007: When Crowded auto-groups on overflow
+    @Test("When Crowded auto-groups on overflow")
     func testWhenCrowdedAutoGroupsOnOverflow() {
         let windows = createTestWindows() // 10 windows
         let minBtnW = 100.0
@@ -127,8 +133,8 @@ final class WindowGroupingLogicTests: XCTestCase {
             minButtonWidth: minBtnW,
             buttonSpacing: spacing
         )
-        XCTAssertEqual(ampleGroups.count, 10)
-        XCTAssertFalse(ampleGroups[0].isGrouped)
+        #expect(ampleGroups.count == 10)
+        #expect(!ampleGroups[0].isGrouped)
         
         // Case 2: Exact boundary space (availableWidth = 1036.0) -> Remains ungrouped
         let exactGroups = WindowGroupingLogic.groupWindows(
@@ -138,7 +144,7 @@ final class WindowGroupingLogicTests: XCTestCase {
             minButtonWidth: minBtnW,
             buttonSpacing: spacing
         )
-        XCTAssertEqual(exactGroups.count, 10)
+        #expect(exactGroups.count == 10)
         
         // Case 3: Crowded space (availableWidth = 1035.0 < 1036.0) -> Aggregates to 3 groups
         let crowdedGroups = WindowGroupingLogic.groupWindows(
@@ -148,58 +154,61 @@ final class WindowGroupingLogicTests: XCTestCase {
             minButtonWidth: minBtnW,
             buttonSpacing: spacing
         )
-        XCTAssertEqual(crowdedGroups.count, 3)
-        XCTAssertTrue(crowdedGroups[0].isGrouped)
-        XCTAssertEqual(crowdedGroups[0].count, 4)
+        #expect(crowdedGroups.count == 3)
+        #expect(crowdedGroups[0].isGrouped)
+        #expect(crowdedGroups[0].count == 4)
     }
     
     // TC-UNIT-008: Group derived states
+    @Test("Group derived states for minimization and focus")
     func testGroupDerivedStates() {
         let win1 = makeWindow(id: 1, pid: 100, bundleID: "com.apple.Safari", appName: "Safari", title: "Tab 1", isMinimized: true, isAppHidden: false)
         let win2 = makeWindow(id: 2, pid: 100, bundleID: "com.apple.Safari", appName: "Safari", title: "Tab 2", isMinimized: true, isAppHidden: false)
         
         // Both minimized
         let groupAllMinimized = WindowGroup.applicationGroup(bundleID: "com.apple.Safari", appName: "Safari", windows: [win1, win2])
-        XCTAssertTrue(groupAllMinimized.isMinimized)
-        XCTAssertFalse(groupAllMinimized.isAppHidden)
+        #expect(groupAllMinimized.isMinimized)
+        #expect(!groupAllMinimized.isAppHidden)
         
         // One un-minimized
         let win2Normal = makeWindow(id: 2, pid: 100, bundleID: "com.apple.Safari", appName: "Safari", title: "Tab 2", isMinimized: false, isAppHidden: false)
         let groupPartiallyMinimized = WindowGroup.applicationGroup(bundleID: "com.apple.Safari", appName: "Safari", windows: [win1, win2Normal])
-        XCTAssertFalse(groupPartiallyMinimized.isMinimized)
+        #expect(!groupPartiallyMinimized.isMinimized)
         
         // Focus state test
         let focusedKey = WindowKey(id: 2, pid: 100)
-        XCTAssertTrue(groupPartiallyMinimized.isFocused(focusedKey: focusedKey, frontmostPID: 100))
+        #expect(groupPartiallyMinimized.isFocused(focusedKey: focusedKey, frontmostPID: 100))
         
         // Different frontmost PID does not focus
-        XCTAssertFalse(groupPartiallyMinimized.isFocused(focusedKey: focusedKey, frontmostPID: 999))
+        #expect(!groupPartiallyMinimized.isFocused(focusedKey: focusedKey, frontmostPID: 999))
         
         // Unmatched window ID does not focus
-        XCTAssertFalse(groupPartiallyMinimized.isFocused(focusedKey: WindowKey(id: 99, pid: 100), frontmostPID: 100))
+        #expect(!groupPartiallyMinimized.isFocused(focusedKey: WindowKey(id: 99, pid: 100), frontmostPID: 100))
         
         // Minimized focused window does not count as active focus
         let focusedMinimizedKey = WindowKey(id: 1, pid: 100)
-        XCTAssertFalse(groupPartiallyMinimized.isFocused(focusedKey: focusedMinimizedKey, frontmostPID: 100))
+        #expect(!groupPartiallyMinimized.isFocused(focusedKey: focusedMinimizedKey, frontmostPID: 100))
         
         // Display title fallback for empty window title
         let emptyTitleWin = makeWindow(id: 3, pid: 100, bundleID: "com.apple.Safari", appName: "Safari", title: "   ")
         let singleGroup = WindowGroup.singleWindow(emptyTitleWin)
-        XCTAssertEqual(singleGroup.displayTitle, "Safari")
+        #expect(singleGroup.displayTitle == "Safari")
     }
     
     // Empty collection handling
+    @Test("Empty windows list returns empty array")
     func testEmptyWindowsListReturnsEmpty() {
         let emptyNever = WindowGroupingLogic.groupWindows([], mode: .never)
         let emptyAlways = WindowGroupingLogic.groupWindows([], mode: .always)
         let emptyCrowded = WindowGroupingLogic.groupWindows([], mode: .whenCrowded, availableWidth: 500)
         
-        XCTAssertTrue(emptyNever.isEmpty)
-        XCTAssertTrue(emptyAlways.isEmpty)
-        XCTAssertTrue(emptyCrowded.isEmpty)
+        #expect(emptyNever.isEmpty)
+        #expect(emptyAlways.isEmpty)
+        #expect(emptyCrowded.isEmpty)
     }
     
     // MRU primaryWindow selection verification
+    @Test("Primary window selection prioritizes MRU focus order")
     func testPrimaryWindowSelection() {
         // 1. Returns most recently focused unminimized window
         let w1 = WindowInfo(
@@ -223,7 +232,7 @@ final class WindowGroupingLogicTests: XCTestCase {
             focusOrder: 10
         )
         let group1 = WindowGroup.applicationGroup(bundleID: "com.app", appName: "App", windows: [w1, w2])
-        XCTAssertEqual(group1.primaryWindow?.key, w2.key, "Should return most recently focused unminimized window")
+        #expect(group1.primaryWindow?.key == w2.key)
         
         // 2. Falls back to unminimized with lowest openOrder when none focused (focusOrder == 0)
         let w3 = WindowInfo(
@@ -247,7 +256,7 @@ final class WindowGroupingLogicTests: XCTestCase {
             focusOrder: 0
         )
         let group2 = WindowGroup.applicationGroup(bundleID: "com.app", appName: "App", windows: [w3, w4])
-        XCTAssertEqual(group2.primaryWindow?.key, w4.key, "Should return unminimized window with lowest openOrder when none focused")
+        #expect(group2.primaryWindow?.key == w4.key)
         
         // 3. Falls back to most recently focused minimized window when all are minimized
         let w5Min = WindowInfo(
@@ -273,6 +282,6 @@ final class WindowGroupingLogicTests: XCTestCase {
             focusOrder: 7
         )
         let group3 = WindowGroup.applicationGroup(bundleID: "com.app", appName: "App", windows: [w5Min, w6Min])
-        XCTAssertEqual(group3.primaryWindow?.key, w6Min.key, "Should return most recently focused minimized window when all are minimized")
+        #expect(group3.primaryWindow?.key == w6Min.key)
     }
 }

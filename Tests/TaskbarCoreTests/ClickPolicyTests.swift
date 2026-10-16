@@ -1,12 +1,14 @@
 // Tests/TaskbarCoreTests/ClickPolicyTests.swift
 
-import XCTest
 import CoreGraphics
+import Testing
 @testable import TaskbarCore
 
-final class ClickPolicyTests: XCTestCase {
+@Suite("Click Policy Tests")
+struct ClickPolicyTests {
     let testKey = WindowKey(id: 100, pid: 10)
     
+    @Test("Click unfocused window focuses it")
     func testClickUnfocusedWindow() {
         let win = WindowInfo(
             key: testKey,
@@ -22,9 +24,10 @@ final class ClickPolicyTests: XCTestCase {
             focusedKey: WindowKey(id: 999, pid: 20),
             isFrontmostApp: false
         )
-        XCTAssertEqual(action, .focus)
+        #expect(action == .focus)
     }
     
+    @Test("Click already focused window minimizes it")
     func testClickAlreadyFocusedWindow() {
         let win = WindowInfo(
             key: testKey,
@@ -40,9 +43,10 @@ final class ClickPolicyTests: XCTestCase {
             focusedKey: testKey,
             isFrontmostApp: true
         )
-        XCTAssertEqual(action, .minimize)
+        #expect(action == .minimize)
     }
     
+    @Test("Click frontmost app with nil focused key minimizes")
     func testClickFrontmostAppWithNilFocusedKey() {
         // In Chrome/Discord, focusedKey may be nil even when frontmost
         let win = WindowInfo(
@@ -59,9 +63,10 @@ final class ClickPolicyTests: XCTestCase {
             focusedKey: nil,
             isFrontmostApp: true
         )
-        XCTAssertEqual(action, .minimize, "Clicking frontmost window when focusedKey is nil should minimize")
+        #expect(action == .minimize)
     }
     
+    @Test("Click minimized window restores and focuses it")
     func testClickMinimizedWindow() {
         var win = WindowInfo(
             key: testKey,
@@ -78,9 +83,10 @@ final class ClickPolicyTests: XCTestCase {
             focusedKey: nil,
             isFrontmostApp: false
         )
-        XCTAssertEqual(action, .restoreAndFocus)
+        #expect(action == .restoreAndFocus)
     }
     
+    @Test("Click hidden app window restores and focuses it")
     func testClickHiddenAppWindow() {
         var win = WindowInfo(
             key: testKey,
@@ -97,6 +103,6 @@ final class ClickPolicyTests: XCTestCase {
             focusedKey: nil,
             isFrontmostApp: false
         )
-        XCTAssertEqual(action, .restoreAndFocus)
+        #expect(action == .restoreAndFocus)
     }
 }

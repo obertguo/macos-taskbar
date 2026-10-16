@@ -1,10 +1,11 @@
 // Tests/TaskbarCoreTests/WorkAreaMathTests.swift
 
-import XCTest
 import CoreGraphics
+import Testing
 @testable import TaskbarCore
 
-final class WorkAreaMathTests: XCTestCase {
+@Suite("Work Area Math Tests")
+struct WorkAreaMathTests {
     
     let primaryScreen = ScreenDescriptor(
         id: 1,
@@ -18,44 +19,49 @@ final class WorkAreaMathTests: XCTestCase {
         isPrimary: false
     )
     
+    @Test("No overlap when window is centered")
     func testNoOverlap() {
         // Window centered in primary screen (y: 200, height: 400 => maxY: 600)
         // Taskbar top is 900 - 30 = 870. No overlap.
         let frame = CGRect(x: 100, y: 200, width: 800, height: 400)
         let result = WorkAreaMath.clampedFrame(windowFrame: frame, screenBounds: primaryScreen.frame, barDimension: 30, edge: .bottom)
-        XCTAssertNil(result)
+        #expect(result == nil)
     }
     
+    @Test("Window flush with taskbar")
     func testWindowFlushWithTaskbar() {
         // Window ends exactly at taskbar top (maxY: 870)
         let frame = CGRect(x: 100, y: 100, width: 800, height: 770)
         let result = WorkAreaMath.clampedFrame(windowFrame: frame, screenBounds: primaryScreen.frame, barDimension: 30, edge: .bottom)
-        XCTAssertNil(result)
+        #expect(result == nil)
     }
     
+    @Test("Subpixel overlap within threshold")
     func testSubpixelOverlapWithinThreshold() {
         // Overlap is 1.5pt (maxY is 871.5, threshold is 2.0pt)
         let frame = CGRect(x: 100, y: 100, width: 800, height: 771.5)
         let result = WorkAreaMath.clampedFrame(windowFrame: frame, screenBounds: primaryScreen.frame, barDimension: 30, edge: .bottom)
-        XCTAssertNil(result)
+        #expect(result == nil)
     }
     
+    @Test("Maximized window clamping")
     func testMaximizedWindowClamping() {
         // Maximized window: top at 25 (menu bar), height 875 => maxY = 900 (bottom of screen)
         // Overlap = 900 - (900 - 30) = 30pt
         let frame = CGRect(x: 0, y: 25, width: 1440, height: 875)
         let clamped = WorkAreaMath.clampedFrame(windowFrame: frame, screenBounds: primaryScreen.frame, barDimension: 30, edge: .bottom)
         
-        XCTAssertNotNil(clamped)
-        guard let clamped = clamped else { return }
-        
-        XCTAssertEqual(clamped.origin.x, 0)
-        XCTAssertEqual(clamped.origin.y, 25)
-        XCTAssertEqual(clamped.width, 1440)
-        XCTAssertEqual(clamped.height, 845) // 875 - 30
-        XCTAssertEqual(clamped.maxY, 870) // Exactly flush with taskbar top!
+        #expect(clamped != nil)
+        if let clamped {
+            #expect(clamped.origin.x == 0)
+            #expect(clamped.origin.y == 25)
+            #expect(clamped.width == 1440)
+            #expect(clamped.height == 845) // 875 - 30
+            #expect(clamped.maxY == 870) // Exactly flush with taskbar top!
+        }
     }
     
+    @Test("Multi-monitor clamping on secondary screen")
     func testMultiMonitorClampingOnSecondaryScreen() {
         // Secondary screen: y = -180, height = 1080 => maxY = 900.
         // Taskbar top is 900 - 30 = 870.
@@ -64,78 +70,84 @@ final class WorkAreaMathTests: XCTestCase {
         let frame = CGRect(x: 1440, y: -155, width: 1920, height: 1055)
         
         let clamped = WorkAreaMath.clampedFrameForWindow(frame, across: screens, barDimension: 30, edge: .bottom)
-        XCTAssertNotNil(clamped)
-        guard let clamped = clamped else { return }
-        
-        XCTAssertEqual(clamped.origin.x, 1440)
-        XCTAssertEqual(clamped.origin.y, -155)
-        XCTAssertEqual(clamped.width, 1920)
-        XCTAssertEqual(clamped.height, 1025) // 1055 - 30
-        XCTAssertEqual(clamped.maxY, 870)
+        #expect(clamped != nil)
+        if let clamped {
+            #expect(clamped.origin.x == 1440)
+            #expect(clamped.origin.y == -155)
+            #expect(clamped.width == 1920)
+            #expect(clamped.height == 1025) // 1055 - 30
+            #expect(clamped.maxY == 870)
+        }
     }
     
+    @Test("Window below taskbar rejected")
     func testWindowBelowTaskbarRejected() {
         // Window origin is already inside or below the taskbar
         let frame = CGRect(x: 100, y: 880, width: 300, height: 100)
         let result = WorkAreaMath.clampedFrame(windowFrame: frame, screenBounds: primaryScreen.frame, barDimension: 30, edge: .bottom)
-        XCTAssertNil(result)
+        #expect(result == nil)
     }
     
+    @Test("Window too small after clamping rejected")
     func testWindowTooSmallAfterClamping() {
         // Window at y: 800, height: 100 => maxY: 900.
         // Clamping to 870 would give height: 70 (< minimumWindowHeight of 100)
         let frame = CGRect(x: 100, y: 800, width: 300, height: 100)
         let result = WorkAreaMath.clampedFrame(windowFrame: frame, screenBounds: primaryScreen.frame, barDimension: 30, edge: .bottom)
-        XCTAssertNil(result)
+        #expect(result == nil)
     }
     
+    @Test("Zero taskbar height rejected")
     func testZeroTaskbarHeight() {
         let frame = CGRect(x: 0, y: 25, width: 1440, height: 875)
         let result = WorkAreaMath.clampedFrame(windowFrame: frame, screenBounds: primaryScreen.frame, barDimension: 0, edge: .bottom)
-        XCTAssertNil(result)
+        #expect(result == nil)
     }
     
+    @Test("Is vertically maximized detection")
     func testIsVerticallyMaximized() {
         let screen = primaryScreen.frame
         let fullMaximized = CGRect(x: 0, y: 25, width: 1440, height: 875)
-        XCTAssertTrue(WorkAreaMath.isVerticallyMaximized(fullMaximized, screenFrame: screen))
+        #expect(WorkAreaMath.isVerticallyMaximized(fullMaximized, screenFrame: screen))
         
         let halfTiled = CGRect(x: 720, y: 25, width: 720, height: 875)
-        XCTAssertTrue(WorkAreaMath.isVerticallyMaximized(halfTiled, screenFrame: screen))
+        #expect(WorkAreaMath.isVerticallyMaximized(halfTiled, screenFrame: screen))
         
         // MacBook notch display test (menu bar ~52pt, window ends at 875pt overlapping taskbar by 5pt)
         let notchWindow = CGRect(x: 0, y: 52, width: 1440, height: 823) // maxY: 875
-        XCTAssertTrue(WorkAreaMath.isVerticallyMaximized(notchWindow, screenFrame: screen, taskbarHeight: 30))
+        #expect(WorkAreaMath.isVerticallyMaximized(notchWindow, screenFrame: screen, taskbarHeight: 30))
         
         let smallCenter = CGRect(x: 200, y: 200, width: 500, height: 400)
-        XCTAssertFalse(WorkAreaMath.isVerticallyMaximized(smallCenter, screenFrame: screen))
+        #expect(!WorkAreaMath.isVerticallyMaximized(smallCenter, screenFrame: screen))
         
         let bottomWindow = CGRect(x: 100, y: 600, width: 500, height: 300) // maxY: 900, but minY: 600 (not near top)
-        XCTAssertFalse(WorkAreaMath.isVerticallyMaximized(bottomWindow, screenFrame: screen))
+        #expect(!WorkAreaMath.isVerticallyMaximized(bottomWindow, screenFrame: screen))
     }
     
+    @Test("Allow non-maximized flag control")
     func testAllowNonMaximizedFlag() {
         let screen = primaryScreen.frame
         let bottomWindow = CGRect(x: 100, y: 600, width: 500, height: 300) // maxY: 900
         
         // When allowNonMaximized is false (e.g. on window moved), it should NOT clamp small window
         let movedResult = WorkAreaMath.clampedFrame(windowFrame: bottomWindow, screenBounds: screen, barDimension: 30, edge: .bottom, allowNonMaximized: false)
-        XCTAssertNil(movedResult)
+        #expect(movedResult == nil)
         
         // When allowNonMaximized is true (e.g. on window resized), it clamps
         let resizedResult = WorkAreaMath.clampedFrame(windowFrame: bottomWindow, screenBounds: screen, barDimension: 30, edge: .bottom, allowNonMaximized: true)
-        XCTAssertNotNil(resizedResult)
-        XCTAssertEqual(resizedResult?.height, 270)
+        #expect(resizedResult != nil)
+        #expect(resizedResult?.height == 270)
         
         // For maximized window, allowNonMaximized: false STILL clamps
         let fullMaximized = CGRect(x: 0, y: 25, width: 1440, height: 875)
         let maxResult = WorkAreaMath.clampedFrame(windowFrame: fullMaximized, screenBounds: screen, barDimension: 30, edge: .bottom, allowNonMaximized: false)
-        XCTAssertNotNil(maxResult)
-        XCTAssertEqual(maxResult?.height, 845)
+        #expect(maxResult != nil)
+        #expect(maxResult?.height == 845)
     }
     
     // MARK: - TC-UNIT-013: Multi-Edge Screen Clamping Geometry
     
+    @Test("Multi-edge clamping top edge")
     func testMultiEdgeClampingTopEdge() {
         let screen = primaryScreen.frame // 0, 0, 1440, 900
         
@@ -149,10 +161,10 @@ final class WorkAreaMathTests: XCTestCase {
             allowNonMaximized: true
         )
         
-        XCTAssertNotNil(clamped)
-        XCTAssertEqual(clamped?.origin.y, 30)
-        XCTAssertEqual(clamped?.height, 670)
-        XCTAssertEqual(clamped?.maxY, 700)
+        #expect(clamped != nil)
+        #expect(clamped?.origin.y == 30)
+        #expect(clamped?.height == 670)
+        #expect(clamped?.maxY == 700)
         
         // Sub-pixel overlap: window starting at y = 29.0 (overlap is 1.0pt <= 2.0pt threshold)
         let subpixelWindow = CGRect(x: 100, y: 29.0, width: 800, height: 600)
@@ -163,9 +175,10 @@ final class WorkAreaMathTests: XCTestCase {
             edge: .top,
             allowNonMaximized: true
         )
-        XCTAssertNil(subpixelResult)
+        #expect(subpixelResult == nil)
     }
     
+    @Test("Multi-edge clamping left edge")
     func testMultiEdgeClampingLeftEdge() {
         let screen = primaryScreen.frame
         
@@ -179,10 +192,10 @@ final class WorkAreaMathTests: XCTestCase {
             allowNonMaximized: true
         )
         
-        XCTAssertNotNil(clamped)
-        XCTAssertEqual(clamped?.origin.x, 40)
-        XCTAssertEqual(clamped?.width, 960)
-        XCTAssertEqual(clamped?.maxX, 1000)
+        #expect(clamped != nil)
+        #expect(clamped?.origin.x == 40)
+        #expect(clamped?.width == 960)
+        #expect(clamped?.maxX == 1000)
         
         // Sub-pixel overlap: window starting at x = 39.0 (overlap is 1.0pt <= 2.0pt)
         let subpixelWindow = CGRect(x: 39.0, y: 100, width: 800, height: 600)
@@ -193,9 +206,10 @@ final class WorkAreaMathTests: XCTestCase {
             edge: .left,
             allowNonMaximized: true
         )
-        XCTAssertNil(subpixelResult)
+        #expect(subpixelResult == nil)
     }
     
+    @Test("Multi-edge clamping right edge")
     func testMultiEdgeClampingRightEdge() {
         let screen = primaryScreen.frame // width: 1440. Right bar: 40pt -> reserved x: 1400...1440
         
@@ -209,10 +223,10 @@ final class WorkAreaMathTests: XCTestCase {
             allowNonMaximized: true
         )
         
-        XCTAssertNotNil(clamped)
-        XCTAssertEqual(clamped?.origin.x, 500)
-        XCTAssertEqual(clamped?.width, 900)
-        XCTAssertEqual(clamped?.maxX, 1400)
+        #expect(clamped != nil)
+        #expect(clamped?.origin.x == 500)
+        #expect(clamped?.width == 900)
+        #expect(clamped?.maxX == 1400)
         
         // Sub-pixel overlap: maxX is 1401.5 (overlap is 1.5pt <= 2.0pt threshold)
         let subpixelWindow = CGRect(x: 500, y: 100, width: 901.5, height: 600)
@@ -223,9 +237,10 @@ final class WorkAreaMathTests: XCTestCase {
             edge: .right,
             allowNonMaximized: true
         )
-        XCTAssertNil(subpixelResult)
+        #expect(subpixelResult == nil)
     }
     
+    @Test("Multi-edge clamping non-maximized filtering")
     func testMultiEdgeClampingNonMaximizedFiltering() {
         let screen = primaryScreen.frame
         
@@ -238,7 +253,7 @@ final class WorkAreaMathTests: XCTestCase {
             edge: .left,
             allowNonMaximized: false
         )
-        XCTAssertNil(ignoredLeft)
+        #expect(ignoredLeft == nil)
         
         // Horizontally maximized window at left edge (width 1440 >= 45% screen width)
         let wideWindow = CGRect(x: 0, y: 200, width: 1440, height: 400)
@@ -249,8 +264,8 @@ final class WorkAreaMathTests: XCTestCase {
             edge: .left,
             allowNonMaximized: false
         )
-        XCTAssertNotNil(clampedWide)
-        XCTAssertEqual(clampedWide?.origin.x, 40)
-        XCTAssertEqual(clampedWide?.width, 1400)
+        #expect(clampedWide != nil)
+        #expect(clampedWide?.origin.x == 40)
+        #expect(clampedWide?.width == 1400)
     }
 }

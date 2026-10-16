@@ -1,6 +1,7 @@
 // Tests/TaskbarIntegrationTests/AppEnvironmentTests.swift
 
-import XCTest
+import Foundation
+import Testing
 import TaskbarCore
 @testable import TaskbarKit
 
@@ -21,33 +22,37 @@ private final class Box<T>: @unchecked Sendable {
     }
 }
 
-final class AppEnvironmentTests: XCTestCase {
+@Suite("AppEnvironment and DI Service Suite", .serialized)
+struct AppEnvironmentTests {
     
     // MARK: - Clocks
     
+    @Test("System uptime clock returns uptime")
     func testSystemUptimeClockReturnsUptime() {
         let clock = SystemUptimeClock()
         let t1 = clock.now()
-        XCTAssertGreaterThan(t1, 0)
+        #expect(t1 > 0)
     }
     
+    @Test("Test clock advancement and setting")
     func testTestClockAdvancementAndSetting() {
         let clock = TestClock(initialTime: 100.0)
-        XCTAssertEqual(clock.now(), 100.0)
+        #expect(clock.now() == 100.0)
         
         clock.advance(by: 5.5)
-        XCTAssertEqual(clock.now(), 105.5)
+        #expect(clock.now() == 105.5)
         
         clock.advance(2.0)
-        XCTAssertEqual(clock.now(), 107.5)
+        #expect(clock.now() == 107.5)
         
         clock.setTime(200.0)
-        XCTAssertEqual(clock.now(), 200.0)
+        #expect(clock.now() == 200.0)
         
         clock.setTime(time: 300.0)
-        XCTAssertEqual(clock.now(), 300.0)
+        #expect(clock.now() == 300.0)
     }
     
+    @Test("Test clock thread safety")
     func testTestClockThreadSafety() {
         let clock = TestClock(initialTime: 0)
         let queue = DispatchQueue(label: "test.clock", attributes: .concurrent)
@@ -63,11 +68,12 @@ final class AppEnvironmentTests: XCTestCase {
         }
         
         group.wait()
-        XCTAssertEqual(clock.now(), 100.0)
+        #expect(clock.now() == 100.0)
     }
     
     // MARK: - Cancellable
     
+    @Test("AnyCancellable cancels only once")
     func testAnyCancellableCancelsOnlyOnce() {
         let countBox = Box(0)
         let cancellable = AnyCancellable {
@@ -78,11 +84,12 @@ final class AppEnvironmentTests: XCTestCase {
         cancellable.cancel()
         cancellable.cancel()
         
-        XCTAssertEqual(countBox.current, 1)
+        #expect(countBox.current == 1)
     }
     
     // MARK: - Schedulers
     
+    @Test("Test scheduler execution order and advancement")
     func testTestSchedulerExecutionOrderAndAdvancement() {
         let scheduler = TestScheduler(initialTime: 0)
         let logBox = Box<[String]>([])
@@ -100,22 +107,23 @@ final class AppEnvironmentTests: XCTestCase {
             logBox.modify { $0.append("D:20") }
         }
         
-        XCTAssertEqual(scheduler.pendingCount, 4)
+        #expect(scheduler.pendingCount == 4)
         
         scheduler.advance(by: 4.0)
-        XCTAssertTrue(logBox.current.isEmpty)
+        #expect(logBox.current.isEmpty)
         
         scheduler.advance(by: 1.0) // time is now 5.0
-        XCTAssertEqual(logBox.current, ["B:5", "C:5"])
+        #expect(logBox.current == ["B:5", "C:5"])
         
         scheduler.advance(by: 10.0) // time is now 15.0
-        XCTAssertEqual(logBox.current, ["B:5", "C:5", "A:10"])
+        #expect(logBox.current == ["B:5", "C:5", "A:10"])
         
         scheduler.runAllPending() // runs D:20
-        XCTAssertEqual(logBox.current, ["B:5", "C:5", "A:10", "D:20"])
-        XCTAssertEqual(scheduler.pendingCount, 0)
+        #expect(logBox.current == ["B:5", "C:5", "A:10", "D:20"])
+        #expect(scheduler.pendingCount == 0)
     }
     
+    @Test("Test scheduler cancellation")
     func testTestSchedulerCancellation() {
         let scheduler = TestScheduler(initialTime: 0)
         let executedBox = Box(false)
@@ -124,58 +132,65 @@ final class AppEnvironmentTests: XCTestCase {
             executedBox.modify { $0 = true }
         }
         
-        XCTAssertEqual(scheduler.pendingCount, 1)
+        #expect(scheduler.pendingCount == 1)
         cancellable.cancel()
-        XCTAssertEqual(scheduler.pendingCount, 0)
+        #expect(scheduler.pendingCount == 0)
         
         scheduler.advance(by: 10.0)
-        XCTAssertFalse(executedBox.current)
+        #expect(!executedBox.current)
     }
     
-    func testMainSchedulerExecutionAndCancellation() {
+    @Test("MainScheduler execution and cancellation")
+    func testMainSchedulerExecutionAndCancellation() async {
         let scheduler = MainScheduler()
-        let exp = expectation(description: "main scheduler executed")
         let executedBox = Box(false)
-        
-        scheduler.schedule(after: 0.01) {
-            executedBox.modify { $0 = true }
-            exp.fulfill()
-        }
-        
         let cancelledBox = Box(false)
+        
         let cancellable = scheduler.schedule(after: 0.05) {
             cancelledBox.modify { $0 = true }
         }
         cancellable.cancel()
         
-        wait(for: [exp], timeout: 1.0)
-        XCTAssertTrue(executedBox.current)
-        XCTAssertFalse(cancelledBox.current)
+        await withCheckedContinuation { continuation in
+            scheduler.schedule(after: 0.01) {
+                executedBox.modify { $0 = true }
+                continuation.resume()
+            }
+        }
+        
+        try? await Task.sleep(nanoseconds: 60_000_000)
+        
+        #expect(executedBox.current)
+        #expect(!cancelledBox.current)
     }
     
-    func testAXThreadSchedulerExecutionAndCancellation() {
+    @Test("AXThreadScheduler execution and cancellation")
+    func testAXThreadSchedulerExecutionAndCancellation() async {
         let scheduler = AXThreadScheduler()
-        let exp = expectation(description: "ax scheduler executed")
         let executedBox = Box(false)
-        
-        scheduler.schedule(after: 0.01) {
-            executedBox.modify { $0 = true }
-            exp.fulfill()
-        }
-        
         let cancelledBox = Box(false)
+        
         let cancellable = scheduler.schedule(after: 0.05) {
             cancelledBox.modify { $0 = true }
         }
         cancellable.cancel()
         
-        wait(for: [exp], timeout: 1.0)
-        XCTAssertTrue(executedBox.current)
-        XCTAssertFalse(cancelledBox.current)
+        await withCheckedContinuation { continuation in
+            scheduler.schedule(after: 0.01) {
+                executedBox.modify { $0 = true }
+                continuation.resume()
+            }
+        }
+        
+        try? await Task.sleep(nanoseconds: 60_000_000)
+        
+        #expect(executedBox.current)
+        #expect(!cancelledBox.current)
     }
     
     // MARK: - WindowActionPerforming & SpyWindowActions
     
+    @Test("SpyWindowActions records all invocations")
     func testSpyWindowActionsRecordsAllInvocations() async {
         let spy = SpyWindowActions()
         let key = WindowKey(id: 5678, pid: 1234)
@@ -194,62 +209,65 @@ final class AppEnvironmentTests: XCTestCase {
         }
         
         let invocations = spy.invocations
-        XCTAssertEqual(invocations.count, 8)
+        #expect(invocations.count == 8)
         
-        XCTAssertEqual(invocations[0], .performAction(action: .focus, key: key))
-        XCTAssertEqual(invocations[1], .focusWindow(key: key))
-        XCTAssertEqual(invocations[2], .minimizeWindow(key: key))
-        XCTAssertEqual(invocations[3], .restoreAndFocusWindow(key: key))
-        XCTAssertEqual(invocations[4], .closeWindow(key: key))
-        XCTAssertEqual(invocations[5], .quitApplicationPID(pid: 1234))
-        XCTAssertEqual(invocations[6], .quitApplicationBundleID(bundleIdentifier: "com.apple.finder"))
+        #expect(invocations[0] == .performAction(action: .focus, key: key))
+        #expect(invocations[1] == .focusWindow(key: key))
+        #expect(invocations[2] == .minimizeWindow(key: key))
+        #expect(invocations[3] == .restoreAndFocusWindow(key: key))
+        #expect(invocations[4] == .closeWindow(key: key))
+        #expect(invocations[5] == .quitApplicationPID(pid: 1234))
+        #expect(invocations[6] == .quitApplicationBundleID(bundleIdentifier: "com.apple.finder"))
         
         if case .launchOrActivateApp(let bundleID, let path, let store) = invocations[7] {
-            XCTAssertEqual(bundleID, "com.apple.calculator")
-            XCTAssertEqual(path, "/App.app")
-            XCTAssertNotNil(store)
+            #expect(bundleID == "com.apple.calculator")
+            #expect(path == "/App.app")
+            #expect(store != nil)
         } else {
-            XCTFail("Expected launchOrActivateApp invocation")
+            Issue.record("Expected launchOrActivateApp invocation")
         }
         
         spy.clear()
-        XCTAssertTrue(spy.invocations.isEmpty)
+        #expect(spy.invocations.isEmpty)
     }
     
     // MARK: - DockServicing & MockDockService
     
+    @Test("MockDockService tracking")
     func testMockDockServiceTracking() {
         let mockDock = MockDockService()
-        XCTAssertFalse(mockDock.isDockHidden)
-        XCTAssertNil(mockDock.currentAppliedDelay)
-        XCTAssertEqual(mockDock.hideDockCallCount, 0)
-        XCTAssertEqual(mockDock.restoreDockCallCount, 0)
+        #expect(!mockDock.isDockHidden)
+        #expect(mockDock.currentAppliedDelay == nil)
+        #expect(mockDock.hideDockCallCount == 0)
+        #expect(mockDock.restoreDockCallCount == 0)
         
         mockDock.hideDock(delay: 500.0)
-        XCTAssertTrue(mockDock.isDockHidden)
-        XCTAssertEqual(mockDock.currentAppliedDelay, 500.0)
-        XCTAssertEqual(mockDock.hideDockCallCount, 1)
+        #expect(mockDock.isDockHidden)
+        #expect(mockDock.currentAppliedDelay == 500.0)
+        #expect(mockDock.hideDockCallCount == 1)
         
         mockDock.restoreDock()
-        XCTAssertFalse(mockDock.isDockHidden)
-        XCTAssertNil(mockDock.currentAppliedDelay)
-        XCTAssertEqual(mockDock.restoreDockCallCount, 1)
+        #expect(!mockDock.isDockHidden)
+        #expect(mockDock.currentAppliedDelay == nil)
+        #expect(mockDock.restoreDockCallCount == 1)
         
         mockDock.reset()
-        XCTAssertEqual(mockDock.hideDockCallCount, 0)
-        XCTAssertEqual(mockDock.restoreDockCallCount, 0)
+        #expect(mockDock.hideDockCallCount == 0)
+        #expect(mockDock.restoreDockCallCount == 0)
     }
     
     // MARK: - AppEnvironment
     
+    @Test("AppEnvironment live defaults")
     func testAppEnvironmentLiveDefaults() {
         let env = AppEnvironment.live
-        XCTAssertTrue(env.clock is SystemUptimeClock)
-        XCTAssertTrue(env.scheduler is MainScheduler)
-        XCTAssertTrue(env.windowActions is LiveWindowActions)
-        XCTAssertTrue(env.dockService is LiveDockService)
+        #expect(env.clock is SystemUptimeClock)
+        #expect(env.scheduler is MainScheduler)
+        #expect(env.windowActions is LiveWindowActions)
+        #expect(env.dockService is LiveDockService)
     }
     
+    @Test("AppEnvironment current mutation and reset")
     func testAppEnvironmentCurrentMutationAndReset() {
         let _ = AppEnvironment.current
         defer { AppEnvironment.reset() }
@@ -266,30 +284,32 @@ final class AppEnvironmentTests: XCTestCase {
             dockService: mockDock
         )
         
-        XCTAssertEqual(AppEnvironment.current.clock.now(), 50.0)
-        XCTAssertTrue(AppEnvironment.current.scheduler is TestScheduler)
-        XCTAssertTrue(AppEnvironment.current.windowActions is SpyWindowActions)
-        XCTAssertTrue(AppEnvironment.current.dockService is MockDockService)
+        #expect(AppEnvironment.current.clock.now() == 50.0)
+        #expect(AppEnvironment.current.scheduler is TestScheduler)
+        #expect(AppEnvironment.current.windowActions is SpyWindowActions)
+        #expect(AppEnvironment.current.dockService is MockDockService)
         
         AppEnvironment.reset()
-        XCTAssertTrue(AppEnvironment.current.clock is SystemUptimeClock)
+        #expect(AppEnvironment.current.clock is SystemUptimeClock)
     }
     
     // MARK: - WorkAreaEnforcer Disabled in Tests
     
+    @Test("WorkAreaEnforcer is disabled by default in tests")
     func testWorkAreaEnforcerIsDisabledByDefaultInTests() {
-        XCTAssertFalse(WorkAreaEnforcer.shared.isEnabled, "WorkAreaEnforcer must default to disabled during test execution")
+        #expect(!WorkAreaEnforcer.shared.isEnabled, "WorkAreaEnforcer must default to disabled during test execution")
     }
     
     // MARK: - WindowSource Conformance
     
+    @Test("AppTracker conforms to WindowSource")
     @MainActor
     func testAppTrackerConformsToWindowSource() {
         let store = WindowStore()
         let tracker = AppTracker(store: store)
         let source: any WindowSource = tracker
         
-        XCTAssertIdentical(source.store, store)
+        #expect(source.store === store)
         source.stopTracking()
     }
 }

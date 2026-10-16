@@ -115,6 +115,13 @@ public final class AppTracker: WindowSource {
         center.addObserver(self, selector: #selector(handleAppHidden(_:)), name: NSWorkspace.didHideApplicationNotification, object: nil)
         center.addObserver(self, selector: #selector(handleAppUnhidden(_:)), name: NSWorkspace.didUnhideApplicationNotification, object: nil)
         center.addObserver(self, selector: #selector(handleActiveSpaceChanged(_:)), name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
+        
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleAccessibilityApiChanged(_:)),
+            name: NSNotification.Name("com.apple.accessibility.api"),
+            object: nil
+        )
     }
     
     public func startTracking() {
@@ -247,6 +254,14 @@ public final class AppTracker: WindowSource {
             deadline: .now() + TaskbarConstants.Timing.spaceChangeSettleDelay,
             execute: settleItem
         )
+    }
+    
+    @objc private func handleAccessibilityApiChanged(_ notification: Notification) {
+        if AccessibilityPermission.isGranted() {
+            TaskbarLogger.lifecycle.info("Received com.apple.accessibility.api notification; permission granted. Initializing app tracking.")
+            stopPermissionCheck()
+            startTrackingAllRunningApps()
+        }
     }
     
     // MARK: - 3-Tier Delta Router (M-02)
@@ -729,6 +744,11 @@ public final class AppTracker: WindowSource {
     public func stopTracking() {
         stopPermissionCheck()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        DistributedNotificationCenter.default().removeObserver(
+            self,
+            name: NSNotification.Name("com.apple.accessibility.api"),
+            object: nil
+        )
         
         pendingDirtyDebounceWorkItem?.cancel()
         pendingDirtyDebounceWorkItem = nil
@@ -753,5 +773,10 @@ public final class AppTracker: WindowSource {
     deinit {
         permissionPollTask?.cancel()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        DistributedNotificationCenter.default().removeObserver(
+            self,
+            name: NSNotification.Name("com.apple.accessibility.api"),
+            object: nil
+        )
     }
 }

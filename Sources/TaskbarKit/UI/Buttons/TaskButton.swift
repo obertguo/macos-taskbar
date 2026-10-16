@@ -304,4 +304,9 @@ public final class TaskButton: BaseTaskbarButton {
             badgeText.draw(at: textPoint, withAttributes: badgeAttrs)
         }
     }
+    
+    // MARK: - NSAccessibility
+    public override func accessibilityLabel() -> String? {
+        group.displayTitle
+    }
 }

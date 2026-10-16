@@ -122,4 +122,9 @@ public final class StartButton: BaseTaskbarButton {
         let textY = bounds.midY - (lineHeight / 2.0)
         str.draw(at: NSPoint(x: textX, y: textY))
     }
+    
+    // MARK: - NSAccessibility
+    public override func accessibilityLabel() -> String? {
+        "Start"
+    }
 }

@@ -157,4 +157,22 @@ open class BaseTaskbarButton: NSView {
     
     /// Optional subclass hook invoked whenever `isHovered` or `isPressed` mutates.
     open func didUpdateHoverOrPressState() {}
+    
+    // MARK: - NSAccessibility
+    open override func isAccessibilityElement() -> Bool {
+        return true
+    }
+    
+    open override func accessibilityRole() -> NSAccessibility.Role? {
+        return .button
+    }
+    
+    open override func accessibilityLabel() -> String? {
+        return toolTip
+    }
+    
+    open override func accessibilityPerformPress() -> Bool {
+        onClick?()
+        return true
+    }
 }

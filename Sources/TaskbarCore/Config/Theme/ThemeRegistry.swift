@@ -2,6 +2,20 @@
 
 import Foundation
 
+public enum ThemeRegistryError: Error, LocalizedError, Equatable {
+    case cannotOverwriteBuiltIn(String)
+    case emptyThemeId
+    
+    public var errorDescription: String? {
+        switch self {
+        case .cannotOverwriteBuiltIn(let id):
+            return "Cannot overwrite built-in theme '\(id)'."
+        case .emptyThemeId:
+            return "Theme ID cannot be empty."
+        }
+    }
+}
+
 /// Central registry managing built-in theme presets and user-imported custom JSON themes.
 public final class ThemeRegistry: @unchecked Sendable {
     public static let shared = ThemeRegistry()
@@ -46,7 +60,9 @@ public final class ThemeRegistry: @unchecked Sendable {
             ModernHybridTheme.id,
             RetroClassicTheme.id,
             WindowsXPLunaTheme.id,
-            DarkMinimalTheme.id
+            DarkMinimalTheme.id,
+            "modern",
+            "classic"
         ].contains(themeId)
     }
     
@@ -101,8 +117,16 @@ public final class ThemeRegistry: @unchecked Sendable {
     public func importTheme(from data: Data) throws -> ThemeDefinition {
         let decoder = JSONDecoder()
         let theme = try decoder.decode(ThemeDefinition.self, from: data)
-        register(theme: theme)
-        return theme
+        let trimmedId = theme.id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedId.isEmpty else {
+            throw ThemeRegistryError.emptyThemeId
+        }
+        guard !isBuiltIn(themeId: trimmedId) else {
+            throw ThemeRegistryError.cannotOverwriteBuiltIn(trimmedId)
+        }
+        let customTheme = theme.asCustom(true)
+        register(theme: customTheme)
+        return customTheme
     }
     
     public func exportTheme(_ theme: ThemeDefinition) throws -> Data {

@@ -1,10 +1,12 @@
 // Tests/TaskbarCoreTests/WindowFilterTests.swift
 
-import XCTest
 import CoreGraphics
+import Testing
 @testable import TaskbarCore
 
-final class WindowFilterTests: XCTestCase {
+@Suite("Window Filter Tests")
+struct WindowFilterTests {
+    @Test("Accept standard regular window")
     func testAcceptStandardWindow() {
         let frame = CGRect(x: 100, y: 100, width: 800, height: 600)
         let accepted = WindowFilter.shouldInclude(
@@ -14,9 +16,10 @@ final class WindowFilterTests: XCTestCase {
             bundleID: "com.apple.Safari",
             isAppRegular: true
         )
-        XCTAssertTrue(accepted)
+        #expect(accepted)
     }
     
+    @Test("Accept minimized window with zero size")
     func testAcceptMinimizedWindowWithZeroSize() {
         // When Finder or Settings minimizes, Cocoa sets frame to 0x0
         let zeroFrame = CGRect.zero
@@ -28,12 +31,13 @@ final class WindowFilterTests: XCTestCase {
             isAppRegular: true,
             isMinimized: true
         )
-        XCTAssertTrue(accepted, "Minimized windows must never be rejected even if their frame is 0x0")
+        #expect(accepted)
     }
     
+    @Test("Reject dialogs and sheets")
     func testRejectDialogsAndSheets() {
         let frame = CGRect(x: 100, y: 100, width: 400, height: 300)
-        XCTAssertFalse(WindowFilter.shouldInclude(
+        #expect(!WindowFilter.shouldInclude(
             role: "AXWindow",
             subrole: "AXDialog",
             frame: frame,
@@ -41,7 +45,7 @@ final class WindowFilterTests: XCTestCase {
             isAppRegular: true
         ))
         
-        XCTAssertFalse(WindowFilter.shouldInclude(
+        #expect(!WindowFilter.shouldInclude(
             role: "AXWindow",
             subrole: "AXSheet",
             frame: frame,
@@ -50,9 +54,10 @@ final class WindowFilterTests: XCTestCase {
         ))
     }
     
+    @Test("Reject tiny zero sized non-minimized windows")
     func testRejectTinyZeroSizedNonMinimizedWindows() {
         let frame = CGRect(x: 0, y: 0, width: 10, height: 10)
-        XCTAssertFalse(WindowFilter.shouldInclude(
+        #expect(!WindowFilter.shouldInclude(
             role: "AXWindow",
             subrole: "AXStandardWindow",
             frame: frame,
@@ -62,10 +67,11 @@ final class WindowFilterTests: XCTestCase {
         ))
     }
     
+    @Test("Reject non-regular apps and system overlays")
     func testRejectNonRegularAppsAndSystemOverlays() {
         let frame = CGRect(x: 100, y: 100, width: 800, height: 600)
         // Background helper app
-        XCTAssertFalse(WindowFilter.shouldInclude(
+        #expect(!WindowFilter.shouldInclude(
             role: "AXWindow",
             subrole: "AXStandardWindow",
             frame: frame,
@@ -74,7 +80,7 @@ final class WindowFilterTests: XCTestCase {
         ))
         
         // System Dock
-        XCTAssertFalse(WindowFilter.shouldInclude(
+        #expect(!WindowFilter.shouldInclude(
             role: "AXWindow",
             subrole: "AXStandardWindow",
             frame: frame,

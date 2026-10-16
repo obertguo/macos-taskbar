@@ -3,17 +3,6 @@
 import AppKit
 import TaskbarCore
 
-public extension NSColor {
-    convenience init(rgba: RGBAColor) {
-        self.init(
-            red: CGFloat(rgba.red),
-            green: CGFloat(rgba.green),
-            blue: CGFloat(rgba.blue),
-            alpha: CGFloat(rgba.alpha)
-        )
-    }
-}
-
 public enum BevelDrawing {
     /// Draws a classic 3D raised border (Windows 95/2000 style button in normal state)
     public static func drawRaisedBevel(

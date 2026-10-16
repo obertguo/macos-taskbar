@@ -10,8 +10,8 @@ Taskbar employs a 3-tier testing strategy ensuring 100% test coverage across cor
 
 | Tier | Scope | Framework | Execution Target | Typical Duration |
 |---|---|---|---|---|
-| **Tier 1: Unit Tests** | Core math, clamping, JSON codecs, theme presets, file loader, pinned app domain models, settings. | `XCTest` / `SwiftPM` | `Tests/TaskbarCoreTests` | $< 0.06\text{s}$ |
-| **Tier 2: Integration Tests** | Real-window lifecycle, 0x0 frame rules, modal sheets, rapid debouncing, view recycling, pinned apps bar, theme expansion, status menu. | `Swift Testing` | `Tests/TaskbarIntegrationTests` | $0.2\text{s} - 25\text{s}$ |
+| **Tier 1: Unit Tests** | Core math, clamping, JSON codecs, theme presets, file loader, pinned app domain models, settings. | `Swift Testing` | `Tests/TaskbarCoreTests` | $< 0.05\text{s}$ |
+| **Tier 2: Integration Tests** | Deterministic lifecycle, live window lifecycle, AX router & circuit breaker, work area enforcer, dock service, view recycling, pinned apps, accessibility buttons. | `Swift Testing` | `Tests/TaskbarIntegrationTests` | $0.2\text{s} - 25\text{s}$ |
 | **Tier 3: Stress & Benchmark Runner** | 100-window burst capacity, overflow chevron activation, RSS memory bounds (<45MB), CPU bounds. | Bash / `scripts/test-functional.sh` | CLI / CI Suite | $10\text{s} - 40\text{s}$ |
 
 ---
@@ -51,8 +51,9 @@ swift test
 
 All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SPECIFICATIONS.md).
 
-### 3.1 Core Unit Tests (`Tests/TaskbarCoreTests/` — 110 Tests)
-- `TaskbarLayoutEngineTests`: Pure geometry plan calculations, empty/pinned/standard layouts, compression, overflow reservation, slot hit testing, and vertical axis layout (`TC-UNIT-014`, 8 test cases).
+### 3.1 Core Unit Tests (`Tests/TaskbarCoreTests/` — 16 Suites, 121 Tests)
+All core tests are written in pure `Swift Testing` (`@Suite`, `@Test`, `#expect`):
+- `TaskbarLayoutEngineTests`: Pure geometry plan calculations, empty/pinned/standard layouts, compression, overflow reservation, slot hit testing, and horizontal axis slot/indicator calculations (`TC-UNIT-014`, 8 test cases).
 - `TaskbarLayoutEngineDragTests`: Drag insertion slot math, boundary clamping, and indicator line coordinates for task and pinned items (`TC-UNIT-012`, 6 test cases).
 - `WindowGroupingLogicTests`: Grouping rules across `always`, `whenCrowded`, and `never`, single-window apps, empty window lists, and group derived states (`TC-UNIT-005` – `TC-UNIT-008`, 6 test cases).
 - `WindowOrderingLogicTests`: Reordering slot shifts, manual order persistence across incoming windows, closed window order pruning, and empty inputs (`TC-UNIT-009` – `TC-UNIT-011`, 4 test cases).
@@ -61,24 +62,55 @@ All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SP
 - `ButtonLayoutTests`: Spacious, compressing, icon-only, overflow width calculations, and custom title visibility thresholds (6 test cases).
 - `WindowFilterTests`: Normal app inclusion, modal sheet rejection, 0x0 minimized preservation, system overlay exclusion (5 test cases).
 - `ThemePresetsTests`: Modern Hybrid, Retro Classic, Windows XP Luna, and Dark Minimal presets, JSON round-trips, and contrast checks (7 test cases).
-- `ThemeTests`: Theme definition properties, JSON serialization round-trips, ThemeMaterials material/blendingMode decoding, and theme registry built-ins (6 test cases).
-- `ThemeFileLoaderTests`: Directory discovery, custom JSON deserialization with material/blendingMode, missing defaults tolerance, non-JSON filtering, built-in ID collision rejection, corrupted JSON resilience, export routines, and registry synchronization (9 test cases).
+- `ThemeTests`: Theme definition properties, JSON serialization round-trips, ThemeMaterials material/blendingMode decoding, and theme registry built-ins and collision rejection matrix (8 test cases).
+- `ThemeFileLoaderTests`: Directory discovery, custom JSON deserialization with material/blendingMode, missing defaults tolerance, non-JSON filtering, built-in ID collision rejection, corrupted JSON resilience, export routines, and registry synchronization (11 test cases).
 - `PinnedAppTests`: PinnedApp model serialization, missing fields fallback, duplicate pin rejection, unpinning, reordering boundary checks, and UserDefaults storage (9 test cases).
 - `SettingsTests`: Default values, serialization, UserDefaults persistence, backward compatibility with v0.1 payloads, strings, presets, window grouping mode, and TaskbarEdge domain serialization (`TC-UNIT-015`, 10 test cases).
-- `AutoHideStateMachineTests`: Pure auto-hide visibility state machine transitions, mouse dwell triggers, and popup/drag interaction locks (`TC-UNIT-016`, 7 test cases).
 - `WindowStoreTests`: Window ordering, display assignment, sync snapshot reconciliation, full-screen transitions (4 test cases).
 - `ScreenAssignmentTests`: Primary/secondary monitor boundary partitioning (3 test cases).
 - `TaskbarCoreTests`: Build configuration sanity checks (1 test case).
 
-### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 48 Tests)
-- **Window Lifecycle Suite (`WindowLifecycleIntegrationTests.swift` — 7 Tests):**
-  - `TC-FUNC-001`: Window creation and store discovery within $\le 3\text{s}$.
+### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 16 Suites, 96 Tests)
+- **Deterministic Lifecycle Suite (`DeterministicLifecycleTests.swift` — 7 Tests):**
+  - Ultra-fast (<20ms total) headless simulation of full window lifecycle via `FakeWindowSource` and `SpyWindowActions` (`TC-FUNC-001` through `TC-FUNC-007`).
+- **Live Window Lifecycle Suite (`WindowLifecycleIntegrationTests.swift` — 7 Tests, Gated via `TASKBAR_RUN_LIVE_AX_TESTS=1`):**
+  - `TC-FUNC-001`: Real TextEdit window creation and store discovery.
   - `TC-FUNC-002`: Window minimization state tracking via AX notification.
   - `TC-FUNC-003`: Window restoration and deminiaturization state tracking.
-  - `TC-FUNC-004`: Window focus targeting specific window without raising other windows of the same application.
+  - `TC-FUNC-004`: Window focus targeting specific window without raising other windows.
   - `TC-FUNC-005`: Dynamic window title mutation reflection.
   - `TC-FUNC-006`: Window close event teardown and button cleanup.
   - `TC-FUNC-007`: Application termination and observer cleanup.
+- **AX Event Router & Circuit Breaker Suite (`AXEventRouterAndCircuitBreakerTests.swift` — 7 Tests):**
+  - Batched attribute fetching via `AXUIElementCopyMultipleAttributeValues`.
+  - WindowID `nil` on dead handles (zero `CFHash` corruption).
+  - Destroyed element recovery via `CFEqual` lookup.
+  - Per-PID circuit breaker backoff & fast-path bypass.
+  - Tier 1 single-window delta updates & Tier 2 dirty PID reconciles.
+  - $O(1)$ window element cache lookup.
+- **WorkAreaEnforcer Suite (`WorkAreaEnforcerTests.swift` — 7 Tests):**
+  - Single-timer 3-pass stepping (150ms / 400ms / 650ms).
+  - Monotonic clock interval checks without GCD contention.
+  - User mouse-down clamping deferral and release execution.
+  - Full-screen window exclusion and non-maximized drag clamping.
+  - Cleanup on window destroy and PID termination.
+- **DockController Suite (`DockControllerTests.swift` — 9 Tests):**
+  - In-process `CFPreferences` autohide reading.
+  - Serial background queue writes with monotonic debouncing.
+  - Dirty session sentinel file persistence (`~/.config/taskbar/.dock_session_dirty`).
+  - Crash recovery restoration on initial launch.
+- **AppEnvironment Suite (`AppEnvironmentTests.swift` — 14 Tests):**
+  - `SystemUptimeClock` and thread-safe `TestClock` time advancement.
+  - `MainScheduler`, `AXThreadScheduler`, and `TestScheduler` task scheduling & cancellation.
+  - `LiveWindowActions` and `SpyWindowActions` invocation recording.
+  - `LiveDockService` and `MockDockService` call counting.
+  - `AppEnvironment` thread-safe swapping and current configuration.
+- **Accessibility Buttons Suite (`AccessibilityButtonsTests.swift` — 5 Tests):**
+  - `BaseTaskbarButton` element, `.button` role, tooltip label, and `accessibilityPerformPress()` execution.
+  - `TaskButton` dynamic `group.displayTitle` label, single and grouped states.
+  - `PinnedButton` `pinnedApp.displayName` label and pin update synchronization.
+  - `StartButton` "Start" label and press handler.
+  - `OverflowButton` "Overflow Items" label and press handler.
 - **Edge Cases Suite (`EdgeCasesIntegrationTests.swift` — 6 Tests):**
   - `TC-EDGE-001`: Zero-size (0x0) frame filtering for minimized Chromium/Electron windows.
   - `TC-EDGE-002`: Modal sheet and system dialog subrole rejection (`AXSheet`, `AXDialog`).
@@ -128,6 +160,10 @@ All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SP
   - Menu checkmark state reflects initial mode configuration.
   - Selecting a grouping mode triggers `onWindowGroupingModeChanged` and updates menu checkmarks.
   - Programmatic `updateWindowGroupingMode` synchronizes property and menu item states.
+- **TaskButton Context Menu Suite (`TaskButtonContextMenuTests.swift` — 3 Tests):**
+  - Single unminimized window right click triggers `onMinimizeOrRestore`, not `onClick`.
+  - Context menu title switches dynamically between "Minimize" and "Restore".
+  - Grouped window button right click invokes minimize/restore without triggering group popup.
 
 ---
 

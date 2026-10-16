@@ -30,57 +30,11 @@ public enum WindowActions {
         }
     }
     
-    private struct PSN {
-        var highLongOfPSN: UInt32 = 0
-        var lowLongOfPSN: UInt32 = 0
-    }
-    
-    private typealias GetProcessForPIDFunc = @convention(c) (pid_t, UnsafeMutableRawPointer) -> OSStatus
-    private typealias SetFrontProcessWithOptionsFunc = @convention(c) (UnsafeMutableRawPointer, UInt32) -> OSStatus
-    private typealias SLPSSetFrontProcessWithOptionsFunc = @convention(c) (
-        UnsafeMutableRawPointer,
-        UInt32,
-        UInt32
-    ) -> CGError
-    
-    private static let getProcessForPIDFn: GetProcessForPIDFunc? = {
-        guard let sym = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "GetProcessForPID") else { return nil }
-        return unsafeBitCast(sym, to: GetProcessForPIDFunc.self)
-    }()
-    
-    private static let setFrontProcessWithOptionsFn: SetFrontProcessWithOptionsFunc? = {
-        guard let sym = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "SetFrontProcessWithOptions") else { return nil }
-        return unsafeBitCast(sym, to: SetFrontProcessWithOptionsFunc.self)
-    }()
-    
-    private static let slpsSetFrontProcessWithOptionsFn: SLPSSetFrontProcessWithOptionsFunc? = {
-        guard let sym = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "_SLPSSetFrontProcessWithOptions") else { return nil }
-        return unsafeBitCast(sym, to: SLPSSetFrontProcessWithOptionsFunc.self)
-    }()
-    
     /// Activates the owning process and focuses only the target window, preventing
     /// WindowServer from raising all other windows belonging to that application.
     @discardableResult
     private static func activateSingleWindow(key: WindowKey) -> Bool {
-        guard let getPID = getProcessForPIDFn,
-              let setFront = slpsSetFrontProcessWithOptionsFn else {
-            return false
-        }
-        var psn = PSN()
-        let pidStatus = getPID(key.pid, &psn)
-        guard pidStatus == 0 else {
-            return false
-        }
-        
-        // 1. kSetFrontProcessFrontWindowOnly = 0x0001: Bring the application's front window to the front
-        // without pulling other windows of the application forward.
-        if let setFrontProcess = setFrontProcessWithOptionsFn {
-            _ = setFrontProcess(&psn, 1)
-        }
-        
-        // 2. 0x200 corresponds to kCPSUserGenerated, targeting the specific window ID.
-        let status = setFront(&psn, UInt32(key.id), 0x200)
-        return status == .success
+        PrivateAPI.activateSingleWindow(pid: key.pid, windowID: UInt32(key.id))
     }
     
     public static func focusWindow(_ key: WindowKey) {

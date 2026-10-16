@@ -90,4 +90,9 @@ public final class OverflowButton: BaseTaskbarButton {
         )
         text.draw(in: textRect, withAttributes: attrs)
     }
+    
+    // MARK: - NSAccessibility
+    public override func accessibilityLabel() -> String? {
+        "Overflow Items"
+    }
 }

@@ -1,16 +1,18 @@
 // Tests/TaskbarCoreTests/WindowStoreTests.swift
 
-import XCTest
 import CoreGraphics
+import Testing
 @testable import TaskbarCore
 
+@Suite("WindowStore Tests")
 @MainActor
-final class WindowStoreTests: XCTestCase {
+struct WindowStoreTests {
     let screens = [
         ScreenDescriptor(id: 1, frame: CGRect(x: 0, y: 0, width: 1920, height: 1080), isPrimary: true),
         ScreenDescriptor(id: 2, frame: CGRect(x: 1920, y: 0, width: 1920, height: 1080), isPrimary: false)
     ]
     
+    @Test("Add and order windows")
     func testAddAndOrderWindows() {
         let store = WindowStore()
         
@@ -35,9 +37,9 @@ final class WindowStoreTests: XCTestCase {
         store.addOrUpdateWindow(win2)
         
         let display1Windows = store.windows(forScreenID: 1, screens: screens)
-        XCTAssertEqual(display1Windows.count, 2)
-        XCTAssertEqual(display1Windows[0].key, win1.key)
-        XCTAssertEqual(display1Windows[1].key, win2.key)
+        #expect(display1Windows.count == 2)
+        #expect(display1Windows[0].key == win1.key)
+        #expect(display1Windows[1].key == win2.key)
         
         // Updating title should preserve order
         var win1Updated = win1
@@ -45,10 +47,11 @@ final class WindowStoreTests: XCTestCase {
         store.addOrUpdateWindow(win1Updated)
         
         let display1AfterUpdate = store.windows(forScreenID: 1, screens: screens)
-        XCTAssertEqual(display1AfterUpdate[0].title, "New Tab")
-        XCTAssertEqual(display1AfterUpdate[0].key, win1.key)
+        #expect(display1AfterUpdate[0].title == "New Tab")
+        #expect(display1AfterUpdate[0].key == win1.key)
     }
     
+    @Test("Display partitioning between multiple screens")
     func testDisplayPartitioning() {
         let store = WindowStore()
         
@@ -72,10 +75,11 @@ final class WindowStoreTests: XCTestCase {
         store.addOrUpdateWindow(winOnScreen1)
         store.addOrUpdateWindow(winOnScreen2)
         
-        XCTAssertEqual(store.windows(forScreenID: 1, screens: screens).map { $0.key }, [winOnScreen1.key])
-        XCTAssertEqual(store.windows(forScreenID: 2, screens: screens).map { $0.key }, [winOnScreen2.key])
+        #expect(store.windows(forScreenID: 1, screens: screens).map { $0.key } == [winOnScreen1.key])
+        #expect(store.windows(forScreenID: 2, screens: screens).map { $0.key } == [winOnScreen2.key])
     }
     
+    @Test("Sync snapshot reconciliation")
     func testSyncSnapshotReconciliation() {
         let store = WindowStore()
         let pid: pid_t = 300
@@ -84,14 +88,15 @@ final class WindowStoreTests: XCTestCase {
         let w2 = WindowInfo(key: WindowKey(id: 2, pid: pid), pid: pid, appName: "App", bundleID: "com.app", title: "W2", frame: CGRect(x: 20, y: 20, width: 100, height: 100))
         
         store.syncSnapshot(forPID: pid, currentWindows: [w1, w2])
-        XCTAssertEqual(store.totalWindowCount, 2)
+        #expect(store.totalWindowCount == 2)
         
         // Window 1 was closed; now only Window 2 remains
         store.syncSnapshot(forPID: pid, currentWindows: [w2])
-        XCTAssertEqual(store.totalWindowCount, 1)
-        XCTAssertEqual(store.windows(forScreenID: 1, screens: screens).first?.key, w2.key)
+        #expect(store.totalWindowCount == 1)
+        #expect(store.windows(forScreenID: 1, screens: screens).first?.key == w2.key)
     }
     
+    @Test("Full screen transition tracking")
     func testFullScreenTransitionTracking() {
         let store = WindowStore()
         let key = WindowKey(id: 401, pid: 400)
@@ -109,8 +114,8 @@ final class WindowStoreTests: XCTestCase {
         store.addOrUpdateWindow(fsWindow)
         
         let storedFS = store.windows(forScreenID: 1, screens: screens).first
-        XCTAssertNotNil(storedFS)
-        XCTAssertTrue(storedFS?.isFullScreen == true)
+        #expect(storedFS != nil)
+        #expect(storedFS?.isFullScreen == true)
         
         // Window exits full-screen back to normal window
         let normalWindow = WindowInfo(
@@ -125,10 +130,11 @@ final class WindowStoreTests: XCTestCase {
         store.addOrUpdateWindow(normalWindow)
         
         let storedNormal = store.windows(forScreenID: 1, screens: screens).first
-        XCTAssertNotNil(storedNormal)
-        XCTAssertFalse(storedNormal?.isFullScreen == true, "WindowStore must update isFullScreen to false when window exits full-screen mode")
+        #expect(storedNormal != nil)
+        #expect(storedNormal?.isFullScreen == false)
     }
     
+    @Test("Set focused window increments focus order")
     func testSetFocusedWindowIncrementsFocusOrder() {
         let store = WindowStore()
         let win1 = WindowInfo(
@@ -150,21 +156,22 @@ final class WindowStoreTests: XCTestCase {
         store.addOrUpdateWindow(win1)
         store.addOrUpdateWindow(win2)
         
-        XCTAssertEqual(store.window(forKey: win1.key)?.focusOrder, 0)
-        XCTAssertEqual(store.window(forKey: win2.key)?.focusOrder, 0)
+        #expect(store.window(forKey: win1.key)?.focusOrder == 0)
+        #expect(store.window(forKey: win2.key)?.focusOrder == 0)
         
         store.setFocusedWindow(key: win1.key)
-        XCTAssertEqual(store.window(forKey: win1.key)?.focusOrder, 1)
-        XCTAssertNotNil(store.window(forKey: win1.key)?.lastFocusedAt)
+        #expect(store.window(forKey: win1.key)?.focusOrder == 1)
+        #expect(store.window(forKey: win1.key)?.lastFocusedAt != nil)
         
         store.setFocusedWindow(key: win2.key)
-        XCTAssertEqual(store.window(forKey: win2.key)?.focusOrder, 2)
-        XCTAssertNotNil(store.window(forKey: win2.key)?.lastFocusedAt)
-        XCTAssertGreaterThan(store.window(forKey: win2.key)!.focusOrder, store.window(forKey: win1.key)!.focusOrder)
+        #expect(store.window(forKey: win2.key)?.focusOrder == 2)
+        #expect(store.window(forKey: win2.key)?.lastFocusedAt != nil)
+        #expect((store.window(forKey: win2.key)?.focusOrder ?? 0) > (store.window(forKey: win1.key)?.focusOrder ?? 0))
     }
     
     // MARK: - Phase 6 / M-13: OrderKey & Pruning Tests
     
+    @Test("Custom order sorting with OrderKey")
     func testCustomOrderSortingWithOrderKey() {
         let store = WindowStore()
         let win1 = WindowInfo(key: WindowKey(id: 101, pid: 501), pid: 501, appName: "Safari", bundleID: "com.apple.Safari", title: "Apple", frame: CGRect(x: 100, y: 100, width: 800, height: 600))
@@ -174,21 +181,22 @@ final class WindowStoreTests: XCTestCase {
         store.addOrUpdateWindow(win2)
         
         // Natural order is [win1, win2]
-        XCTAssertEqual(store.windows(forScreenID: 1, screens: screens).map { $0.key }, [win1.key, win2.key])
+        #expect(store.windows(forScreenID: 1, screens: screens).map { $0.key } == [win1.key, win2.key])
         
         // Set custom order placing win2 at slot 0 and win1 at slot 1
         store.setCustomOrder([.window(win2.key): 0, .window(win1.key): 1], forScreenID: 1)
-        XCTAssertEqual(store.windows(forScreenID: 1, screens: screens).map { $0.key }, [win2.key, win1.key])
+        #expect(store.windows(forScreenID: 1, screens: screens).map { $0.key } == [win2.key, win1.key])
         
         // Set custom order via app-level keys
         store.setCustomOrder([.app("com.apple.Terminal"): 0, .app("com.apple.Safari"): 1], forScreenID: 1)
-        XCTAssertEqual(store.windows(forScreenID: 1, screens: screens).map { $0.key }, [win2.key, win1.key])
+        #expect(store.windows(forScreenID: 1, screens: screens).map { $0.key } == [win2.key, win1.key])
         
         // Clear custom order restores natural open order
         store.clearCustomOrder(forScreenID: 1)
-        XCTAssertEqual(store.windows(forScreenID: 1, screens: screens).map { $0.key }, [win1.key, win2.key])
+        #expect(store.windows(forScreenID: 1, screens: screens).map { $0.key } == [win1.key, win2.key])
     }
     
+    @Test("Remove window pruning and app reopening appends")
     func testRemoveWindowPruningAndAppReopeningAppends() {
         let store = WindowStore()
         let win1 = WindowInfo(key: WindowKey(id: 101, pid: 501), pid: 501, appName: "Safari", bundleID: "com.apple.Safari", title: "Apple", frame: CGRect(x: 100, y: 100, width: 800, height: 600))
@@ -207,20 +215,20 @@ final class WindowStoreTests: XCTestCase {
         
         // Focus Safari
         store.setFocusedWindow(key: win1.key)
-        XCTAssertEqual(store.focusedWindowKey, win1.key)
+        #expect(store.focusedWindowKey == win1.key)
         
         // Close Safari window 1 (its only window)
         store.removeWindow(key: win1.key)
         
         // Focused window key must be cleared
-        XCTAssertNil(store.focusedWindowKey)
+        #expect(store.focusedWindowKey == nil)
         
         // customOrders on screen 1 must prune BOTH .window(win1.key) AND .app("com.apple.Safari")
         let orderAfterClose = store.customOrder(forScreenID: 1)
-        XCTAssertNil(orderAfterClose[.window(win1.key)])
-        XCTAssertNil(orderAfterClose[.app("com.apple.Safari")])
-        XCTAssertEqual(orderAfterClose[.window(win2.key)], 1)
-        XCTAssertEqual(orderAfterClose[.app("com.apple.Terminal")], 1)
+        #expect(orderAfterClose[.window(win1.key)] == nil)
+        #expect(orderAfterClose[.app("com.apple.Safari")] == nil)
+        #expect(orderAfterClose[.window(win2.key)] == 1)
+        #expect(orderAfterClose[.app("com.apple.Terminal")] == 1)
         
         // Reopen Safari with a new window. Because both .window and .app were pruned,
         // it must append at the end after Terminal (slot 1), not revive slot 0!
@@ -228,11 +236,12 @@ final class WindowStoreTests: XCTestCase {
         store.addOrUpdateWindow(win1New)
         
         let screen1Windows = store.windows(forScreenID: 1, screens: screens)
-        XCTAssertEqual(screen1Windows.count, 2)
-        XCTAssertEqual(screen1Windows[0].key, win2.key, "Terminal should remain first because it has an explicit slot")
-        XCTAssertEqual(screen1Windows[1].key, win1New.key, "Reopened Safari must append at the end")
+        #expect(screen1Windows.count == 2)
+        #expect(screen1Windows[0].key == win2.key)
+        #expect(screen1Windows[1].key == win1New.key)
     }
     
+    @Test("Remove window keeps app key when other windows exist")
     func testRemoveWindowKeepsAppKeyWhenOtherWindowsExist() {
         let store = WindowStore()
         let win1 = WindowInfo(key: WindowKey(id: 101, pid: 501), pid: 501, appName: "Safari", bundleID: "com.apple.Safari", title: "Apple 1", frame: CGRect(x: 100, y: 100, width: 800, height: 600))
@@ -251,17 +260,18 @@ final class WindowStoreTests: XCTestCase {
         store.removeWindow(key: win1.key)
         
         let order = store.customOrder(forScreenID: 1)
-        XCTAssertNil(order[.window(win1.key)], "Closed window key must be pruned")
-        XCTAssertEqual(order[.window(win2.key)], 1, "Remaining window key must stay")
-        XCTAssertEqual(order[.app("com.apple.Safari")], 0, "App key must stay because win2 is still active")
+        #expect(order[.window(win1.key)] == nil)
+        #expect(order[.window(win2.key)] == 1)
+        #expect(order[.app("com.apple.Safari")] == 0)
         
         // Now close win2 (last window)
         store.removeWindow(key: win2.key)
         let orderAfterAllClosed = store.customOrder(forScreenID: 1)
-        XCTAssertNil(orderAfterAllClosed[.window(win2.key)])
-        XCTAssertNil(orderAfterAllClosed[.app("com.apple.Safari")], "App key must be pruned when last window closes")
+        #expect(orderAfterAllClosed[.window(win2.key)] == nil)
+        #expect(orderAfterAllClosed[.app("com.apple.Safari")] == nil)
     }
     
+    @Test("Remove windows for PID pruning")
     func testRemoveWindowsForPIDPruning() {
         let store = WindowStore()
         let win1 = WindowInfo(key: WindowKey(id: 1, pid: 100), pid: 100, appName: "AppA", bundleID: "com.test.appA", title: "A", frame: CGRect(x: 0, y: 0, width: 200, height: 200))
@@ -280,16 +290,17 @@ final class WindowStoreTests: XCTestCase {
         
         store.removeWindows(forPID: 100)
         
-        XCTAssertNil(store.focusedWindowKey, "Focused window key must be cleared when its PID is removed")
-        XCTAssertEqual(store.totalWindowCount, 1)
+        #expect(store.focusedWindowKey == nil)
+        #expect(store.totalWindowCount == 1)
         
         let order = store.customOrder(forScreenID: 1)
-        XCTAssertNil(order[.window(win1.key)])
-        XCTAssertNil(order[.app("com.test.appA")])
-        XCTAssertEqual(order[.window(win2.key)], 1)
-        XCTAssertEqual(order[.app("com.test.appB")], 1)
+        #expect(order[.window(win1.key)] == nil)
+        #expect(order[.app("com.test.appA")] == nil)
+        #expect(order[.window(win2.key)] == 1)
+        #expect(order[.app("com.test.appB")] == 1)
     }
     
+    @Test("Sync snapshot pruning and stale focused window key cleanup")
     func testSyncSnapshotPruningAndStaleFocusedWindowKey() {
         let store = WindowStore()
         let pid: pid_t = 300
@@ -299,7 +310,7 @@ final class WindowStoreTests: XCTestCase {
         
         store.syncSnapshot(forPID: pid, currentWindows: [win1, win2])
         store.setFocusedWindow(key: win1.key)
-        XCTAssertEqual(store.focusedWindowKey, win1.key)
+        #expect(store.focusedWindowKey == win1.key)
         
         store.setCustomOrder([
             .window(win1.key): 0,
@@ -311,18 +322,18 @@ final class WindowStoreTests: XCTestCase {
         store.syncSnapshot(forPID: pid, currentWindows: [win2])
         
         // Focused window key must be cleared because win1 is gone
-        XCTAssertNil(store.focusedWindowKey, "Stale focused window key must be cleared when window is no longer reported")
+        #expect(store.focusedWindowKey == nil)
         
         // win1 key must be pruned, but win2 and app key remain
         var order = store.customOrder(forScreenID: 1)
-        XCTAssertNil(order[.window(win1.key)], "Closed window must be pruned from customOrders")
-        XCTAssertEqual(order[.window(win2.key)], 1)
-        XCTAssertEqual(order[.app("com.app")], 0, "App key must remain as win2 is still active")
+        #expect(order[.window(win1.key)] == nil)
+        #expect(order[.window(win2.key)] == 1)
+        #expect(order[.app("com.app")] == 0)
         
         // win2 also closes (currentWindows empty)
         store.syncSnapshot(forPID: pid, currentWindows: [])
         order = store.customOrder(forScreenID: 1)
-        XCTAssertNil(order[.window(win2.key)])
-        XCTAssertNil(order[.app("com.app")], "App key must be pruned when app has no remaining windows")
+        #expect(order[.window(win2.key)] == nil)
+        #expect(order[.app("com.app")] == nil)
     }
 }

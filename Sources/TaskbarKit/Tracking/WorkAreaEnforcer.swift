@@ -347,7 +347,7 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
         
         if screens.isEmpty {
             screens = NSScreen.screens.map { screen in
-                let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
+                let displayID = screen.displayID ?? 0
                 let isPrimary = (screen == NSScreen.screens.first)
                 let frame = displayID != 0 ? CGDisplayBounds(displayID) : screen.frame
                 return ScreenDescriptor(id: UInt32(displayID), frame: frame, isPrimary: isPrimary)

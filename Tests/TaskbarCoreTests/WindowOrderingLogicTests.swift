@@ -1,10 +1,12 @@
 // Tests/TaskbarCoreTests/WindowOrderingLogicTests.swift
 
-import XCTest
 import CoreGraphics
+import Foundation
+import Testing
 @testable import TaskbarCore
 
-final class WindowOrderingLogicTests: XCTestCase {
+@Suite("Window Ordering Logic Tests")
+struct WindowOrderingLogicTests {
     
     private func makeGroup(id: String, appName: String, winID: UInt64? = nil, pid: pid_t? = nil) -> WindowGroup {
         let derivedID = winID ?? UInt64(abs(id.utf8.reduce(0) { ($0 << 5) &+ $0 &+ Int($1) }) % 10000 + 1)
@@ -27,6 +29,7 @@ final class WindowOrderingLogicTests: XCTestCase {
     }
     
     // TC-UNIT-009: Validates slot move array operations
+    @Test("Reorder item shifts indices and maps keys")
     func testReorderItemShiftsIndices() {
         let groupA = makeGroup(id: "A", appName: "AppA")
         let groupB = makeGroup(id: "B", appName: "AppB")
@@ -35,34 +38,35 @@ final class WindowOrderingLogicTests: XCTestCase {
         
         // Move item 0 ("A") to index 2
         let (reordered1, orderMap1) = WindowOrderingLogic.moveItem(in: initialItems, fromIndex: 0, toIndex: 2)
-        XCTAssertEqual(reordered1.map { $0.id }, ["B", "C", "A"])
-        XCTAssertEqual(orderMap1[.app("com.test.AppB")], 0)
-        XCTAssertEqual(orderMap1[.app("com.test.AppC")], 1)
-        XCTAssertEqual(orderMap1[.app("com.test.AppA")], 2)
-        XCTAssertEqual(orderMap1[.window(groupB.windows[0].key)], 0)
-        XCTAssertEqual(orderMap1[.window(groupC.windows[0].key)], 1)
-        XCTAssertEqual(orderMap1[.window(groupA.windows[0].key)], 2)
+        #expect(reordered1.map { $0.id } == ["B", "C", "A"])
+        #expect(orderMap1[.app("com.test.AppB")] == 0)
+        #expect(orderMap1[.app("com.test.AppC")] == 1)
+        #expect(orderMap1[.app("com.test.AppA")] == 2)
+        #expect(orderMap1[.window(groupB.windows[0].key)] == 0)
+        #expect(orderMap1[.window(groupC.windows[0].key)] == 1)
+        #expect(orderMap1[.window(groupA.windows[0].key)] == 2)
         
         // Move item 2 ("A") to index 0
         let (reordered2, orderMap2) = WindowOrderingLogic.moveItem(in: reordered1, fromIndex: 2, toIndex: 0)
-        XCTAssertEqual(reordered2.map { $0.id }, ["A", "B", "C"])
-        XCTAssertEqual(orderMap2[.app("com.test.AppA")], 0)
-        XCTAssertEqual(orderMap2[.app("com.test.AppB")], 1)
-        XCTAssertEqual(orderMap2[.app("com.test.AppC")], 2)
+        #expect(reordered2.map { $0.id } == ["A", "B", "C"])
+        #expect(orderMap2[.app("com.test.AppA")] == 0)
+        #expect(orderMap2[.app("com.test.AppB")] == 1)
+        #expect(orderMap2[.app("com.test.AppC")] == 2)
         
         // Out of bounds moves return original array safely
         let (reorderedOOB1, _) = WindowOrderingLogic.moveItem(in: initialItems, fromIndex: -1, toIndex: 1)
-        XCTAssertEqual(reorderedOOB1.map { $0.id }, ["A", "B", "C"])
+        #expect(reorderedOOB1.map { $0.id } == ["A", "B", "C"])
         
         let (reorderedOOB2, _) = WindowOrderingLogic.moveItem(in: initialItems, fromIndex: 0, toIndex: 99)
-        XCTAssertEqual(reorderedOOB2.map { $0.id }, ["A", "B", "C"])
+        #expect(reorderedOOB2.map { $0.id } == ["A", "B", "C"])
         
         // Moving to same index returns same array
         let (reorderedSame, _) = WindowOrderingLogic.moveItem(in: initialItems, fromIndex: 1, toIndex: 1)
-        XCTAssertEqual(reorderedSame.map { $0.id }, ["A", "B", "C"])
+        #expect(reorderedSame.map { $0.id } == ["A", "B", "C"])
     }
     
     // TC-UNIT-010: Newly opened windows append without clobbering manual order
+    @Test("Custom order persists across new windows")
     func testCustomOrderPersistsAcrossNewWindows() {
         let groupA = makeGroup(id: "A", appName: "AppA")
         let groupB = makeGroup(id: "B", appName: "AppB")
@@ -83,10 +87,11 @@ final class WindowOrderingLogicTests: XCTestCase {
         
         // Expected result: Manually ordered items first in custom order [B, A, C],
         // followed by newly discovered items preserving their relative arrival order [New1, New2]
-        XCTAssertEqual(sorted.map { $0.id }, ["B", "A", "C", "New1", "New2"])
+        #expect(sorted.map { $0.id } == ["B", "A", "C", "New1", "New2"])
     }
     
     // TC-UNIT-011: Closed windows cleanly removed from order dictionary
+    @Test("Custom order purges closed windows")
     func testCustomOrderPurgesClosedWindows() {
         let key1 = WindowKey(id: 1, pid: 100)
         let key2 = WindowKey(id: 2, pid: 100)
@@ -109,23 +114,25 @@ final class WindowOrderingLogicTests: XCTestCase {
         ]
         let pruned = WindowOrderingLogic.pruneOrderMap(order, activeKeys: activeKeys)
         
-        XCTAssertEqual(pruned.count, 3)
-        XCTAssertEqual(pruned[.window(key1)], 0)
-        XCTAssertEqual(pruned[.window(key3)], 2)
-        XCTAssertEqual(pruned[.app("com.test.AppA")], 0)
-        XCTAssertNil(pruned[.window(key2)])
-        XCTAssertNil(pruned[.window(key4)])
+        #expect(pruned.count == 3)
+        #expect(pruned[.window(key1)] == 0)
+        #expect(pruned[.window(key3)] == 2)
+        #expect(pruned[.app("com.test.AppA")] == 0)
+        #expect(pruned[.window(key2)] == nil)
+        #expect(pruned[.window(key4)] == nil)
     }
     
+    @Test("Empty inputs handling")
     func testEmptyInputs() {
         let empty = WindowOrderingLogic.applyCustomOrder(items: [], customOrder: [.app("com.test.AppA"): 0])
-        XCTAssertTrue(empty.isEmpty)
+        #expect(empty.isEmpty)
         
         let groupA = makeGroup(id: "A", appName: "AppA")
         let noCustomOrder = WindowOrderingLogic.applyCustomOrder(items: [groupA], customOrder: [:])
-        XCTAssertEqual(noCustomOrder.map { $0.id }, ["A"])
+        #expect(noCustomOrder.map { $0.id } == ["A"])
     }
     
+    @Test("Single pass decorate sort undecorate with window and app slots")
     func testSinglePassDecorateSortUndecorateWithWindowAndAppSlots() {
         let win1 = WindowInfo(key: WindowKey(id: 10, pid: 1), pid: 1, appName: "App1", bundleID: "com.test.app1", title: "W1", frame: .zero)
         let win2 = WindowInfo(key: WindowKey(id: 20, pid: 2), pid: 2, appName: "App2", bundleID: "com.test.app2", title: "W2", frame: .zero)
@@ -142,6 +149,6 @@ final class WindowOrderingLogicTests: XCTestCase {
         ]
         
         let sorted = WindowOrderingLogic.applyCustomOrder(items: [group1, group2, group3], customOrder: customOrder)
-        XCTAssertEqual(sorted.map { $0.id }, ["G3", "G1", "G2"])
+        #expect(sorted.map { $0.id } == ["G3", "G1", "G2"])
     }
 }

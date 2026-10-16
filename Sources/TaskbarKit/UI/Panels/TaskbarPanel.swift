@@ -22,7 +22,7 @@ public final class TaskbarPanel: NSPanel {
         store: WindowStore? = nil
     ) {
         // Resolve display ID
-        let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
+        let displayID = screen.displayID ?? 0
         self.screenID = displayID
         
         let frame = NSRect(

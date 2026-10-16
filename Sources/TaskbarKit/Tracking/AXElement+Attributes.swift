@@ -203,16 +203,9 @@ extension AXUIElement {
         )
     }
 
-    private typealias AXUIElementGetWindowFunc = @convention(c) (AXUIElement, UnsafeMutablePointer<CGWindowID>) -> AXError
-    private static let axUIElementGetWindowFn: AXUIElementGetWindowFunc? = {
-        guard let sym = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "_AXUIElementGetWindow") else { return nil }
-        return unsafeBitCast(sym, to: AXUIElementGetWindowFunc.self)
-    }()
-
     /// Stable numerical identity based on native CGWindowID
     public var windowID: UInt64? {
-        var wid: CGWindowID = 0
-        if let fn = Self.axUIElementGetWindowFn, fn(self, &wid) == .success, wid != 0 {
+        if let wid = PrivateAPI.getWindowID(for: self) {
             return UInt64(wid)
         }
         return nil
