@@ -157,7 +157,9 @@ struct EdgeCasesIntegrationTests {
             screens: [screenDesc]
         )
         defer {
-            WorkAreaEnforcer.shared.removeWindow(winID: win.windowID)
+            if let wid = win.windowID {
+                WorkAreaEnforcer.shared.removeWindow(winID: wid)
+            }
         }
         
         // Expand window bounds to fill entire screen vertically (overlapping taskbar by barHeight)
@@ -218,7 +220,9 @@ struct EdgeCasesIntegrationTests {
             screens: [screenDesc]
         )
         defer {
-            WorkAreaEnforcer.shared.removeWindow(winID: win.windowID)
+            if let wid = win.windowID {
+                WorkAreaEnforcer.shared.removeWindow(winID: wid)
+            }
         }
         
         // Maximize window bounds to cover full screen height

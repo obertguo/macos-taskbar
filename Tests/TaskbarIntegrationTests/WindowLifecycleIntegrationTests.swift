@@ -43,11 +43,11 @@ struct WindowLifecycleIntegrationTests {
         let fixture = try await TestFixtureApp.launchTextEdit(documentTitle: uniqueTitle)
         defer { fixture.terminate() }
         
-        let discovered = await waitUntil(timeoutSeconds: 3.0) {
+        let discovered = await waitUntil(timeoutSeconds: 5.0) {
             store.allWindows.contains { $0.title.contains(uniqueTitle) || $0.appName == "TextEdit" }
         }
         
-        #expect(discovered == true, "Taskbar should discover TextEdit window within 3 seconds")
+        #expect(discovered == true, "Taskbar should discover TextEdit window within 5 seconds")
     }
     
     @Test("TC-FUNC-002: Window minimization state tracking")

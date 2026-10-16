@@ -3,9 +3,38 @@
 import ApplicationServices
 import Foundation
 import CoreGraphics
+import TaskbarCore
+
+public struct RawWindowAttributes: Sendable {
+    public let role: String?
+    public let subrole: String?
+    public let title: String?
+    public let isMinimized: Bool
+    public let frame: CGRect?
+    public let isMain: Bool
+    public let isFullScreen: Bool
+    
+    public init(
+        role: String?,
+        subrole: String?,
+        title: String?,
+        isMinimized: Bool,
+        frame: CGRect?,
+        isMain: Bool,
+        isFullScreen: Bool
+    ) {
+        self.role = role
+        self.subrole = subrole
+        self.title = title
+        self.isMinimized = isMinimized
+        self.frame = frame
+        self.isMain = isMain
+        self.isFullScreen = isFullScreen
+    }
+}
 
 extension AXUIElement {
-    public func setTimeout(_ seconds: Float = 0.3) {
+    public func setTimeout(_ seconds: Float = TaskbarConstants.Timing.axTimeout) {
         AXUIElementSetMessagingTimeout(self, seconds)
     }
     
@@ -56,6 +85,14 @@ extension AXUIElement {
         var newSize = size
         guard let val = AXValueCreate(.cgSize, &newSize) else { return false }
         let result = AXUIElementSetAttributeValue(self, kAXSizeAttribute as CFString, val)
+        return result == .success
+    }
+    
+    @discardableResult
+    public func setPosition(_ position: CGPoint) -> Bool {
+        var newPosition = position
+        guard let val = AXValueCreate(.cgPoint, &newPosition) else { return false }
+        let result = AXUIElementSetAttributeValue(self, kAXPositionAttribute as CFString, val)
         return result == .success
     }
     
@@ -111,18 +148,73 @@ extension AXUIElement {
         return (win as! AXUIElement)
     }
     
+    public func fetchWindowAttributesBatch() -> RawWindowAttributes? {
+        let attributes: [CFString] = [
+            kAXRoleAttribute as CFString,
+            kAXSubroleAttribute as CFString,
+            kAXTitleAttribute as CFString,
+            kAXMinimizedAttribute as CFString,
+            kAXPositionAttribute as CFString,
+            kAXSizeAttribute as CFString,
+            kAXMainAttribute as CFString,
+            "AXFullScreen" as CFString
+        ]
+        var valuesRef: CFArray?
+        let result = AXUIElementCopyMultipleAttributeValues(
+            self,
+            attributes as CFArray,
+            AXCopyMultipleAttributeOptions(rawValue: 0),
+            &valuesRef
+        )
+        guard result == .success, let values = valuesRef as? [AnyObject], values.count >= 8 else {
+            return nil
+        }
+        
+        let role = values[0] as? String
+        let subrole = values[1] as? String
+        let title = values[2] as? String
+        let isMinimized = (values[3] as? NSNumber)?.boolValue ?? false
+        
+        var frame: CGRect? = nil
+        let posVal = values[4]
+        let sizeVal = values[5]
+        if CFGetTypeID(posVal) == AXValueGetTypeID(),
+           CFGetTypeID(sizeVal) == AXValueGetTypeID() {
+            var point = CGPoint.zero
+            var size = CGSize.zero
+            let pointOk = AXValueGetValue(posVal as! AXValue, .cgPoint, &point)
+            let sizeOk = AXValueGetValue(sizeVal as! AXValue, .cgSize, &size)
+            if pointOk && sizeOk {
+                frame = CGRect(origin: point, size: size)
+            }
+        }
+        
+        let isMain = (values[6] as? NSNumber)?.boolValue ?? false
+        let isFullScreen = (values[7] as? NSNumber)?.boolValue ?? false
+        
+        return RawWindowAttributes(
+            role: role,
+            subrole: subrole,
+            title: title,
+            isMinimized: isMinimized,
+            frame: frame,
+            isMain: isMain,
+            isFullScreen: isFullScreen
+        )
+    }
+
     private typealias AXUIElementGetWindowFunc = @convention(c) (AXUIElement, UnsafeMutablePointer<CGWindowID>) -> AXError
     private static let axUIElementGetWindowFn: AXUIElementGetWindowFunc? = {
         guard let sym = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "_AXUIElementGetWindow") else { return nil }
         return unsafeBitCast(sym, to: AXUIElementGetWindowFunc.self)
     }()
 
-    /// Stable numerical identity based on native CGWindowID, falling back to CFHash
-    public var windowID: UInt64 {
+    /// Stable numerical identity based on native CGWindowID
+    public var windowID: UInt64? {
         var wid: CGWindowID = 0
         if let fn = Self.axUIElementGetWindowFn, fn(self, &wid) == .success, wid != 0 {
             return UInt64(wid)
         }
-        return UInt64(bitPattern: Int64(CFHash(self)))
+        return nil
     }
 }

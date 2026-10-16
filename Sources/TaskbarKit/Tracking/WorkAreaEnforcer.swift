@@ -75,7 +75,7 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
         }
         guard pid != ProcessInfo.processInfo.processIdentifier, pid > 0 else { return }
         
-        let winID = element.windowID
+        guard let winID = element.windowID else { return }
         
         // Self-inflicted notification filter:
         // If this notification was triggered by our own setSize within the last 350ms,

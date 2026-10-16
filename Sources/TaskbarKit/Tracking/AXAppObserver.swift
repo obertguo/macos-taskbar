@@ -1,7 +1,22 @@
 // Sources/TaskbarKit/Tracking/AXAppObserver.swift
 
-import ApplicationServices
+@preconcurrency import ApplicationServices
 import Foundation
+import TaskbarCore
+
+public struct AXNotificationEvent: Sendable {
+    public let pid: pid_t
+    public let notification: String
+    public let element: AXUIElement
+    public let resolvedWindowID: UInt64?
+    
+    public init(pid: pid_t, notification: String, element: AXUIElement, resolvedWindowID: UInt64?) {
+        self.pid = pid
+        self.notification = notification
+        self.element = element
+        self.resolvedWindowID = resolvedWindowID
+    }
+}
 
 private final class AXObserverContext: @unchecked Sendable {
     private let lock = NSLock()
@@ -50,6 +65,7 @@ public final class AXAppObserver: @unchecked Sendable {
     public let appElement: AXUIElement
     private var observer: AXObserver?
     private var runLoopSource: CFRunLoopSource?
+    public var onNotification: ((AXNotificationEvent) -> Void)?
     public var onEvent: (() -> Void)?
     
     private var observedWindows: Set<UInt64> = []
@@ -64,9 +80,7 @@ public final class AXAppObserver: @unchecked Sendable {
     private let appNotifications: [CFString] = [
         kAXWindowCreatedNotification as CFString,
         kAXFocusedWindowChangedNotification as CFString,
-        kAXMainWindowChangedNotification as CFString,
-        kAXWindowResizedNotification as CFString,
-        kAXWindowMovedNotification as CFString
+        kAXMainWindowChangedNotification as CFString
     ]
     
     // Window-level notifications (must be attached to AXWindow elements)
@@ -79,11 +93,12 @@ public final class AXAppObserver: @unchecked Sendable {
         kAXUIElementDestroyedNotification as CFString
     ]
     
-    public init?(pid: pid_t, onEvent: @escaping () -> Void) {
+    public init?(pid: pid_t, onNotification: @escaping (AXNotificationEvent) -> Void) {
         self.pid = pid
-        self.onEvent = onEvent
+        self.onNotification = onNotification
+        self.onEvent = nil
         self.appElement = AXUIElementCreateApplication(pid)
-        self.appElement.setTimeout(0.3)
+        self.appElement.setTimeout(TaskbarConstants.Timing.axTimeout)
         
         self.context.setTarget(self)
         let ptr = UnsafeMutableRawPointer(Unmanaged.passRetained(context).toOpaque())
@@ -120,6 +135,11 @@ public final class AXAppObserver: @unchecked Sendable {
         }
     }
     
+    public convenience init?(pid: pid_t, onEvent: @escaping () -> Void) {
+        self.init(pid: pid, onNotification: { _ in onEvent() })
+        self.onEvent = onEvent
+    }
+    
     /// Attaches window-level notifications to an individual window element.
     public func observeWindow(_ winElement: AXUIElement) {
         stateLock.lock()
@@ -127,7 +147,10 @@ public final class AXAppObserver: @unchecked Sendable {
             stateLock.unlock()
             return
         }
-        let winID = winElement.windowID
+        guard let winID = winElement.windowID else {
+            stateLock.unlock()
+            return
+        }
         guard !observedWindows.contains(winID) else {
             stateLock.unlock()
             return
@@ -152,7 +175,32 @@ public final class AXAppObserver: @unchecked Sendable {
         }
     }
     
-    fileprivate func handleNotification(_ name: String, element: AXUIElement) {
+    internal func isWindowObserved(_ id: UInt64) -> Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return observedWindows.contains(id)
+    }
+    
+    internal func registerObservedWindowForTesting(id: UInt64, element: AXUIElement) {
+        stateLock.lock()
+        observedWindows.insert(id)
+        observedWindowElements[id] = element
+        stateLock.unlock()
+    }
+    
+    internal func handleNotification(_ name: String, element: AXUIElement) {
+        var resolvedWindowID: UInt64? = element.windowID
+        if resolvedWindowID == nil {
+            stateLock.lock()
+            for (wid, storedElement) in observedWindowElements {
+                if CFEqual(storedElement, element) {
+                    resolvedWindowID = wid
+                    break
+                }
+            }
+            stateLock.unlock()
+        }
+        
         if name == (kAXWindowCreatedNotification as String) {
             observeWindow(element)
         } else if name == (kAXWindowResizedNotification as String) {
@@ -162,13 +210,22 @@ public final class AXAppObserver: @unchecked Sendable {
             observeWindow(element)
             WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: element, pid: pid, isResize: false)
         } else if name == (kAXUIElementDestroyedNotification as String) {
-            let winID = element.windowID
-            stateLock.lock()
-            observedWindows.remove(winID)
-            observedWindowElements.removeValue(forKey: winID)
-            stateLock.unlock()
-            WorkAreaEnforcer.shared.removeWindow(winID: winID)
+            if let wid = resolvedWindowID {
+                stateLock.lock()
+                observedWindows.remove(wid)
+                observedWindowElements.removeValue(forKey: wid)
+                stateLock.unlock()
+                WorkAreaEnforcer.shared.removeWindow(winID: wid)
+            }
         }
+        
+        let event = AXNotificationEvent(
+            pid: pid,
+            notification: name,
+            element: element,
+            resolvedWindowID: resolvedWindowID
+        )
+        onNotification?(event)
         onEvent?()
     }
     
@@ -195,6 +252,7 @@ public final class AXAppObserver: @unchecked Sendable {
         observer = nil
         runLoopSource = nil
         onEvent = nil
+        onNotification = nil
         stateLock.unlock()
         
         if let obs = obs {

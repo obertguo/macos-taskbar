@@ -186,7 +186,7 @@ public enum TaskbarConstants {
         public static let maxNudgeAttempts: Int = 4
         
         /// Global timeout in seconds for Accessibility API IPC queries to prevent UI hangs.
-        public static let axTimeout: Float = 0.3
+        public static let axTimeout: Float = 0.15
     }
     
     // MARK: - System Dock Integration

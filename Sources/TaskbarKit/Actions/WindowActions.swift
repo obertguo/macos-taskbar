@@ -7,9 +7,16 @@ import TaskbarCore
 public enum WindowActions {
     /// Resolves the specific AXUIElement corresponding to a WindowKey
     private static func findWindowElement(for key: WindowKey) -> AXUIElement? {
+        if let cached = AppTracker.elementForWindowKey(key) {
+            return cached
+        }
         let appElement = AXUIElementCreateApplication(key.pid)
-        appElement.setTimeout(0.3)
-        return appElement.windows.first { $0.windowID == key.id }
+        appElement.setTimeout(TaskbarConstants.Timing.axTimeout)
+        if let found = appElement.windows.first(where: { $0.windowID == key.id }) {
+            AppTracker.cacheElement(found, for: key)
+            return found
+        }
+        return nil
     }
     
     public static func performAction(_ action: ClickAction, for key: WindowKey) {
@@ -77,6 +84,15 @@ public enum WindowActions {
     }
     
     public static func focusWindow(_ key: WindowKey) {
+        if AppTracker.isPIDBackedOff(key.pid) {
+            if !activateSingleWindow(key: key) {
+                DispatchQueue.main.async {
+                    NSRunningApplication(processIdentifier: key.pid)?.activate(options: [])
+                }
+            }
+            return
+        }
+        
         AXThread.shared.async {
             guard let winElement = findWindowElement(for: key) else {
                 DispatchQueue.main.async {
@@ -117,12 +133,21 @@ public enum WindowActions {
     }
     
     public static func restoreAndFocusWindow(_ key: WindowKey) {
-        AXThread.shared.async {
-            // Unhide app if hidden
-            DispatchQueue.main.async {
-                NSRunningApplication(processIdentifier: key.pid)?.unhide()
+        // Unhide app if hidden
+        DispatchQueue.main.async {
+            NSRunningApplication(processIdentifier: key.pid)?.unhide()
+        }
+        
+        if AppTracker.isPIDBackedOff(key.pid) {
+            if !activateSingleWindow(key: key) {
+                DispatchQueue.main.async {
+                    NSRunningApplication(processIdentifier: key.pid)?.activate(options: [])
+                }
             }
-            
+            return
+        }
+        
+        AXThread.shared.async {
             guard let winElement = findWindowElement(for: key) else {
                 DispatchQueue.main.async {
                     NSRunningApplication(processIdentifier: key.pid)?.activate()
