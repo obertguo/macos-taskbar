@@ -4,6 +4,7 @@ import XCTest
 import CoreGraphics
 @testable import TaskbarCore
 
+@MainActor
 final class WindowStoreTests: XCTestCase {
     let screens = [
         ScreenDescriptor(id: 1, frame: CGRect(x: 0, y: 0, width: 1920, height: 1080), isPrimary: true),
@@ -126,5 +127,39 @@ final class WindowStoreTests: XCTestCase {
         let storedNormal = store.windows(forScreenID: 1, screens: screens).first
         XCTAssertNotNil(storedNormal)
         XCTAssertFalse(storedNormal?.isFullScreen == true, "WindowStore must update isFullScreen to false when window exits full-screen mode")
+    }
+    
+    func testSetFocusedWindowIncrementsFocusOrder() {
+        let store = WindowStore()
+        let win1 = WindowInfo(
+            key: WindowKey(id: 1, pid: 100),
+            pid: 100,
+            appName: "App",
+            bundleID: "com.app",
+            title: "Win 1",
+            frame: CGRect(x: 0, y: 0, width: 800, height: 600)
+        )
+        let win2 = WindowInfo(
+            key: WindowKey(id: 2, pid: 100),
+            pid: 100,
+            appName: "App",
+            bundleID: "com.app",
+            title: "Win 2",
+            frame: CGRect(x: 50, y: 50, width: 800, height: 600)
+        )
+        store.addOrUpdateWindow(win1)
+        store.addOrUpdateWindow(win2)
+        
+        XCTAssertEqual(store.window(forKey: win1.key)?.focusOrder, 0)
+        XCTAssertEqual(store.window(forKey: win2.key)?.focusOrder, 0)
+        
+        store.setFocusedWindow(key: win1.key)
+        XCTAssertEqual(store.window(forKey: win1.key)?.focusOrder, 1)
+        XCTAssertNotNil(store.window(forKey: win1.key)?.lastFocusedAt)
+        
+        store.setFocusedWindow(key: win2.key)
+        XCTAssertEqual(store.window(forKey: win2.key)?.focusOrder, 2)
+        XCTAssertNotNil(store.window(forKey: win2.key)?.lastFocusedAt)
+        XCTAssertGreaterThan(store.window(forKey: win2.key)!.focusOrder, store.window(forKey: win1.key)!.focusOrder)
     }
 }

@@ -152,7 +152,8 @@ public enum WindowActions {
             
             var closeButtonValue: AnyObject?
             if AXUIElementCopyAttributeValue(winElement, kAXCloseButtonAttribute as CFString, &closeButtonValue) == .success,
-               let closeButton = closeButtonValue {
+               let closeButton = closeButtonValue,
+               CFGetTypeID(closeButton) == AXUIElementGetTypeID() {
                 AXUIElementPerformAction((closeButton as! AXUIElement), kAXPressAction as CFString)
             }
         }
@@ -173,6 +174,7 @@ public enum WindowActions {
         }
     }
     
+    @MainActor
     public static func launchOrActivateApp(
         bundleIdentifier: String,
         customPath: String? = nil,
@@ -186,7 +188,7 @@ public enum WindowActions {
             
             if let store = store {
                 let appWindows = store.allWindows.filter { $0.bundleID == bundleIdentifier && $0.pid == runningApp.processIdentifier }
-                if let targetWindow = appWindows.first {
+                if let targetWindow = WindowGroup.primaryWindow(from: appWindows) {
                     if targetWindow.isMinimized {
                         restoreAndFocusWindow(targetWindow.key)
                     } else {

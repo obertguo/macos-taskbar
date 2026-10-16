@@ -62,7 +62,8 @@ extension AXUIElement {
     public var minimizeButton: AXUIElement? {
         var value: AnyObject?
         let result = AXUIElementCopyAttributeValue(self, kAXMinimizeButtonAttribute as CFString, &value)
-        guard result == .success, let unwrapped = value else {
+        guard result == .success, let unwrapped = value,
+              CFGetTypeID(unwrapped) == AXUIElementGetTypeID() else {
             return nil
         }
         return (unwrapped as! AXUIElement)
@@ -103,7 +104,8 @@ extension AXUIElement {
     public var focusedWindow: AXUIElement? {
         var value: AnyObject?
         let result = AXUIElementCopyAttributeValue(self, kAXFocusedWindowAttribute as CFString, &value)
-        guard result == .success, let win = value else {
+        guard result == .success, let win = value,
+              CFGetTypeID(win) == AXUIElementGetTypeID() else {
             return nil
         }
         return (win as! AXUIElement)

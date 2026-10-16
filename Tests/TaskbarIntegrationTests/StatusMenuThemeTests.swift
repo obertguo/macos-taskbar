@@ -14,8 +14,7 @@ struct StatusMenuThemeTests {
     func testStatusMenuThemeSubmenuStructure() {
         let statusMenu = StatusMenu(currentThemeId: ModernHybridTheme.id)
         
-        guard let statusItem = Mirror(reflecting: statusMenu).children.first(where: { $0.label == "statusItem" })?.value as? NSStatusItem,
-              let menu = statusItem.menu,
+        guard let menu = statusMenu.menu,
               let themeItem = menu.items.first(where: { $0.title == TaskbarStrings.StatusMenu.themeMenu }),
               let themeSubmenu = themeItem.submenu else {
             Issue.record("Failed to inspect StatusMenu theme submenu")
@@ -57,8 +56,7 @@ struct StatusMenuThemeTests {
         
         let statusMenu = StatusMenu(currentThemeId: "test-cyberpunk")
         
-        guard let statusItem = Mirror(reflecting: statusMenu).children.first(where: { $0.label == "statusItem" })?.value as? NSStatusItem,
-              let menu = statusItem.menu,
+        guard let menu = statusMenu.menu,
               let themeItem = menu.items.first(where: { $0.title == TaskbarStrings.StatusMenu.themeMenu }),
               let themeSubmenu = themeItem.submenu else {
             Issue.record("Failed to inspect StatusMenu theme submenu")
@@ -82,8 +80,7 @@ struct StatusMenuThemeTests {
             reloadCalled = true
         }
         
-        guard let statusItem = Mirror(reflecting: statusMenu).children.first(where: { $0.label == "statusItem" })?.value as? NSStatusItem,
-              let menu = statusItem.menu,
+        guard let menu = statusMenu.menu,
               let themeItem = menu.items.first(where: { $0.title == TaskbarStrings.StatusMenu.themeMenu }),
               let themeSubmenu = themeItem.submenu,
               let reloadItem = themeSubmenu.items.first(where: { $0.title == TaskbarStrings.Themes.reloadThemes }),
@@ -119,8 +116,7 @@ struct StatusMenuThemeTests {
             receivedThemeId = themeId
         }
         
-        guard let statusItem = Mirror(reflecting: statusMenu).children.first(where: { $0.label == "statusItem" })?.value as? NSStatusItem,
-              let menu = statusItem.menu,
+        guard let menu = statusMenu.menu,
               let themeItem = menu.items.first(where: { $0.title == TaskbarStrings.StatusMenu.themeMenu }),
               let themeSubmenu = themeItem.submenu,
               let customMenuItem = themeSubmenu.items.first(where: { $0.title == "Neon Matrix Custom" }),
@@ -136,7 +132,7 @@ struct StatusMenuThemeTests {
         #expect(statusMenu.currentThemeId == "custom-neon-matrix")
         
         // Verify state is checked in the updated menu
-        let updatedThemeItem = statusItem.menu?.items.first(where: { $0.title == TaskbarStrings.StatusMenu.themeMenu })
+        let updatedThemeItem = statusMenu.menu?.items.first(where: { $0.title == TaskbarStrings.StatusMenu.themeMenu })
         let updatedCustomItem = updatedThemeItem?.submenu?.items.first(where: { $0.title == "Neon Matrix Custom" })
         #expect(updatedCustomItem?.state == .on)
     }

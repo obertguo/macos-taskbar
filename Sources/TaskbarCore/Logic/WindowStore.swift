@@ -3,12 +3,13 @@
 import Foundation
 import CoreGraphics
 
-public final class WindowStore: @unchecked Sendable {
+@MainActor public final class WindowStore {
     private var windows: [WindowKey: WindowInfo] = [:]
     private var customOrders: [UInt32: [String: Int]] = [:]
     public private(set) var focusedWindowKey: WindowKey?
     public private(set) var frontmostPID: pid_t?
     private var openOrderCounter: UInt64 = 0
+    private var focusOrderCounter: UInt64 = 0
     
     public init() {}
     
@@ -24,6 +25,10 @@ public final class WindowStore: @unchecked Sendable {
             existing.isAppHidden = info.isAppHidden
             existing.isMain = info.isMain
             existing.isFullScreen = info.isFullScreen
+            if info.focusOrder > existing.focusOrder {
+                existing.focusOrder = info.focusOrder
+                existing.lastFocusedAt = info.lastFocusedAt
+            }
             windows[info.key] = existing
         } else {
             openOrderCounter += 1
@@ -74,6 +79,13 @@ public final class WindowStore: @unchecked Sendable {
     
     public func setFocusedWindow(key: WindowKey?) {
         self.focusedWindowKey = key
+        guard let key = key else { return }
+        if var win = windows[key] {
+            focusOrderCounter += 1
+            win.focusOrder = focusOrderCounter
+            win.lastFocusedAt = Date()
+            windows[key] = win
+        }
     }
     
     public func setFrontmostPID(_ pid: pid_t?) {

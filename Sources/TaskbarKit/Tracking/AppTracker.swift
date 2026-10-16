@@ -13,8 +13,10 @@ public final class AppTracker {
     private var isRefreshing = false
     private var needsReconcileAgain = false
     private var pendingDebounceWorkItem: DispatchWorkItem?
+    private var spaceSettleWorkItem: DispatchWorkItem?
     private var permissionPollTask: Task<Void, Never>?
     private var trackingAttemptedPIDs: Set<pid_t> = []
+    nonisolated(unsafe) private var knownWindowKeys: Set<WindowKey> = []
     
     public init(store: WindowStore) {
         self.store = store
@@ -138,7 +140,15 @@ public final class AppTracker {
     
     @objc private func handleActiveSpaceChanged(_ notification: Notification) {
         scheduleReconcile(delay: TaskbarConstants.Timing.spaceChangeInitialDebounce)
-        scheduleReconcile(delay: TaskbarConstants.Timing.spaceChangeSettleDelay)
+        spaceSettleWorkItem?.cancel()
+        let settleItem = DispatchWorkItem { [weak self] in
+            self?.reconcileWindows()
+        }
+        spaceSettleWorkItem = settleItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + TaskbarConstants.Timing.spaceChangeSettleDelay,
+            execute: settleItem
+        )
     }
     
     public func scheduleReconcile(delay: TimeInterval = TaskbarConstants.Timing.frameRenderDebounce) {
@@ -174,9 +184,11 @@ public final class AppTracker {
         let frontmostPID = frontmostApp?.processIdentifier
         let activeObservers = self.observers
         
-        AXThread.shared.async { [weak self, store = self.store] in
+        AXThread.shared.async { [weak self] in
+            guard let self = self else { return }
             var updatedWindows: [pid_t: [WindowInfo]] = [:]
             var currentFocusedKey: WindowKey? = nil
+            var currentDiscoveredKeys = Set<WindowKey>()
             
             for app in runningApps {
                 let pid = app.processIdentifier
@@ -218,6 +230,7 @@ public final class AppTracker {
                     ) {
                         let title = win.title ?? appName
                         let key = WindowKey(id: win.windowID, pid: pid)
+                        currentDiscoveredKeys.insert(key)
                         
                         let info = WindowInfo(
                             key: key,
@@ -233,9 +246,12 @@ public final class AppTracker {
                         )
                         appWindows.append(info)
                         
-                        // Check if maximized window needs work area clamping
-                        if !isMin && !isHidden {
-                            WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: win, pid: pid, isResize: false)
+                        let isNewWindow = !self.knownWindowKeys.contains(key)
+                        if isNewWindow {
+                            self.knownWindowKeys.insert(key)
+                            if !isMin && !isHidden {
+                                WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: win, pid: pid, isResize: false)
+                            }
                         }
                         
                         // Fallback focused window detection (if appElement.focusedWindow returned nil, e.g. in Chrome)
@@ -248,8 +264,11 @@ public final class AppTracker {
                 updatedWindows[pid] = appWindows
             }
             
+            self.knownWindowKeys = currentDiscoveredKeys
+            
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
+                let store = self.store
                 
                 // Prune any stored windows and observers for PIDs that have terminated
                 let activePIDs = Set(runningApps.map { $0.processIdentifier })
@@ -290,6 +309,8 @@ public final class AppTracker {
         trackingAttemptedPIDs.removeAll()
         pendingDebounceWorkItem?.cancel()
         pendingDebounceWorkItem = nil
+        spaceSettleWorkItem?.cancel()
+        spaceSettleWorkItem = nil
     }
     
     deinit {

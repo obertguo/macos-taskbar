@@ -15,6 +15,8 @@ public struct WindowInfo: Equatable, Sendable, Identifiable {
     public var isMain: Bool
     public var isFullScreen: Bool
     public var openOrder: UInt64
+    public var focusOrder: UInt64
+    public var lastFocusedAt: Date?
     
     public var id: WindowKey { key }
     
@@ -34,7 +36,9 @@ public struct WindowInfo: Equatable, Sendable, Identifiable {
         isAppHidden: Bool = false,
         isMain: Bool = false,
         isFullScreen: Bool = false,
-        openOrder: UInt64 = 0
+        openOrder: UInt64 = 0,
+        focusOrder: UInt64 = 0,
+        lastFocusedAt: Date? = nil
     ) {
         self.key = key
         self.pid = pid
@@ -47,5 +51,7 @@ public struct WindowInfo: Equatable, Sendable, Identifiable {
         self.isMain = isMain
         self.isFullScreen = isFullScreen
         self.openOrder = openOrder
+        self.focusOrder = focusOrder
+        self.lastFocusedAt = lastFocusedAt
     }
 }

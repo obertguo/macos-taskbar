@@ -27,7 +27,25 @@ public struct WindowGroup: Identifiable, Equatable, Sendable {
     
     /// The primary / most recently referenced window in the group.
     public var primaryWindow: WindowInfo? {
-        windows.first
+        Self.primaryWindow(from: windows)
+    }
+    
+    public static func primaryWindow(from windows: [WindowInfo]) -> WindowInfo? {
+        let unminimized = windows.filter { !$0.isMinimized }
+        if !unminimized.isEmpty {
+            return unminimized.max { a, b in
+                if a.focusOrder != b.focusOrder {
+                    return a.focusOrder < b.focusOrder
+                }
+                return a.openOrder > b.openOrder
+            }
+        }
+        return windows.max { a, b in
+            if a.focusOrder != b.focusOrder {
+                return a.focusOrder < b.focusOrder
+            }
+            return a.openOrder > b.openOrder
+        }
     }
     
     /// Returns `true` if any window in this group is currently focused and frontmost.

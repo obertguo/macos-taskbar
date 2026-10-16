@@ -25,6 +25,7 @@ public final class PinnedButton: BaseTaskbarButton {
     
     public var theme: ThemeDefinition {
         didSet {
+            guard oldValue != theme else { return }
             needsDisplay = true
         }
     }

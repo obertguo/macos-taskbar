@@ -30,13 +30,6 @@ public final class ScreenManager {
             object: nil
         )
         
-        NSWorkspace.shared.notificationCenter.addObserver(
-            self,
-            selector: #selector(handleActiveSpaceChanged),
-            name: NSWorkspace.activeSpaceDidChangeNotification,
-            object: nil
-        )
-        
         refreshPanels()
     }
     
@@ -223,10 +216,6 @@ public final class ScreenManager {
     
     @objc private func handleScreenParametersChanged() {
         refreshPanels()
-    }
-    
-    @objc private func handleActiveSpaceChanged() {
-        updateWindows()
     }
     
     /// Determines whether the active space on a physical display is currently showing a native full-screen app.

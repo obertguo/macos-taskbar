@@ -6,6 +6,7 @@ import TaskbarCore
 @MainActor
 public final class StatusMenu {
     private let statusItem: NSStatusItem
+    public var menu: NSMenu? { statusItem.menu }
     private var currentStyle: ThemeStyle
     public private(set) var currentThemeId: String
     public private(set) var windowGroupingMode: WindowGroupingMode
@@ -45,7 +46,7 @@ public final class StatusMenu {
         dockDelay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds
     ) {
         self.currentStyle = currentStyle
-        self.currentThemeId = currentThemeId ?? ((currentStyle == .retroClassic) ? ThemeDefinition.retroClassic.id : ThemeDefinition.modernHybrid.id)
+        self.currentThemeId = currentThemeId ?? ThemeDefinition.forStyle(currentStyle).id
         self.windowGroupingMode = windowGroupingMode
         self.minButtonWidth = minButtonWidth
         self.barHeight = barHeight
@@ -57,6 +58,12 @@ public final class StatusMenu {
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         setupMenu()
+    }
+    
+    deinit {
+        MainActor.assumeIsolated {
+            NSStatusBar.system.removeStatusItem(statusItem)
+        }
     }
     
     public func updateStyle(_ style: ThemeStyle) {

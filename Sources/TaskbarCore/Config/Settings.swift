@@ -135,7 +135,7 @@ public struct Settings: Codable, Sendable, Equatable {
         taskbarEdge: TaskbarEdge = .bottom
     ) {
         self.init(
-            activeThemeId: (themeStyle == .retroClassic) ? ThemeDefinition.retroClassic.id : ThemeDefinition.modernHybrid.id,
+            activeThemeId: ThemeDefinition.forStyle(themeStyle).id,
             barHeight: barHeight,
             maxButtonWidth: maxButtonWidth,
             minButtonWidth: minButtonWidth,

@@ -198,4 +198,81 @@ final class WindowGroupingLogicTests: XCTestCase {
         XCTAssertTrue(emptyAlways.isEmpty)
         XCTAssertTrue(emptyCrowded.isEmpty)
     }
+    
+    // MRU primaryWindow selection verification
+    func testPrimaryWindowSelection() {
+        // 1. Returns most recently focused unminimized window
+        let w1 = WindowInfo(
+            key: WindowKey(id: 1, pid: 100),
+            pid: 100,
+            appName: "App",
+            bundleID: "com.app",
+            title: "W1",
+            frame: .zero,
+            openOrder: 1,
+            focusOrder: 5
+        )
+        let w2 = WindowInfo(
+            key: WindowKey(id: 2, pid: 100),
+            pid: 100,
+            appName: "App",
+            bundleID: "com.app",
+            title: "W2",
+            frame: .zero,
+            openOrder: 2,
+            focusOrder: 10
+        )
+        let group1 = WindowGroup.applicationGroup(bundleID: "com.app", appName: "App", windows: [w1, w2])
+        XCTAssertEqual(group1.primaryWindow?.key, w2.key, "Should return most recently focused unminimized window")
+        
+        // 2. Falls back to unminimized with lowest openOrder when none focused (focusOrder == 0)
+        let w3 = WindowInfo(
+            key: WindowKey(id: 3, pid: 100),
+            pid: 100,
+            appName: "App",
+            bundleID: "com.app",
+            title: "W3",
+            frame: .zero,
+            openOrder: 10,
+            focusOrder: 0
+        )
+        let w4 = WindowInfo(
+            key: WindowKey(id: 4, pid: 100),
+            pid: 100,
+            appName: "App",
+            bundleID: "com.app",
+            title: "W4",
+            frame: .zero,
+            openOrder: 5,
+            focusOrder: 0
+        )
+        let group2 = WindowGroup.applicationGroup(bundleID: "com.app", appName: "App", windows: [w3, w4])
+        XCTAssertEqual(group2.primaryWindow?.key, w4.key, "Should return unminimized window with lowest openOrder when none focused")
+        
+        // 3. Falls back to most recently focused minimized window when all are minimized
+        let w5Min = WindowInfo(
+            key: WindowKey(id: 5, pid: 100),
+            pid: 100,
+            appName: "App",
+            bundleID: "com.app",
+            title: "W5",
+            frame: .zero,
+            isMinimized: true,
+            openOrder: 1,
+            focusOrder: 2
+        )
+        let w6Min = WindowInfo(
+            key: WindowKey(id: 6, pid: 100),
+            pid: 100,
+            appName: "App",
+            bundleID: "com.app",
+            title: "W6",
+            frame: .zero,
+            isMinimized: true,
+            openOrder: 2,
+            focusOrder: 7
+        )
+        let group3 = WindowGroup.applicationGroup(bundleID: "com.app", appName: "App", windows: [w5Min, w6Min])
+        XCTAssertEqual(group3.primaryWindow?.key, w6Min.key, "Should return most recently focused minimized window when all are minimized")
+    }
 }

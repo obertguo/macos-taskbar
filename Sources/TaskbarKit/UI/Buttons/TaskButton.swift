@@ -48,11 +48,13 @@ public final class TaskButton: BaseTaskbarButton {
     
     public var theme: ThemeDefinition {
         didSet {
+            guard oldValue != theme else { return }
             needsDisplay = true
         }
     }
     
     public var isPinned: Bool = false
+    public var onMinimizeOrRestore: (() -> Void)?
     public var onClose: (() -> Void)?
     public var onCloseAll: (() -> Void)?
     public var onQuit: (() -> Void)?
@@ -137,7 +139,7 @@ public final class TaskButton: BaseTaskbarButton {
     }
     
     @objc private func handleMenuMinimizeOrRestore() {
-        onClick?()
+        onMinimizeOrRestore?()
     }
     
     @objc private func handleMenuClose() {

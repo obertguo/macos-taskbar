@@ -221,6 +221,32 @@ public final class TaskbarView: NSView {
                     self.showGroupPopup(for: btn)
                 }
                 
+                btn.onMinimizeOrRestore = { [weak btn] in
+                    guard let btn = btn else { return }
+                    let grp = btn.group
+                    if grp.isGrouped {
+                        if grp.isMinimized {
+                            let primary = grp.primaryWindow
+                            for win in grp.windows where win.key != primary?.key {
+                                WindowActions.restoreAndFocusWindow(win.key)
+                            }
+                            if let primary = primary {
+                                WindowActions.restoreAndFocusWindow(primary.key)
+                            }
+                        } else {
+                            for win in grp.windows where !win.isMinimized {
+                                WindowActions.minimizeWindow(win.key)
+                            }
+                        }
+                    } else if let primary = grp.primaryWindow {
+                        if primary.isMinimized {
+                            WindowActions.restoreAndFocusWindow(primary.key)
+                        } else {
+                            WindowActions.minimizeWindow(primary.key)
+                        }
+                    }
+                }
+                
                 btn.onClick = { [weak self, weak btn] in
                     guard let self = self, let btn = btn else { return }
                     if btn.group.isGrouped {

@@ -6,6 +6,7 @@ import TaskbarCore
 public final class StartButton: BaseTaskbarButton {
     public var theme: ThemeDefinition {
         didSet {
+            guard oldValue != theme else { return }
             needsDisplay = true
         }
     }

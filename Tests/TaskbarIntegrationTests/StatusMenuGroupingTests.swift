@@ -14,8 +14,7 @@ struct StatusMenuGroupingTests {
     func testStatusMenuGroupingSubmenuStructure() {
         let statusMenu = StatusMenu(windowGroupingMode: .always)
         
-        guard let statusItem = Mirror(reflecting: statusMenu).children.first(where: { $0.label == "statusItem" })?.value as? NSStatusItem,
-              let menu = statusItem.menu,
+        guard let menu = statusMenu.menu,
               let groupingItem = menu.items.first(where: { $0.title == TaskbarStrings.WindowGrouping.menuTitle }),
               let groupingSubmenu = groupingItem.submenu else {
             Issue.record("Failed to inspect StatusMenu window grouping submenu")
@@ -42,8 +41,7 @@ struct StatusMenuGroupingTests {
     func testStatusMenuGroupingInitialModes() {
         // Test .never mode
         let neverMenu = StatusMenu(windowGroupingMode: .never)
-        guard let statusItemNever = Mirror(reflecting: neverMenu).children.first(where: { $0.label == "statusItem" })?.value as? NSStatusItem,
-              let menuNever = statusItemNever.menu,
+        guard let menuNever = neverMenu.menu,
               let groupingSubmenuNever = menuNever.items.first(where: { $0.title == TaskbarStrings.WindowGrouping.menuTitle })?.submenu else {
             Issue.record("Failed to inspect StatusMenu for .never mode")
             return
@@ -55,8 +53,7 @@ struct StatusMenuGroupingTests {
         
         // Test .whenCrowded mode
         let crowdedMenu = StatusMenu(windowGroupingMode: .whenCrowded)
-        guard let statusItemCrowded = Mirror(reflecting: crowdedMenu).children.first(where: { $0.label == "statusItem" })?.value as? NSStatusItem,
-              let menuCrowded = statusItemCrowded.menu,
+        guard let menuCrowded = crowdedMenu.menu,
               let groupingSubmenuCrowded = menuCrowded.items.first(where: { $0.title == TaskbarStrings.WindowGrouping.menuTitle })?.submenu else {
             Issue.record("Failed to inspect StatusMenu for .whenCrowded mode")
             return
@@ -75,8 +72,7 @@ struct StatusMenuGroupingTests {
             dispatchedMode = mode
         }
         
-        guard let statusItem = Mirror(reflecting: statusMenu).children.first(where: { $0.label == "statusItem" })?.value as? NSStatusItem,
-              let menu = statusItem.menu,
+        guard let menu = statusMenu.menu,
               let groupingItem = menu.items.first(where: { $0.title == TaskbarStrings.WindowGrouping.menuTitle }),
               let groupingSubmenu = groupingItem.submenu,
               let whenCrowdedItem = groupingSubmenu.items.first(where: { $0.title == TaskbarStrings.WindowGrouping.modeWhenCrowded }),
@@ -92,8 +88,7 @@ struct StatusMenuGroupingTests {
         #expect(statusMenu.windowGroupingMode == .whenCrowded)
         
         // Re-inspect updated menu
-        guard let updatedStatusItem = Mirror(reflecting: statusMenu).children.first(where: { $0.label == "statusItem" })?.value as? NSStatusItem,
-              let updatedMenu = updatedStatusItem.menu,
+        guard let updatedMenu = statusMenu.menu,
               let updatedGroupingSubmenu = updatedMenu.items.first(where: { $0.title == TaskbarStrings.WindowGrouping.menuTitle })?.submenu else {
             Issue.record("Failed to inspect updated StatusMenu")
             return
@@ -115,8 +110,7 @@ struct StatusMenuGroupingTests {
         statusMenu.updateWindowGroupingMode(.never)
         #expect(statusMenu.windowGroupingMode == .never)
         
-        guard let statusItem = Mirror(reflecting: statusMenu).children.first(where: { $0.label == "statusItem" })?.value as? NSStatusItem,
-              let menu = statusItem.menu,
+        guard let menu = statusMenu.menu,
               let groupingSubmenu = menu.items.first(where: { $0.title == TaskbarStrings.WindowGrouping.menuTitle })?.submenu else {
             Issue.record("Failed to inspect StatusMenu after dynamic mode update")
             return
