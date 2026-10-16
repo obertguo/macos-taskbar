@@ -365,6 +365,16 @@ public final class TaskbarView: NSView {
         layoutComponents()
     }
     
+    public func apply(settings: Settings, theme: ThemeDefinition) {
+        self.theme = theme
+        self.minButtonWidth = settings.minButtonWidth
+        self.maxButtonWidth = settings.maxButtonWidth
+        self.buttonSpacing = settings.buttonSpacing
+        self.titleVisibilityThreshold = settings.titleVisibilityThreshold
+        self.groupingMode = settings.windowGroupingMode
+        self.updatePinnedApps(settings.pinnedApps)
+    }
+    
     private func isAppRunning(bundleIdentifier: String, runningBundleIDs: Set<String>) -> Bool {
         if runningBundleIDs.contains(bundleIdentifier) { return true }
         let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)

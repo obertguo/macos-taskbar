@@ -6,22 +6,14 @@ import TaskbarCore
 @MainActor
 public final class ScreenManager {
     private var panels: [CGDirectDisplayID: TaskbarPanel] = [:]
-    public private(set) var settings: Settings
-    public private(set) var currentTheme: ThemeDefinition
+    public let settingsStore: SettingsStore
+    public var settings: Settings { settingsStore.settings }
+    public var currentTheme: ThemeDefinition { settingsStore.currentTheme }
     public let store: WindowStore
     
-    public init(settings: Settings, store: WindowStore) {
-        self.settings = settings
+    public init(settingsStore: SettingsStore, store: WindowStore) {
+        self.settingsStore = settingsStore
         self.store = store
-        let initialTheme = ThemeRegistry.shared.theme(for: settings.activeThemeId)
-        if initialTheme.isCustom {
-            self.currentTheme = initialTheme
-        } else {
-            self.currentTheme = initialTheme.withCustomMetrics(
-                fontSize: settings.fontSize,
-                iconSize: settings.iconSize
-            )
-        }
         
         NotificationCenter.default.addObserver(
             self,
@@ -30,7 +22,39 @@ public final class ScreenManager {
             object: nil
         )
         
+        settingsStore.addObserver { [weak self] oldSettings, newSettings in
+            self?.handleSettingsChanged(old: oldSettings, new: newSettings)
+        }
+        
         refreshPanels()
+    }
+    
+    public convenience init(settings: Settings, store: WindowStore) {
+        let settingsStore = SettingsStore(
+            persistence: InMemorySettingsPersistence(initial: settings),
+            initialSettings: settings
+        )
+        self.init(settingsStore: settingsStore, store: store)
+    }
+    
+    private func handleSettingsChanged(old: Settings, new: Settings) {
+        var shouldRefreshPanels = false
+        if old.barHeight != new.barHeight {
+            WorkAreaEnforcer.shared.barHeight = CGFloat(new.barHeight)
+            shouldRefreshPanels = true
+        }
+        if old.enableAXNudger != new.enableAXNudger {
+            WorkAreaEnforcer.shared.isEnabled = new.enableAXNudger
+        }
+        for panel in panels.values {
+            panel.apply(settings: new, theme: currentTheme)
+        }
+        if shouldRefreshPanels {
+            refreshPanels()
+        }
+        if old.windowGroupingMode != new.windowGroupingMode {
+            updateWindows()
+        }
     }
     
     public func screenDescriptors() -> [ScreenDescriptor] {
@@ -43,116 +67,45 @@ public final class ScreenManager {
     }
     
     public func updateSettings(_ newSettings: Settings) {
-        self.settings = newSettings
-        let theme = ThemeRegistry.shared.theme(for: newSettings.activeThemeId)
-        if theme.isCustom {
-            self.currentTheme = theme
-        } else {
-            self.currentTheme = theme.withCustomMetrics(
-                fontSize: newSettings.fontSize,
-                iconSize: newSettings.iconSize
-            )
-        }
-        
-        WorkAreaEnforcer.shared.barHeight = CGFloat(newSettings.barHeight)
-        WorkAreaEnforcer.shared.isEnabled = newSettings.enableAXNudger
-        
-        for panel in panels.values {
-            panel.applyTheme(currentTheme)
-            panel.updateButtonLayout(
-                minWidth: newSettings.minButtonWidth,
-                maxWidth: newSettings.maxButtonWidth,
-                spacing: newSettings.buttonSpacing,
-                titleThreshold: newSettings.titleVisibilityThreshold
-            )
-            panel.updatePinnedApps(newSettings.pinnedApps)
-            panel.updateGroupingMode(newSettings.windowGroupingMode)
-        }
-        
-        refreshPanels()
+        settingsStore.update { $0 = newSettings }
     }
     
     public func updateBarHeight(_ barHeight: Double) {
-        settings.barHeight = barHeight
-        settings.save()
-        WorkAreaEnforcer.shared.barHeight = CGFloat(barHeight)
-        refreshPanels()
+        settingsStore.update { $0.barHeight = barHeight }
     }
     
     public func updateMinButtonWidth(_ minWidth: Double) {
-        settings.minButtonWidth = minWidth
-        settings.save()
-        
-        for panel in panels.values {
-            panel.updateButtonWidths(minWidth: minWidth, maxWidth: settings.maxButtonWidth)
-        }
+        settingsStore.update { $0.minButtonWidth = minWidth }
     }
     
     public func updateFontSize(_ fontSize: Double) {
-        settings.fontSize = fontSize
-        settings.save()
-        currentTheme = currentTheme.withCustomMetrics(
-            fontSize: fontSize,
-            iconSize: settings.iconSize
-        )
-        for panel in panels.values {
-            panel.applyTheme(currentTheme)
-        }
+        settingsStore.update { $0.fontSize = fontSize }
     }
     
     public func updateIconSize(_ iconSize: Double) {
-        settings.iconSize = iconSize
-        settings.save()
-        currentTheme = currentTheme.withCustomMetrics(
-            fontSize: settings.fontSize,
-            iconSize: iconSize
-        )
-        for panel in panels.values {
-            panel.applyTheme(currentTheme)
-        }
+        settingsStore.update { $0.iconSize = iconSize }
     }
     
     public func updateTheme(themeId: String) {
-        settings.activeThemeId = themeId
         let theme = ThemeRegistry.shared.theme(for: themeId)
-        var shouldRefreshPanels = false
-        
-        if theme.isCustom {
-            settings.fontSize = theme.metrics.fontSize
-            settings.iconSize = theme.metrics.iconSize
-            if let customBarHeight = theme.metrics.barHeight, customBarHeight > 0 {
-                settings.barHeight = customBarHeight
-                WorkAreaEnforcer.shared.barHeight = CGFloat(customBarHeight)
-                shouldRefreshPanels = true
+        settingsStore.update { settings in
+            settings.activeThemeId = themeId
+            if theme.isCustom {
+                settings.fontSize = theme.metrics.fontSize
+                settings.iconSize = theme.metrics.iconSize
+                if let customBarHeight = theme.metrics.barHeight, customBarHeight > 0 {
+                    settings.barHeight = customBarHeight
+                }
+                if let customMinWidth = theme.metrics.minButtonWidth, customMinWidth > 0 {
+                    settings.minButtonWidth = customMinWidth
+                }
+                if let customMaxWidth = theme.metrics.maxButtonWidth, customMaxWidth > 0 {
+                    settings.maxButtonWidth = customMaxWidth
+                }
+                if let customSpacing = theme.metrics.buttonSpacing, customSpacing >= 0 {
+                    settings.buttonSpacing = customSpacing
+                }
             }
-            if let customMinWidth = theme.metrics.minButtonWidth, customMinWidth > 0 {
-                settings.minButtonWidth = customMinWidth
-            }
-            if let customMaxWidth = theme.metrics.maxButtonWidth, customMaxWidth > 0 {
-                settings.maxButtonWidth = customMaxWidth
-            }
-            if let customSpacing = theme.metrics.buttonSpacing, customSpacing >= 0 {
-                settings.buttonSpacing = customSpacing
-            }
-            currentTheme = theme
-        } else {
-            currentTheme = theme.withCustomMetrics(
-                fontSize: settings.fontSize,
-                iconSize: settings.iconSize
-            )
-        }
-        settings.save()
-        for panel in panels.values {
-            panel.applyTheme(currentTheme)
-            panel.updateButtonLayout(
-                minWidth: settings.minButtonWidth,
-                maxWidth: settings.maxButtonWidth,
-                spacing: settings.buttonSpacing,
-                titleThreshold: settings.titleVisibilityThreshold
-            )
-        }
-        if shouldRefreshPanels {
-            refreshPanels()
         }
     }
     
@@ -161,31 +114,31 @@ public final class ScreenManager {
     }
     
     public func updateGroupingMode(_ mode: WindowGroupingMode) {
-        settings.windowGroupingMode = mode
-        settings.save()
-        for panel in panels.values {
-            panel.updateGroupingMode(mode)
-        }
-        updateWindows()
+        settingsStore.update { $0.windowGroupingMode = mode }
     }
     
     public func pinApp(bundleIdentifier: String, displayName: String, customPath: String? = nil) {
-        guard settings.pinApp(bundleIdentifier: bundleIdentifier, displayName: displayName, customPath: customPath) else { return }
-        settings.save()
+        guard !settings.isPinned(bundleIdentifier: bundleIdentifier) else { return }
+        settingsStore.update { settings in
+            _ = settings.pinApp(bundleIdentifier: bundleIdentifier, displayName: displayName, customPath: customPath)
+        }
         refreshPinnedAppsAcrossPanels()
         NotificationCenter.default.post(name: .taskbarPinnedAppsDidChange, object: nil)
     }
     
     public func unpinApp(bundleIdentifier: String) {
-        guard settings.unpinApp(bundleIdentifier: bundleIdentifier) else { return }
-        settings.save()
+        guard settings.isPinned(bundleIdentifier: bundleIdentifier) else { return }
+        settingsStore.update { settings in
+            _ = settings.unpinApp(bundleIdentifier: bundleIdentifier)
+        }
         refreshPinnedAppsAcrossPanels()
         NotificationCenter.default.post(name: .taskbarPinnedAppsDidChange, object: nil)
     }
     
     public func reorderPinnedApps(_ newOrder: [PinnedApp]) {
-        settings.pinnedApps = newOrder
-        settings.save()
+        settingsStore.update { settings in
+            settings.pinnedApps = newOrder
+        }
         refreshPinnedAppsAcrossPanels()
         NotificationCenter.default.post(name: .taskbarPinnedAppsDidChange, object: nil)
     }

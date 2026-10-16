@@ -5,7 +5,7 @@ import TaskbarCore
 
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var settings: Settings!
+    private var settingsStore: SettingsStore!
     private var store: WindowStore!
     private var screenManager: ScreenManager?
     private var appTracker: AppTracker?
@@ -15,8 +15,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // Discover and register custom JSON themes on disk before loading settings
         ThemeFileLoader.shared.reloadCustomThemes()
         
-        // Load persistent or default settings
-        self.settings = Settings.load()
+        // Initialize settings store with persistence
+        self.settingsStore = SettingsStore(persistence: UserDefaultsSettingsPersistence())
+        let settings = settingsStore.settings
         
         // Initialize canonical window store
         let store = WindowStore()
@@ -41,7 +42,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         
         // Initialize multi-screen manager
-        let screenManager = ScreenManager(settings: settings, store: store)
+        let screenManager = ScreenManager(settingsStore: settingsStore, store: store)
         self.screenManager = screenManager
         
         // Update WorkAreaEnforcer with initialized screen descriptors
@@ -50,145 +51,58 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize AppTracker for live window tracking
         let appTracker = AppTracker(store: store)
         appTracker.onWindowsChanged = { [weak self] in
-            guard let self = self else { return }
-            self.screenManager?.updateWindows()
+            self?.screenManager?.updateWindows()
         }
         self.appTracker = appTracker
         
         // Initialize menu bar status item
-        let statusMenu = StatusMenu(
-            currentStyle: settings.themeStyle,
-            currentThemeId: settings.activeThemeId,
-            windowGroupingMode: settings.windowGroupingMode,
-            minButtonWidth: settings.minButtonWidth,
-            barHeight: settings.barHeight,
-            fontSize: settings.fontSize,
-            iconSize: settings.iconSize,
-            isNudgerEnabled: settings.enableAXNudger,
-            isDockHidden: settings.hideSystemDock,
-            dockDelay: settings.dockHideDelay
-        )
-        statusMenu.onWindowGroupingModeChanged = { [weak self] mode in
-            guard let self = self else { return }
-            self.settings.windowGroupingMode = mode
-            self.settings.save()
-            self.screenManager?.updateGroupingMode(mode)
-        }
-        statusMenu.onThemeIdChanged = { [weak self] themeId in
-            guard let self = self else { return }
-            self.settings.activeThemeId = themeId
-            let theme = ThemeRegistry.shared.theme(for: themeId)
-            if theme.isCustom {
-                self.settings.fontSize = theme.metrics.fontSize
-                self.settings.iconSize = theme.metrics.iconSize
-                if let customBarHeight = theme.metrics.barHeight, customBarHeight > 0 {
-                    self.settings.barHeight = customBarHeight
-                    self.statusMenu?.updateBarHeight(customBarHeight)
+        let statusMenu = StatusMenu(settingsStore: settingsStore)
+        self.statusMenu = statusMenu
+        
+        // Observe settingsStore for dock restore/hide changes if needed
+        settingsStore.addObserver { old, new in
+            if old.hideSystemDock != new.hideSystemDock {
+                if new.hideSystemDock {
+                    DockController.shared.hideDock(delay: new.dockHideDelay)
+                } else {
+                    DockController.shared.restoreDock()
                 }
-                if let customMinWidth = theme.metrics.minButtonWidth, customMinWidth > 0 {
-                    self.settings.minButtonWidth = customMinWidth
-                    self.statusMenu?.updateMinButtonWidth(customMinWidth)
-                }
-                self.statusMenu?.updateFontSize(theme.metrics.fontSize)
-                self.statusMenu?.updateIconSize(theme.metrics.iconSize)
             }
-            self.settings.save()
-            self.screenManager?.updateTheme(themeId: themeId)
         }
-        statusMenu.onReloadThemesRequested = { [weak self] in
-            guard let self = self else { return }
-            let count = ThemeFileLoader.shared.reloadCustomThemes().count
-            TaskbarLogger.ui.info("Reloaded custom themes: \(count) theme(s) found.")
-            let activeId = self.settings.activeThemeId
-            let theme = ThemeRegistry.shared.theme(for: activeId)
-            if theme.id != activeId && !ThemeRegistry.shared.isBuiltIn(themeId: activeId) {
-                self.settings.activeThemeId = ThemeDefinition.modernHybrid.id
-                self.settings.save()
-            }
-            self.screenManager?.updateTheme(themeId: self.settings.activeThemeId)
-            self.statusMenu?.updateThemeId(self.settings.activeThemeId)
+        
+        // Wire action callbacks on statusMenu
+        statusMenu.onReloadThemesRequested = {
+            ThemeFileLoader.shared.reloadCustomThemes()
         }
-        statusMenu.onOpenThemesFolderRequested = {
-            let dir = ThemeFileLoader.shared.customThemesDirectory
-            try? ThemeFileLoader.shared.createDirectoryIfNeeded()
-            NSWorkspace.shared.open(dir)
+        statusMenu.onOpenThemesFolderRequested = { [weak self] in
+            self?.openThemesFolder()
         }
         statusMenu.onExportThemeRequested = { [weak self] in
-            guard let self = self else { return }
-            self.exportActiveTheme()
-        }
-        statusMenu.onMinButtonWidthChanged = { [weak self] minWidth in
-            guard let self = self else { return }
-            self.settings.minButtonWidth = minWidth
-            self.settings.save()
-            self.screenManager?.updateMinButtonWidth(minWidth)
-        }
-        statusMenu.onBarHeightChanged = { [weak self] newHeight in
-            guard let self = self else { return }
-            self.settings.barHeight = newHeight
-            self.settings.save()
-            self.screenManager?.updateBarHeight(newHeight)
-            self.appTracker?.scheduleReconcile(delay: 0.05)
-        }
-        statusMenu.onFontSizeChanged = { [weak self] newSize in
-            guard let self = self else { return }
-            self.settings.fontSize = newSize
-            self.settings.save()
-            self.screenManager?.updateFontSize(newSize)
-        }
-        statusMenu.onIconSizeChanged = { [weak self] newSize in
-            guard let self = self else { return }
-            self.settings.iconSize = newSize
-            self.settings.save()
-            self.screenManager?.updateIconSize(newSize)
-        }
-        statusMenu.onNudgerToggled = { [weak self] enabled in
-            guard let self = self else { return }
-            self.settings.enableAXNudger = enabled
-            self.settings.save()
-            WorkAreaEnforcer.shared.isEnabled = enabled
-            if enabled {
-                self.appTracker?.scheduleReconcile(delay: 0.05)
-            }
-        }
-        statusMenu.onHideDockToggled = { [weak self] hide in
-            guard let self = self else { return }
-            self.settings.hideSystemDock = hide
-            self.settings.save()
-            if hide {
-                DockController.shared.hideDock(delay: self.settings.dockHideDelay)
-            } else {
-                DockController.shared.restoreDock()
-            }
-        }
-        statusMenu.onDockDelayChanged = { [weak self] newDelay in
-            guard let self = self else { return }
-            self.settings.dockHideDelay = newDelay
-            self.settings.save()
-            if self.settings.hideSystemDock {
-                DockController.shared.hideDock(delay: newDelay)
-            }
+            self?.exportActiveTheme()
         }
         statusMenu.onRestoreDockRequested = { [weak self] in
-            guard let self = self else { return }
-            self.settings.hideSystemDock = false
-            self.settings.save()
+            self?.settingsStore.update { $0.hideSystemDock = false }
             DockController.shared.restoreDock()
         }
         statusMenu.onLauncherTriggered = { [weak self] in
             guard let self = self else { return }
-            Launcher.launch(self.settings.launcherAction)
+            Launcher.launch(self.settingsStore.settings.launcherAction)
         }
         statusMenu.onQuitRequested = {
             NSApplication.shared.terminate(nil)
         }
-        self.statusMenu = statusMenu
         
-        TaskbarLogger.lifecycle.info("Started successfully on \(NSScreen.screens.count) screen(s). Theme: \(self.settings.activeThemeId). Dock: \(self.settings.hideSystemDock ? "Hidden" : "Visible"). Tracking active.")
+        TaskbarLogger.lifecycle.info("Started successfully on \(NSScreen.screens.count) screen(s). Theme: \(self.settingsStore.settings.activeThemeId). Dock: \(self.settingsStore.settings.hideSystemDock ? "Hidden" : "Visible"). Tracking active.")
+    }
+    
+    private func openThemesFolder() {
+        let dir = ThemeFileLoader.shared.customThemesDirectory
+        try? ThemeFileLoader.shared.createDirectoryIfNeeded()
+        NSWorkspace.shared.open(dir)
     }
     
     private func exportActiveTheme() {
-        let currentTheme = settings.currentTheme
+        let currentTheme = settingsStore.currentTheme
         let savePanel = NSSavePanel()
         savePanel.title = TaskbarStrings.Themes.exportCurrentTheme
         savePanel.nameFieldStringValue = "\(currentTheme.id).json"

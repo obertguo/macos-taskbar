@@ -168,4 +168,146 @@ final class SettingsTests: XCTestCase {
         let decoded = try JSONDecoder().decode(Settings.self, from: legacyData)
         XCTAssertEqual(decoded.taskbarEdge, .bottom)
     }
+    
+    // MARK: - SettingsPersistence & SettingsStore Tests
+    
+    @MainActor
+    func testSettingsStoreInitializationWithInMemoryPersistence() {
+        var customSettings = Settings.default
+        customSettings.fontSize = 16.0
+        customSettings.iconSize = 22.0
+        let persistence = InMemorySettingsPersistence(initial: customSettings)
+        let store = SettingsStore(persistence: persistence)
+        
+        XCTAssertEqual(store.settings, customSettings)
+        XCTAssertEqual(store.currentTheme.metrics.fontSize, 16.0)
+        XCTAssertEqual(store.currentTheme.metrics.iconSize, 22.0)
+        XCTAssertEqual(persistence.stored, customSettings)
+    }
+    
+    @MainActor
+    func testSettingsStoreUpdateMutatesAndNotifiesObserver() {
+        let persistence = InMemorySettingsPersistence()
+        let store = SettingsStore(persistence: persistence)
+        
+        var observerCalled = false
+        var observedOld: Settings?
+        var observedNew: Settings?
+        
+        store.addObserver { old, new in
+            observerCalled = true
+            observedOld = old
+            observedNew = new
+        }
+        
+        let initialSettings = store.settings
+        store.update { settings in
+            settings.fontSize = 17.0
+            settings.iconSize = 21.0
+        }
+        
+        XCTAssertTrue(observerCalled)
+        XCTAssertEqual(observedOld, initialSettings)
+        XCTAssertEqual(observedNew?.fontSize, 17.0)
+        XCTAssertEqual(observedNew?.iconSize, 21.0)
+        XCTAssertEqual(store.settings.fontSize, 17.0)
+        XCTAssertEqual(store.settings.iconSize, 21.0)
+        XCTAssertEqual(store.currentTheme.metrics.fontSize, 17.0)
+        XCTAssertEqual(store.currentTheme.metrics.iconSize, 21.0)
+        XCTAssertEqual(persistence.stored.fontSize, 17.0)
+        XCTAssertEqual(persistence.stored.iconSize, 21.0)
+    }
+    
+    @MainActor
+    func testSettingsStoreUpdateDeduplication() {
+        let persistence = InMemorySettingsPersistence()
+        let store = SettingsStore(persistence: persistence)
+        
+        var callCount = 0
+        store.addObserver { _, _ in
+            callCount += 1
+        }
+        
+        // Update that makes no changes
+        store.update { _ in }
+        XCTAssertEqual(callCount, 0)
+        
+        // Update that sets existing values
+        store.update { settings in
+            settings.fontSize = store.settings.fontSize
+            settings.iconSize = store.settings.iconSize
+        }
+        XCTAssertEqual(callCount, 0)
+    }
+    
+    func testApplyingThemeOverridesNonCustomAndCustom() {
+        var settings = Settings.default
+        settings.fontSize = 19.0
+        settings.iconSize = 25.0
+        
+        // 1. Non-custom theme: overrides font and icon metrics
+        let baseNonCustom = ThemeDefinition.modernHybrid
+        XCTAssertFalse(baseNonCustom.isCustom)
+        let overridden = settings.applyingThemeOverrides(to: baseNonCustom)
+        XCTAssertEqual(overridden.metrics.fontSize, 19.0)
+        XCTAssertEqual(overridden.metrics.iconSize, 25.0)
+        XCTAssertFalse(overridden.isCustom)
+        
+        // 2. Custom theme: metrics are preserved, not overridden
+        let baseCustom = ThemeDefinition.modernHybrid.asCustom(true)
+        XCTAssertTrue(baseCustom.isCustom)
+        let preserved = settings.applyingThemeOverrides(to: baseCustom)
+        XCTAssertEqual(preserved.metrics.fontSize, baseCustom.metrics.fontSize)
+        XCTAssertEqual(preserved.metrics.iconSize, baseCustom.metrics.iconSize)
+        XCTAssertTrue(preserved.isCustom)
+    }
+    
+    func testUpdateWithCustomThemeMetrics() {
+        var settings = Settings.default
+        let initialFontSize = settings.fontSize
+        
+        // Non-custom theme should not change settings
+        let nonCustomTheme = ThemeDefinition.modernHybrid
+        settings.updateWithCustomThemeMetrics(from: nonCustomTheme)
+        XCTAssertEqual(settings.fontSize, initialFontSize)
+        
+        // Custom theme should update metrics
+        let customMetrics = ThemeMetrics(
+            buttonCornerRadius: 6.0,
+            is3DBeveled: false,
+            fontBold: true,
+            fontSize: 18.0,
+            iconSize: 26.0,
+            barHeight: 48.0,
+            minButtonWidth: 50.0,
+            maxButtonWidth: 220.0,
+            buttonSpacing: 8.0
+        )
+        let customTheme = ThemeDefinition(
+            id: "custom.metrics.test",
+            displayName: "Test Custom Theme",
+            isCustom: true,
+            palette: ThemePalette(
+                backgroundColor: .black,
+                textNormal: .white,
+                textPressed: .white,
+                buttonNormal: .black,
+                buttonHover: .black,
+                buttonPressed: .black,
+                buttonBorderNormal: .white,
+                buttonBorderPressed: .white
+            ),
+            metrics: customMetrics,
+            materials: ThemeMaterials()
+        )
+        
+        settings.updateWithCustomThemeMetrics(from: customTheme)
+        XCTAssertEqual(settings.fontSize, 18.0)
+        XCTAssertEqual(settings.iconSize, 26.0)
+        XCTAssertEqual(settings.barHeight, 48.0)
+        XCTAssertEqual(settings.minButtonWidth, 50.0)
+        XCTAssertEqual(settings.maxButtonWidth, 220.0)
+        XCTAssertEqual(settings.buttonSpacing, 8.0)
+    }
 }
+

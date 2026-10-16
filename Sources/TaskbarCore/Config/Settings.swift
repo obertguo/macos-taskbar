@@ -279,3 +279,58 @@ public struct Settings: Codable, Sendable, Equatable {
         }
     }
 }
+
+// MARK: - Settings Persistence
+
+public protocol SettingsPersistence: Sendable {
+    func load() -> Settings
+    func save(_ settings: Settings)
+}
+
+public final class UserDefaultsSettingsPersistence: SettingsPersistence, @unchecked Sendable {
+    private let defaults: UserDefaults
+    public init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+    public func load() -> Settings { Settings.load(from: defaults) }
+    public func save(_ settings: Settings) { settings.save(to: defaults) }
+}
+
+public final class InMemorySettingsPersistence: SettingsPersistence, @unchecked Sendable {
+    public var stored: Settings
+    public init(initial: Settings = Settings.default) { self.stored = initial }
+    public func load() -> Settings { stored }
+    public func save(_ settings: Settings) { stored = settings }
+}
+
+// MARK: - Theme Overrides Extension
+
+extension Settings {
+    public func applyingThemeOverrides(to base: ThemeDefinition) -> ThemeDefinition {
+        if base.isCustom {
+            return base
+        } else {
+            return base.withCustomMetrics(
+                fontSize: fontSize,
+                iconSize: iconSize
+            )
+        }
+    }
+    
+    public mutating func updateWithCustomThemeMetrics(from theme: ThemeDefinition) {
+        guard theme.isCustom else { return }
+        self.fontSize = theme.metrics.fontSize
+        self.iconSize = theme.metrics.iconSize
+        if let customBarHeight = theme.metrics.barHeight, customBarHeight > 0 {
+            self.barHeight = customBarHeight
+        }
+        if let customMinWidth = theme.metrics.minButtonWidth, customMinWidth > 0 {
+            self.minButtonWidth = customMinWidth
+        }
+        if let customMaxWidth = theme.metrics.maxButtonWidth, customMaxWidth > 0 {
+            self.maxButtonWidth = customMaxWidth
+        }
+        if let customSpacing = theme.metrics.buttonSpacing, customSpacing >= 0 {
+            self.buttonSpacing = customSpacing
+        }
+    }
+}
+

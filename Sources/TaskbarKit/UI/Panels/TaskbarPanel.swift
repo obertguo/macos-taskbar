@@ -86,6 +86,11 @@ public final class TaskbarPanel: NSPanel {
         taskbarView.theme = theme
     }
     
+    public func apply(settings: Settings, theme: ThemeDefinition) {
+        applyTheme(theme)
+        taskbarView.apply(settings: settings, theme: theme)
+    }
+    
     public var currentMaterial: NSVisualEffectView.Material {
         taskbarView.currentMaterial
     }

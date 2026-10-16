@@ -419,4 +419,24 @@ struct PinnedAppsIntegrationTests {
         immediateBtn.mouseUp(with: NSEvent())
         #expect(!immediateBtn.isPressed)
     }
+    
+    @Test("M-01 Regression: SettingsStore preserves newly pinned apps when settings are mutated")
+    func testSettingsStorePreservesPinnedAppsAcrossSettingsMutation() {
+        let persistence = InMemorySettingsPersistence(initial: Settings.default)
+        let settingsStore = SettingsStore(persistence: persistence)
+        let store = WindowStore()
+        let manager = ScreenManager(settingsStore: settingsStore, store: store)
+        defer { manager.closeAll() }
+        
+        // Pin new app via ScreenManager
+        manager.pinApp(bundleIdentifier: "com.apple.Notes", displayName: "Notes")
+        #expect(settingsStore.settings.pinnedApps.contains(where: { $0.bundleIdentifier == "com.apple.Notes" }))
+        
+        // Mutate setting (simulating StatusMenu toggle)
+        settingsStore.update { $0.windowGroupingMode = .never }
+        
+        // Assert newly pinned app is NOT wiped out
+        #expect(settingsStore.settings.pinnedApps.contains(where: { $0.bundleIdentifier == "com.apple.Notes" }))
+        #expect(settingsStore.settings.windowGroupingMode == .never)
+    }
 }
