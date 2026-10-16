@@ -4,45 +4,197 @@
 import Foundation
 import AppKit
 import CoreGraphics
+import os
 import TaskbarCore
 
 public final class WorkAreaEnforcer: @unchecked Sendable {
     public static let shared = WorkAreaEnforcer()
     
-    private let lock = NSLock()
-    private var _isEnabled: Bool = NSClassFromString("XCTestCase") == nil
-    private var _barHeight: CGFloat = CGFloat(TaskbarConstants.Layout.defaultBarHeight)
+    // MARK: - Thread Confinement & Configuration
+    
+    private struct ConfigState: Sendable {
+        var isEnabled: Bool
+        var barHeight: CGFloat
+        var screens: [ScreenDescriptor]
+    }
+    
+    // Configuration mirror for thread-safe cross-thread reading (e.g. from @MainActor or tests)
+    private let configLock: OSAllocatedUnfairLock<ConfigState>
+    
+    // AXThread-confined state (Zero locks on the AXThread hot path)
+    private var _isEnabled: Bool
+    private var _barHeight: CGFloat
     private var _screens: [ScreenDescriptor] = []
     
     // Per-window debounce generation counters: [windowID: generation]
     private var generationCounters: [UInt64: UInt64] = [:]
     
-    // Tracks whether a resize was part of the current debounce burst
+    // Tracks whether a resize was part of the current debounce burst: [windowID: Bool]
     private var windowWasResizedInDebounce: [UInt64: Bool] = [:]
     
-    // Tracks programmatic clamp sizes and timestamps to filter out self-inflicted notifications
+    // Single per-window active debounce/settle timer
+    private var activeTimers: [UInt64: any Cancellable] = [:]
+    
+    // Active mouse-down retry timers
+    private var mouseDownRetryTimers: [UInt64: any Cancellable] = [:]
+    
+    // Tracks associated PID for each window ID to support app-wide cleanup
+    private var windowPIDs: [UInt64: pid_t] = [:]
+    
+    // Tracks programmatic clamp sizes and monotonic timestamps to filter out self-inflicted notifications
     private struct SelfNudge {
         var size: CGSize
-        var timestamp: Date
+        var timestamp: TimeInterval
     }
     private var lastSelfNudges: [UInt64: SelfNudge] = [:]
     
-    // Recursion guard: tracks target height, consecutive attempts, and timestamps
+    // Recursion guard: tracks target height, consecutive attempts, and monotonic timestamps
     private struct NudgeRecord {
         var targetHeight: CGFloat
         var attempts: Int
-        var lastTimestamp: Date
+        var lastTimestamp: TimeInterval
     }
     private var nudgeRecords: [UInt64: NudgeRecord] = [:]
     
+    // MARK: - Testing & Inspection Hooks
+    
+    internal var windowIDResolver: (@Sendable (AXUIElement) -> UInt64?)?
+    internal var frameResolver: (@Sendable (AXUIElement) -> CGRect?)?
+    internal var setPositionHandler: (@Sendable (AXUIElement, CGPoint) -> Bool)?
+    internal var setSizeHandler: (@Sendable (AXUIElement, CGSize) -> Bool)?
+    internal var isLeftMouseDown: (@Sendable () -> Bool)?
+    internal var onClampEvaluated: (@Sendable (UInt64, CGRect) -> Void)?
+    internal var onPassExecuted: (@Sendable (UInt64, Int) -> Void)?
+    
+    internal var activeTimersCount: Int {
+        activeTimers.count
+    }
+    
+    internal var mouseDownRetryTimersCount: Int {
+        mouseDownRetryTimers.count
+    }
+    
+    internal func generationCount(for winID: UInt64) -> UInt64? {
+        generationCounters[winID]
+    }
+    
+    internal func lastSelfNudge(for winID: UInt64) -> (size: CGSize, timestamp: TimeInterval)? {
+        guard let nudge = lastSelfNudges[winID] else { return nil }
+        return (nudge.size, nudge.timestamp)
+    }
+    
+    internal func nudgeRecord(for winID: UInt64) -> (targetHeight: CGFloat, attempts: Int, lastTimestamp: TimeInterval)? {
+        guard let rec = nudgeRecords[winID] else { return nil }
+        return (rec.targetHeight, rec.attempts, rec.lastTimestamp)
+    }
+    
+    internal func isWindowTracked(winID: UInt64) -> Bool {
+        windowPIDs[winID] != nil ||
+        activeTimers[winID] != nil ||
+        mouseDownRetryTimers[winID] != nil ||
+        generationCounters[winID] != nil ||
+        windowWasResizedInDebounce[winID] != nil ||
+        lastSelfNudges[winID] != nil ||
+        nudgeRecords[winID] != nil
+    }
+    
+    internal func resetForTesting() {
+        performOnAXThread { [self] in
+            for timer in self.activeTimers.values {
+                timer.cancel()
+            }
+            self.activeTimers.removeAll()
+            
+            for timer in self.mouseDownRetryTimers.values {
+                timer.cancel()
+            }
+            self.mouseDownRetryTimers.removeAll()
+            
+            self.generationCounters.removeAll()
+            self.windowWasResizedInDebounce.removeAll()
+            self.lastSelfNudges.removeAll()
+            self.nudgeRecords.removeAll()
+            self.windowPIDs.removeAll()
+            
+            self.windowIDResolver = nil
+            self.frameResolver = nil
+            self.setPositionHandler = nil
+            self.setSizeHandler = nil
+            self.isLeftMouseDown = nil
+            self.onClampEvaluated = nil
+            self.onPassExecuted = nil
+            
+            self._isEnabled = false
+            self._barHeight = CGFloat(TaskbarConstants.Layout.defaultBarHeight)
+            self._screens = []
+            
+            self.configLock.withLock {
+                $0.isEnabled = false
+                $0.barHeight = CGFloat(TaskbarConstants.Layout.defaultBarHeight)
+                $0.screens = []
+            }
+        }
+    }
+    
+    // MARK: - Initialization
+    
+    private init() {
+        let defaultEnabled = NSClassFromString("XCTestCase") == nil
+        let defaultBarHeight = CGFloat(TaskbarConstants.Layout.defaultBarHeight)
+        self._isEnabled = defaultEnabled
+        self._barHeight = defaultBarHeight
+        self._screens = []
+        self.configLock = OSAllocatedUnfairLock(initialState: ConfigState(
+            isEnabled: defaultEnabled,
+            barHeight: defaultBarHeight,
+            screens: []
+        ))
+    }
+    
+    private var isAXThread: Bool {
+        AXThread.shared.isCurrent || CFRunLoopGetCurrent() == AXThread.shared.runLoop
+    }
+    
+    private func performOnAXThread(_ block: @escaping @Sendable () -> Void) {
+        if isAXThread || AppEnvironment.current.scheduler is TestScheduler {
+            block()
+        } else {
+            AXThread.shared.async {
+                block()
+            }
+        }
+    }
+    
+    // MARK: - Configuration API
+    
     public var isEnabled: Bool {
-        get { lock.withLock { _isEnabled } }
-        set { lock.withLock { _isEnabled = newValue } }
+        get {
+            if isAXThread {
+                return _isEnabled
+            }
+            return configLock.withLock { $0.isEnabled }
+        }
+        set {
+            configLock.withLock { $0.isEnabled = newValue }
+            performOnAXThread { [self] in
+                self._isEnabled = newValue
+            }
+        }
     }
     
     public var barHeight: CGFloat {
-        get { lock.withLock { _barHeight } }
-        set { lock.withLock { _barHeight = newValue } }
+        get {
+            if isAXThread {
+                return _barHeight
+            }
+            return configLock.withLock { $0.barHeight }
+        }
+        set {
+            configLock.withLock { $0.barHeight = newValue }
+            performOnAXThread { [self] in
+                self._barHeight = newValue
+            }
+        }
     }
     
     public func configure(
@@ -50,9 +202,23 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
         barHeight: CGFloat,
         screens: [ScreenDescriptor]
     ) {
-        lock.withLock {
+        configLock.withLock {
+            $0.isEnabled = isEnabled
+            $0.barHeight = barHeight
+            $0.screens = screens
+        }
+        performOnAXThread { [self] in
             self._isEnabled = isEnabled
             self._barHeight = barHeight
+            self._screens = screens
+        }
+    }
+    
+    public func updateScreens(_ screens: [ScreenDescriptor]) {
+        configLock.withLock {
+            $0.screens = screens
+        }
+        performOnAXThread { [self] in
             self._screens = screens
         }
     }
@@ -61,139 +227,123 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
         TaskbarLogger.workArea.info("\(msg, privacy: .public)")
     }
     
-    public func updateScreens(_ screens: [ScreenDescriptor]) {
-        lock.withLock {
-            self._screens = screens
+    // MARK: - Window Move & Resize Notification Handling
+    
+    /// Handles window move or resize notifications from AXObserver.
+    public func handleWindowMovedOrResized(element: AXUIElement, pid: pid_t, isResize: Bool, winID: UInt64? = nil) {
+        performOnAXThread { [self] in
+            self.handleWindowMovedOrResizedOnAX(element: element, pid: pid, isResize: isResize, winIDOverride: winID)
         }
     }
     
-    /// Handles window move or resize notifications from AXObserver.
-    public func handleWindowMovedOrResized(element: AXUIElement, pid: pid_t, isResize: Bool) {
+    private func handleWindowMovedOrResizedOnAX(element: AXUIElement, pid: pid_t, isResize: Bool, winIDOverride: UInt64?) {
         guard isEnabled else {
             logNudge("handleMovedOrResized IGNORED: isEnabled is false")
             return
         }
         guard pid != ProcessInfo.processInfo.processIdentifier, pid > 0 else { return }
         
-        guard let winID = element.windowID else { return }
+        guard let winID = winIDOverride ?? windowIDResolver?(element) ?? element.windowID else { return }
+        windowPIDs[winID] = pid
         
         // Self-inflicted notification filter:
-        // If this notification was triggered by our own setSize within the last 350ms,
-        // ignore it so that we don't invalidate the settle verification passes (Pass 2/3)
-        // or re-trigger redundant debounce cycles.
-        let isSelfNudge: Bool = lock.withLock {
-            if let selfNudge = lastSelfNudges[winID] {
-                let isRecent = Date().timeIntervalSince(selfNudge.timestamp) < 0.35
-                if isRecent, let frame = element.frame {
-                    let matchesWidth = abs(frame.width - selfNudge.size.width) < TaskbarConstants.WorkArea.clampingRecursionGuardDelta
-                    let matchesHeight = abs(frame.height - selfNudge.size.height) < TaskbarConstants.WorkArea.clampingRecursionGuardDelta
-                    if matchesWidth && matchesHeight {
-                        return true
-                    }
+        // Suppress notifications triggered within 0.500s (500ms) whose size matches
+        // lastSelfNudges[winID].size within clampingRecursionGuardDelta.
+        if let selfNudge = lastSelfNudges[winID] {
+            let now = AppEnvironment.current.clock.now()
+            let isRecent = (now - selfNudge.timestamp) < 0.500
+            let frame = frameResolver?(element) ?? element.frame
+            if isRecent, let frame = frame {
+                let delta = TaskbarConstants.WorkArea.clampingRecursionGuardDelta
+                let matchesWidth = abs(frame.width - selfNudge.size.width) <= delta
+                let matchesHeight = abs(frame.height - selfNudge.size.height) <= delta
+                if matchesWidth && matchesHeight {
+                    logNudge("Ignoring self-inflicted notification for winID \(winID)")
+                    return
                 }
             }
-            return false
-        }
-        if isSelfNudge {
-            logNudge("Ignoring self-inflicted notification for winID \(winID)")
-            return
         }
         
-        let generation: UInt64
-        
-        lock.lock()
-        // If an active resize debounce burst is currently in-flight for this window, do not allow
-        // a passive move or window reconcile to cancel or push out the resize settle passes.
-        if !isResize, windowWasResizedInDebounce[winID] == true {
-            lock.unlock()
-            logNudge("handleMovedOrResized ignoring passive move/reconcile while resize debounce in-flight for winID \(winID)")
-            return
-        }
+        // Cancel any existing timer and retry timer for winID
+        activeTimers[winID]?.cancel()
+        activeTimers.removeValue(forKey: winID)
+        mouseDownRetryTimers[winID]?.cancel()
+        mouseDownRetryTimers.removeValue(forKey: winID)
         
         let nextGen = (generationCounters[winID] ?? 0) &+ 1
         generationCounters[winID] = nextGen
-        generation = nextGen
+        let capturedGeneration = nextGen
+        
         if isResize {
             windowWasResizedInDebounce[winID] = true
         }
-        lock.unlock()
         
-        logNudge("handleMovedOrResized winID: \(winID), pid: \(pid), isResize: \(isResize), gen: \(generation)")
+        logNudge("handleMovedOrResized winID: \(winID), pid: \(pid), isResize: \(isResize), gen: \(capturedGeneration)")
         
-        // Pass 1: Quick settle debounce allows fast mouse dragging/resizing to coalesce
-        DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + TaskbarConstants.Timing.windowDragSettleDebounce) { [element] in
-            AXThread.shared.async {
-                let enforcer = WorkAreaEnforcer.shared
-                let (isCurrent, wasResized) = enforcer.lock.withLock { () -> (Bool, Bool) in
-                    guard enforcer.generationCounters[winID] == generation else {
-                        return (false, false)
+        let scheduler = AppEnvironment.current.scheduler
+        
+        // Schedule Pass 0 at delay 0.100s (100ms)
+        let timer0 = scheduler.schedule(after: 0.100) { [weak self, element] in
+            guard let self = self else { return }
+            self.performOnAXThread { [self] in
+                guard self.generationCounters[winID] == capturedGeneration else { return }
+                let effectiveResize = self.windowWasResizedInDebounce[winID] ?? isResize
+                self.logNudge("Pass 0 winID: \(winID), gen: \(capturedGeneration), isResize: \(effectiveResize)")
+                self.onPassExecuted?(winID, 0)
+                self.evaluateAndClampOnAX(element: element, pid: pid, winID: winID, isResize: effectiveResize)
+                
+                // Schedule Pass 1 at delay 0.120s (120ms from Pass 0 = 220ms cumulative)
+                let timer1 = scheduler.schedule(after: 0.120) { [weak self, element] in
+                    guard let self = self else { return }
+                    self.performOnAXThread { [self] in
+                        guard self.generationCounters[winID] == capturedGeneration else { return }
+                        let effectiveResize = self.windowWasResizedInDebounce[winID] ?? isResize
+                        self.logNudge("Pass 1 winID: \(winID), gen: \(capturedGeneration), isResize: \(effectiveResize)")
+                        self.onPassExecuted?(winID, 1)
+                        self.evaluateAndClampOnAX(element: element, pid: pid, winID: winID, isResize: effectiveResize)
+                        
+                        // Schedule Pass 2 at delay 0.280s (280ms from Pass 1 = 500ms cumulative)
+                        let timer2 = scheduler.schedule(after: 0.280) { [weak self, element] in
+                            guard let self = self else { return }
+                            self.performOnAXThread { [self] in
+                                guard self.generationCounters[winID] == capturedGeneration else { return }
+                                let effectiveResize = self.windowWasResizedInDebounce[winID] ?? isResize
+                                self.logNudge("Pass 2 winID: \(winID), gen: \(capturedGeneration), isResize: \(effectiveResize)")
+                                self.onPassExecuted?(winID, 2)
+                                self.evaluateAndClampOnAX(element: element, pid: pid, winID: winID, isResize: effectiveResize)
+                                self.windowWasResizedInDebounce.removeValue(forKey: winID)
+                                self.activeTimers.removeValue(forKey: winID)
+                            }
+                        }
+                        self.activeTimers[winID] = timer2
                     }
-                    let wasResized = enforcer.windowWasResizedInDebounce[winID] ?? false
-                    return (true, wasResized)
                 }
-                enforcer.logNudge("Pass 1 winID: \(winID), gen: \(generation), isCurrent: \(isCurrent), wasResized: \(wasResized)")
-                guard isCurrent else { return }
-                enforcer.evaluateAndClamp(element: element, pid: pid, winID: winID, isResize: wasResized || isResize)
+                self.activeTimers[winID] = timer1
             }
         }
-        
-        // Pass 2: Settle verification pass ensures window manager animations (e.g. titlebar zoom,
-        // snap-to-edge, or window tiling) that take ~250-300ms to complete are evaluated once settled,
-        // recovering from any mid-animation frame checks or AppKit completion resets.
-        let pass2Delay = TaskbarConstants.Timing.windowDragSettleDebounce + TaskbarConstants.Timing.windowZoomAnimationSettleDelay
-        DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + pass2Delay) { [element] in
-            AXThread.shared.async {
-                let enforcer = WorkAreaEnforcer.shared
-                let (isCurrent, wasResized) = enforcer.lock.withLock { () -> (Bool, Bool) in
-                    guard enforcer.generationCounters[winID] == generation else {
-                        return (false, false)
-                    }
-                    let wasResized = enforcer.windowWasResizedInDebounce[winID] ?? false
-                    return (true, wasResized)
-                }
-                enforcer.logNudge("Pass 2 winID: \(winID), gen: \(generation), isCurrent: \(isCurrent), wasResized: \(wasResized)")
-                guard isCurrent else { return }
-                enforcer.evaluateAndClamp(element: element, pid: pid, winID: winID, isResize: wasResized || isResize)
-            }
-        }
-        
-        // Pass 3: Extended animation settle pass (650ms) handles sluggish Chromium/Electron window
-        // transitions or slower system animations that settle beyond 400ms.
-        let pass3Delay = pass2Delay + 0.25
-        DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + pass3Delay) { [element] in
-            AXThread.shared.async {
-                let enforcer = WorkAreaEnforcer.shared
-                let (isCurrent, wasResized) = enforcer.lock.withLock { () -> (Bool, Bool) in
-                    guard enforcer.generationCounters[winID] == generation else {
-                        return (false, false)
-                    }
-                    let wasResized = enforcer.windowWasResizedInDebounce.removeValue(forKey: winID) ?? false
-                    return (true, wasResized)
-                }
-                enforcer.logNudge("Pass 3 winID: \(winID), gen: \(generation), isCurrent: \(isCurrent), wasResized: \(wasResized)")
-                guard isCurrent else { return }
-                enforcer.evaluateAndClamp(element: element, pid: pid, winID: winID, isResize: wasResized || isResize)
-            }
+        activeTimers[winID] = timer0
+    }
+    
+    // MARK: - Clamping & Evaluation
+    
+    /// Evaluates a single window and applies position and height clamping if overlapping the taskbar.
+    public func evaluateAndClamp(element: AXUIElement, pid: pid_t, winID: UInt64, isResize: Bool) {
+        performOnAXThread { [self] in
+            self.evaluateAndClampOnAX(element: element, pid: pid, winID: winID, isResize: isResize)
         }
     }
     
-    /// Evaluates a single window and applies height clamping if overlapping the taskbar.
-    public func evaluateAndClamp(element: AXUIElement, pid: pid_t, winID: UInt64, isResize: Bool) {
+    private func evaluateAndClampOnAX(element: AXUIElement, pid: pid_t, winID: UInt64, isResize: Bool) {
         guard isEnabled else {
             logNudge("evaluateAndClamp IGNORED: isEnabled is false")
             return
         }
         guard pid != ProcessInfo.processInfo.processIdentifier, pid > 0 else { return }
         
-        var screens: [ScreenDescriptor]
-        let currentBarHeight: CGFloat
+        windowPIDs[winID] = pid
         
-        do {
-            lock.lock()
-            screens = _screens
-            currentBarHeight = _barHeight
-            lock.unlock()
-        }
+        var screens = _screens
+        let currentBarHeight = _barHeight
         
         if screens.isEmpty {
             screens = NSScreen.screens.map { screen in
@@ -222,19 +372,27 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
         }
         
         // Active mouse dragging guard:
-        // If the left mouse button is currently held down, the user is actively dragging the window.
-        // Defer clamping until mouse release to avoid fighting WindowServer and burning attempt limits.
-        if CGEventSource.buttonState(.combinedSessionState, button: .left) {
+        // If the left mouse button is held down, user is actively dragging.
+        // Cancel existing retry timer, capture current generation, schedule retry timer.
+        let isMouseDown = isLeftMouseDown?() ?? CGEventSource.buttonState(.combinedSessionState, button: .left)
+        if isMouseDown {
             logNudge("evaluateAndClamp deferred: mouse is down for winID \(winID)")
-            DispatchQueue.global(qos: .userInteractive).asyncAfter(deadline: .now() + TaskbarConstants.Timing.windowDragSettleDebounce) { [element] in
-                AXThread.shared.async {
-                    WorkAreaEnforcer.shared.evaluateAndClamp(element: element, pid: pid, winID: winID, isResize: isResize)
+            mouseDownRetryTimers[winID]?.cancel()
+            let capturedGen = generationCounters[winID] ?? 0
+            let retryTimer = AppEnvironment.current.scheduler.schedule(after: TaskbarConstants.Timing.windowDragSettleDebounce) { [weak self, element] in
+                guard let self = self else { return }
+                self.performOnAXThread { [self] in
+                    self.mouseDownRetryTimers.removeValue(forKey: winID)
+                    guard self.generationCounters[winID] == capturedGen else { return }
+                    self.evaluateAndClampOnAX(element: element, pid: pid, winID: winID, isResize: isResize)
                 }
             }
+            mouseDownRetryTimers[winID] = retryTimer
             return
         }
         
-        guard let currentFrame = element.frame else {
+        let currentFrame = frameResolver?(element) ?? element.frame
+        guard let currentFrame = currentFrame else {
             logNudge("evaluateAndClamp SKIPPED: element.frame is nil")
             return
         }
@@ -251,54 +409,101 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
             return
         }
         
-        // Recursion guard: allow up to maxNudgeAttempts within nudgeRecursionWindow to recover from
-        // OS zoom animations that revert the frame upon completion.
-        let shouldProceed: Bool = lock.withLock {
-            if var record = nudgeRecords[winID] {
-                let isSameTarget = abs(record.targetHeight - clampedFrame.height) < TaskbarConstants.WorkArea.clampingRecursionGuardDelta
-                let isRecent = Date().timeIntervalSince(record.lastTimestamp) < TaskbarConstants.Timing.nudgeRecursionWindow
-                
-                if isSameTarget && isRecent {
-                    if record.attempts >= TaskbarConstants.Timing.maxNudgeAttempts {
-                        logNudge("RECURSION GUARD BLOCKED winID \(winID): attempts=\(record.attempts), targetH=\(record.targetHeight)")
-                        return false
-                    }
-                    record.attempts += 1
-                    record.lastTimestamp = Date()
-                    nudgeRecords[winID] = record
-                    return true
+        // Recursion guard: allow up to maxNudgeAttempts within nudgeRecursionWindow
+        let now = AppEnvironment.current.clock.now()
+        let delta = TaskbarConstants.WorkArea.clampingRecursionGuardDelta
+        let recursionWindow = TaskbarConstants.Timing.nudgeRecursionWindow
+        let maxAttempts = TaskbarConstants.Timing.maxNudgeAttempts
+        
+        if var record = nudgeRecords[winID] {
+            let isSameTarget = abs(record.targetHeight - clampedFrame.height) < delta
+            let isRecent = (now - record.lastTimestamp) < recursionWindow
+            
+            if isSameTarget && isRecent {
+                if record.attempts >= maxAttempts {
+                    logNudge("RECURSION GUARD BLOCKED winID \(winID): attempts=\(record.attempts), targetH=\(record.targetHeight)")
+                    return
                 }
+                record.attempts += 1
+                record.lastTimestamp = now
+                nudgeRecords[winID] = record
+            } else {
+                nudgeRecords[winID] = NudgeRecord(
+                    targetHeight: clampedFrame.height,
+                    attempts: 1,
+                    lastTimestamp: now
+                )
             }
+        } else {
             nudgeRecords[winID] = NudgeRecord(
                 targetHeight: clampedFrame.height,
                 attempts: 1,
-                lastTimestamp: Date()
+                lastTimestamp: now
             )
-            return true
         }
         
-        guard shouldProceed else { return }
-        guard element.isSizeSettable else {
-            logNudge("evaluateAndClamp SKIPPED: isSizeSettable is false")
-            return
+        var didModify = false
+        if clampedFrame.origin != currentFrame.origin {
+            let posOk = setPositionHandler?(element, clampedFrame.origin) ?? element.setPosition(clampedFrame.origin)
+            if posOk { didModify = true }
+        }
+        if clampedFrame.size != currentFrame.size {
+            let sizeOk = setSizeHandler?(element, clampedFrame.size) ?? element.setSize(clampedFrame.size)
+            if sizeOk { didModify = true }
         }
         
-        let setResult = element.setSize(clampedFrame.size)
-        if setResult {
-            lock.withLock {
-                lastSelfNudges[winID] = SelfNudge(size: clampedFrame.size, timestamp: Date())
-            }
-        }
-        logNudge("SUCCESSFULLY NUDGED winID \(winID) from \(currentFrame) to \(clampedFrame), setResult: \(setResult)")
+        lastSelfNudges[winID] = SelfNudge(
+            size: clampedFrame.size,
+            timestamp: now
+        )
+        onClampEvaluated?(winID, clampedFrame)
+        logNudge("SUCCESSFULLY NUDGED winID \(winID) from \(currentFrame) to \(clampedFrame), didModify: \(didModify)")
     }
+    
+    // MARK: - Cleanup APIs
     
     /// Cleans up state when a window is closed/destroyed.
     public func removeWindow(winID: UInt64) {
-        lock.withLock {
-            generationCounters.removeValue(forKey: winID)
-            windowWasResizedInDebounce.removeValue(forKey: winID)
-            nudgeRecords.removeValue(forKey: winID)
-            lastSelfNudges.removeValue(forKey: winID)
+        performOnAXThread { [self] in
+            self.removeWindowOnAX(winID: winID)
         }
+    }
+    
+    /// Convenience cleanup using WindowKey.
+    public func removeWindow(_ key: WindowKey) {
+        removeWindow(winID: key.id)
+    }
+    
+    private func removeWindowOnAX(winID: UInt64) {
+        activeTimers[winID]?.cancel()
+        activeTimers.removeValue(forKey: winID)
+        
+        mouseDownRetryTimers[winID]?.cancel()
+        mouseDownRetryTimers.removeValue(forKey: winID)
+        
+        generationCounters.removeValue(forKey: winID)
+        windowWasResizedInDebounce.removeValue(forKey: winID)
+        lastSelfNudges.removeValue(forKey: winID)
+        nudgeRecords.removeValue(forKey: winID)
+        windowPIDs.removeValue(forKey: winID)
+        
+        logNudge("removeWindow cleaned up winID \(winID)")
+    }
+    
+    /// Cleans up all windows and state associated with a terminated application.
+    public func removeApp(pid: pid_t) {
+        performOnAXThread { [self] in
+            self.removeAppOnAX(pid: pid)
+        }
+    }
+    
+    private func removeAppOnAX(pid: pid_t) {
+        let windowsToRemove = windowPIDs.compactMap { (winID, winPID) -> UInt64? in
+            winPID == pid ? winID : nil
+        }
+        for winID in windowsToRemove {
+            removeWindowOnAX(winID: winID)
+        }
+        logNudge("removeApp cleaned up \(windowsToRemove.count) windows for pid \(pid)")
     }
 }

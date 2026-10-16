@@ -183,6 +183,7 @@ public final class AppTracker: WindowSource {
             _ = dirtyPIDs.remove(pid)
         }
         knownWindowKeys = knownWindowKeys.filter { $0.pid != pid }
+        WorkAreaEnforcer.shared.removeApp(pid: pid)
         AXThread.shared.async { [weak self] in
             guard let self = self else { return }
             self.pendingPIDs.remove(pid)
@@ -602,6 +603,7 @@ public final class AppTracker: WindowSource {
             AppTracker.removeAllElements(forPID: stalePID)
             AppTracker.clearBackoff(for: stalePID)
             knownWindowKeys = knownWindowKeys.filter { $0.pid != stalePID }
+            WorkAreaEnforcer.shared.removeApp(pid: stalePID)
             AXThread.shared.async { [weak self] in
                 self?.observers.removeValue(forKey: stalePID)?.invalidate()
             }

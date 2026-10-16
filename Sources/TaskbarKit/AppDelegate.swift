@@ -29,10 +29,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             AccessibilityPermission.promptIfNecessary()
         }
         
-        // Hide macOS System Dock if enabled in settings
-        if settings.hideSystemDock {
-            DockController.shared.hideDock(delay: settings.dockHideDelay)
-        }
+        // Reconcile macOS System Dock state with crash recovery
+        DockController.shared.reconcileOnLaunch(
+            shouldHideDock: settings.hideSystemDock,
+            delay: settings.dockHideDelay
+        )
         
         // Configure WorkAreaEnforcer for reserving taskbar space before panels or tracking initialize
         WorkAreaEnforcer.shared.configure(

@@ -34,6 +34,10 @@ public final class AXThread: @unchecked Sendable {
         runLoopRef ?? CFRunLoopGetMain()
     }
     
+    public var isCurrent: Bool {
+        Thread.current == thread
+    }
+    
     public func async(_ block: @escaping @Sendable () -> Void) {
         CFRunLoopPerformBlock(runLoop, CFRunLoopMode.commonModes.rawValue) {
             block()

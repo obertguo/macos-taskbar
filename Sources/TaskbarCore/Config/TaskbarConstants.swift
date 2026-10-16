@@ -144,7 +144,7 @@ public enum TaskbarConstants {
         public static let screenTopToleranceRatio: CGFloat = 0.20
         
         /// Threshold in points below which minor size adjustments are ignored to prevent feedback loops.
-        public static let clampingRecursionGuardDelta: CGFloat = 1.0
+        public static let clampingRecursionGuardDelta: CGFloat = 0.5
         
         /// Coordinate variance tolerance in points when matching full-screen app bounds against display bounds.
         public static let fullScreenDisplayTolerance: CGFloat = 2.0
@@ -180,10 +180,10 @@ public enum TaskbarConstants {
         public static let windowZoomAnimationSettleDelay: TimeInterval = 0.25
         
         /// Sliding window in seconds during which repetitive nudges on the same window trigger loop detection.
-        public static let nudgeRecursionWindow: TimeInterval = 0.6
+        public static let nudgeRecursionWindow: TimeInterval = 0.8
         
         /// Maximum permitted nudge attempts within the recursion window before backing off.
-        public static let maxNudgeAttempts: Int = 4
+        public static let maxNudgeAttempts: Int = 2
         
         /// Global timeout in seconds for Accessibility API IPC queries to prevent UI hangs.
         public static let axTimeout: Float = 0.15

@@ -6,10 +6,23 @@ import TaskbarCore
 public final class DockController: @unchecked Sendable {
     public static let shared = DockController()
     
-    private static let originalStateKey = TaskbarConstants.Dock.originalStateUserDefaultsKey
+    public static let originalStateKey = TaskbarConstants.Dock.originalStateUserDefaultsKey
+    public static let sentinelKey = "com.taskbar.dockCurrentlyOverriddenByTaskbar"
+    
+    /// Target domain for macOS Dock preferences. Defaults to "com.apple.dock".
+    public nonisolated(unsafe) static var preferencesDomain: String = TaskbarConstants.Dock.domain
+    
+    /// Optional closure overriding the Dock restart command (`killall Dock`).
+    /// Exposed for testing to prevent killing the system Dock daemon during automated runs.
+    public nonisolated(unsafe) static var dockRestartHandler: (@Sendable () -> Void)? = nil
+    
     private let lock = NSLock()
     private var _isDockHidden: Bool = false
     private var _currentAppliedDelay: Double?
+    
+    /// Dedicated private serial queue for asynchronous Dock preference writes and restart execution.
+    private let dockQueue = DispatchQueue(label: "com.taskbar.dock-controller", qos: .utility)
+    private static let queueSpecificKey = DispatchSpecificKey<Void>()
     
     public var isDockHidden: Bool {
         lock.withLock { _isDockHidden }
@@ -19,107 +32,221 @@ public final class DockController: @unchecked Sendable {
         lock.withLock { _currentAppliedDelay }
     }
     
-    private struct SavedDockState: Codable {
-        let autohide: Bool
-        let autohideDelay: Double?
+    public struct SavedDockState: Codable, Equatable, Sendable {
+        public let autohide: Bool
+        public let autohideDelay: Double?
+        
+        public init(autohide: Bool, autohideDelay: Double?) {
+            self.autohide = autohide
+            self.autohideDelay = autohideDelay
+        }
     }
     
     private init() {
-        captureOriginalStateIfFirstRun()
+        dockQueue.setSpecific(key: Self.queueSpecificKey, value: ())
+        let wasOverridden = UserDefaults.standard.bool(forKey: Self.sentinelKey)
+        if wasOverridden {
+            _isDockHidden = true
+        } else {
+            captureOriginalStateIfFirstRun()
+        }
+    }
+    
+    /// Reconciles Dock state on application launch, providing crash recovery for unclean terminations.
+    public func reconcileOnLaunch(shouldHideDock: Bool, delay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds) {
+        let wasOverridden = UserDefaults.standard.bool(forKey: Self.sentinelKey)
+        
+        if wasOverridden {
+            TaskbarLogger.dock.warning("Detected dirty session from prior run (sentinel active). Reconciling Dock state...")
+            if !shouldHideDock {
+                // User does not want dock hidden. Restore the dock to the saved baseline! Clear the sentinel.
+                restoreDock()
+            } else {
+                // User wants dock hidden. PRESERVE the existing baseline snapshot (DO NOT overwrite it with current system state where autohide-delay=1000).
+                // Re-apply hide settings to ensure consistency, and keep sentinel true.
+                hideDock(delay: delay, force: true)
+            }
+        } else {
+            // Clean exit or fresh launch:
+            captureOriginalStateIfFirstRun()
+            if shouldHideDock {
+                hideDock(delay: delay)
+            } else if isDockHidden {
+                restoreDock()
+            }
+        }
     }
     
     /// Snapshots the user's original Dock configuration on the very first launch.
-    private func captureOriginalStateIfFirstRun() {
+    /// Never overwrites an existing snapshot.
+    public func captureOriginalStateIfFirstRun() {
         guard UserDefaults.standard.data(forKey: Self.originalStateKey) == nil else {
             return
         }
         
-        let autohide = querySystemAutohide()
-        let delay = querySystemAutohideDelay()
+        // If the dock is currently marked as overridden, do not capture the overridden state as original!
+        if UserDefaults.standard.bool(forKey: Self.sentinelKey) {
+            return
+        }
         
-        // If delay is already ~1000s (e.g. from a prior test session), treat as unconfigured (nil)
+        let autohide = Self.querySystemAutohide()
+        let delay = Self.querySystemAutohideDelay()
+        
+        // If delay is already ~1000s (e.g. from an unmanaged prior session), treat as unconfigured (nil)
         let cleanDelay = (delay != nil && delay! >= TaskbarConstants.Dock.defaultAutohideDelaySeconds - 1.0) ? nil : delay
         
         let state = SavedDockState(autohide: autohide, autohideDelay: cleanDelay)
         if let data = try? JSONEncoder().encode(state) {
             UserDefaults.standard.set(data, forKey: Self.originalStateKey)
+            UserDefaults.standard.synchronize()
         }
     }
     
-    private func querySystemAutohide() -> Bool {
-        let pipe = Pipe()
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: TaskbarConstants.Dock.defaultsBinaryPath)
-        process.arguments = ["read", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideKey]
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-        
-        try? process.run()
-        process.waitUntilExit()
-        
-        guard process.terminationStatus == 0 else { return false }
-        let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed == "1" || trimmed.lowercased() == "true"
+    /// Reads the system Dock autohide preference in-process using `CFPreferencesCopyAppValue` without spawning subprocesses.
+    public static func querySystemAutohide() -> Bool {
+        guard let value = CFPreferencesCopyAppValue(
+            TaskbarConstants.Dock.autohideKey as CFString,
+            preferencesDomain as CFString
+        ) else {
+            return false
+        }
+        if let boolVal = value as? Bool {
+            return boolVal
+        }
+        if let num = value as? NSNumber {
+            return num.boolValue
+        }
+        if CFGetTypeID(value) == CFBooleanGetTypeID() {
+            return CFBooleanGetValue((value as! CFBoolean))
+        }
+        return false
     }
     
-    private func querySystemAutohideDelay() -> Double? {
-        let pipe = Pipe()
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: TaskbarConstants.Dock.defaultsBinaryPath)
-        process.arguments = ["read", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideDelayKey]
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-        
-        try? process.run()
-        process.waitUntilExit()
-        
-        guard process.terminationStatus == 0 else { return nil }
-        let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
-        return Double(trimmed)
+    /// Reads the system Dock autohide delay preference in-process using `CFPreferencesCopyAppValue` without spawning subprocesses.
+    public static func querySystemAutohideDelay() -> Double? {
+        guard let value = CFPreferencesCopyAppValue(
+            TaskbarConstants.Dock.autohideDelayKey as CFString,
+            preferencesDomain as CFString
+        ) else {
+            return nil
+        }
+        if let num = value as? NSNumber {
+            return num.doubleValue
+        }
+        if let dbl = value as? Double {
+            return dbl
+        }
+        if CFGetTypeID(value) == CFNumberGetTypeID() {
+            var d: Double = 0
+            if CFNumberGetValue((value as! CFNumber), .doubleType, &d) {
+                return d
+            }
+        }
+        if let str = value as? String, let d = Double(str) {
+            return d
+        }
+        return nil
     }
     
     /// Hides the system Dock by applying the specified autohide hover delay and enabling autohide.
-    public func hideDock(delay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds) {
+    /// Preference writes and Dock reload are executed asynchronously on a utility serial queue.
+    public func hideDock(delay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds, force: Bool = false) {
         lock.lock()
-        defer { lock.unlock() }
-        
-        captureOriginalStateIfFirstRun()
-        
-        // If already hidden with the exact same delay, no-op
-        if _isDockHidden, let current = _currentAppliedDelay, abs(current - delay) < 0.01 {
+        // If already hidden with the exact same delay and not forced, no-op
+        if !force && _isDockHidden, let current = _currentAppliedDelay, abs(current - delay) < 0.01 {
+            lock.unlock()
             return
         }
-        
-        Self.executeCommand(TaskbarConstants.Dock.defaultsBinaryPath, arguments: ["write", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideKey, "-bool", "true"])
-        Self.executeCommand(TaskbarConstants.Dock.defaultsBinaryPath, arguments: ["write", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideDelayKey, "-float", "\(delay)"])
-        Self.executeCommand(TaskbarConstants.Dock.killallBinaryPath, arguments: [TaskbarConstants.Dock.processName])
-        
         _isDockHidden = true
         _currentAppliedDelay = delay
-        TaskbarLogger.dock.info("System Dock hidden (autohide-delay: \(delay)s).")
+        lock.unlock()
+        
+        // Ensure baseline snapshot is saved before applying override
+        captureOriginalStateIfFirstRun()
+        
+        // Set dirty-session sentinel
+        UserDefaults.standard.set(true, forKey: Self.sentinelKey)
+        UserDefaults.standard.synchronize()
+        
+        dockQueue.async {
+            Self.performHideInternal(delay: delay)
+        }
     }
     
     /// Restores the user's original Dock preferences and restarts the Dock process.
+    /// Preference writes and Dock reload are executed asynchronously on a utility serial queue.
     public func restoreDock() {
         lock.lock()
-        defer { lock.unlock() }
-        
-        guard _isDockHidden else { return }
-        Self.restoreDockInternal()
         _isDockHidden = false
         _currentAppliedDelay = nil
+        lock.unlock()
+        
+        // Clear dirty-session sentinel
+        UserDefaults.standard.set(false, forKey: Self.sentinelKey)
+        UserDefaults.standard.synchronize()
+        
+        dockQueue.async {
+            Self.performRestoreInternal()
+        }
     }
     
     /// Static synchronous restore callable from POSIX signal handlers, atexit, or termination.
     public static func restoreDockSync() {
-        if shared.isDockHidden {
-            shared.restoreDock()
+        let shouldRestore = shared.lock.withLock {
+            let hidden = shared._isDockHidden
+            shared._isDockHidden = false
+            shared._currentAppliedDelay = nil
+            return hidden
+        } || UserDefaults.standard.bool(forKey: sentinelKey)
+        
+        UserDefaults.standard.set(false, forKey: sentinelKey)
+        UserDefaults.standard.synchronize()
+        
+        guard shouldRestore else { return }
+        
+        if DispatchQueue.getSpecific(key: queueSpecificKey) != nil {
+            performRestoreInternal()
+        } else {
+            shared.dockQueue.sync {
+                performRestoreInternal()
+            }
         }
     }
     
-    private static func restoreDockInternal() {
+    /// Synchronously waits for all pending operations on the DockController serial utility queue to finish.
+    public func waitForQueue() {
+        if DispatchQueue.getSpecific(key: Self.queueSpecificKey) != nil {
+            return
+        }
+        dockQueue.sync {}
+    }
+    
+    /// Resets in-memory state of the controller. For test use only.
+    public func resetStateForTesting(isDockHidden: Bool = false, currentAppliedDelay: Double? = nil) {
+        lock.withLock {
+            _isDockHidden = isDockHidden
+            _currentAppliedDelay = currentAppliedDelay
+        }
+    }
+    
+    private static func performHideInternal(delay: Double) {
+        CFPreferencesSetAppValue(
+            TaskbarConstants.Dock.autohideKey as CFString,
+            kCFBooleanTrue,
+            preferencesDomain as CFString
+        )
+        let delayNumber = NSNumber(value: delay) as CFNumber
+        CFPreferencesSetAppValue(
+            TaskbarConstants.Dock.autohideDelayKey as CFString,
+            delayNumber,
+            preferencesDomain as CFString
+        )
+        CFPreferencesAppSynchronize(preferencesDomain as CFString)
+        restartDock()
+        TaskbarLogger.dock.info("System Dock hidden (autohide-delay: \(delay)s).")
+    }
+    
+    private static func performRestoreInternal() {
         var originalAutohide = false
         var originalDelay: Double? = nil
         
@@ -131,18 +258,39 @@ public final class DockController: @unchecked Sendable {
         
         // Restore autohide delay
         if let delay = originalDelay {
-            executeCommand(TaskbarConstants.Dock.defaultsBinaryPath, arguments: ["write", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideDelayKey, "-float", "\(delay)"])
+            let delayNumber = NSNumber(value: delay) as CFNumber
+            CFPreferencesSetAppValue(
+                TaskbarConstants.Dock.autohideDelayKey as CFString,
+                delayNumber,
+                preferencesDomain as CFString
+            )
         } else {
-            executeCommand(TaskbarConstants.Dock.defaultsBinaryPath, arguments: ["delete", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideDelayKey])
+            CFPreferencesSetAppValue(
+                TaskbarConstants.Dock.autohideDelayKey as CFString,
+                nil,
+                preferencesDomain as CFString
+            )
         }
         
         // Restore autohide flag
-        executeCommand(TaskbarConstants.Dock.defaultsBinaryPath, arguments: ["write", TaskbarConstants.Dock.domain, TaskbarConstants.Dock.autohideKey, "-bool", originalAutohide ? "true" : "false"])
+        let autohideBool: CFBoolean = originalAutohide ? kCFBooleanTrue : kCFBooleanFalse
+        CFPreferencesSetAppValue(
+            TaskbarConstants.Dock.autohideKey as CFString,
+            autohideBool,
+            preferencesDomain as CFString
+        )
         
-        // Restart Dock
-        executeCommand(TaskbarConstants.Dock.killallBinaryPath, arguments: [TaskbarConstants.Dock.processName])
-        
+        CFPreferencesAppSynchronize(preferencesDomain as CFString)
+        restartDock()
         TaskbarLogger.dock.info("System Dock restored to original settings.")
+    }
+    
+    private static func restartDock() {
+        if let customHandler = dockRestartHandler {
+            customHandler()
+        } else {
+            executeCommand(TaskbarConstants.Dock.killallBinaryPath, arguments: [TaskbarConstants.Dock.processName])
+        }
     }
     
     @discardableResult

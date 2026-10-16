@@ -245,8 +245,8 @@ public final class AXAppObserver: @unchecked Sendable {
         
         let obs = observer
         let src = runLoopSource
+        let removedWindows = observedWindows
         let winElements = Array(observedWindowElements.values)
-        
         observedWindows.removeAll()
         observedWindowElements.removeAll()
         observer = nil
@@ -254,6 +254,10 @@ public final class AXAppObserver: @unchecked Sendable {
         onEvent = nil
         onNotification = nil
         stateLock.unlock()
+        
+        for wid in removedWindows {
+            WorkAreaEnforcer.shared.removeWindow(winID: wid)
+        }
         
         if let obs = obs {
             // Unregister application-level notifications
