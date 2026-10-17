@@ -139,10 +139,8 @@ public final class GroupWindowPopup: NSPanel {
         
         let preferredSize = popupContentView.preferredSize()
         var newFrame = frame
-        let heightDelta = preferredSize.height - newFrame.height
         newFrame.size.width = preferredSize.width
         newFrame.size.height = preferredSize.height
-        newFrame.origin.y -= heightDelta
         setFrame(newFrame, display: true, animate: false)
     }
     
@@ -169,9 +167,7 @@ public final class GroupWindowPopup: NSPanel {
             // Resize panel smoothly for remaining items
             let preferredSize = popupContentView.preferredSize()
             var newFrame = frame
-            let heightDelta = preferredSize.height - newFrame.height
             newFrame.size.height = preferredSize.height
-            newFrame.origin.y -= heightDelta
             setFrame(newFrame, display: true, animate: true)
         }
     }

@@ -21,6 +21,10 @@ public final class StatusMenu {
     public var onThemeIdChanged: ((String) -> Void)?
     public var onWindowGroupingModeChanged: ((WindowGroupingMode) -> Void)?
     public var onReloadThemesRequested: (() -> Void)?
+    public var onReloadThemes: (() -> Void)? {
+        get { onReloadThemesRequested }
+        set { onReloadThemesRequested = newValue }
+    }
     public var onOpenThemesFolderRequested: (() -> Void)?
     public var onExportThemeRequested: (() -> Void)?
     public var onMinButtonWidthChanged: ((Double) -> Void)?
@@ -482,7 +486,6 @@ public final class StatusMenu {
             dockDelay = delay
             setupMenu()
             settingsStore?.update { $0.dockHideDelay = delay }
-            onDockDelayChanged?(delay)
         }
     }
     
@@ -490,7 +493,6 @@ public final class StatusMenu {
         isDockHidden = false
         setupMenu()
         settingsStore?.update { $0.hideSystemDock = false }
-        onRestoreDockRequested?()
     }
     
     @objc private func handleQuit() {

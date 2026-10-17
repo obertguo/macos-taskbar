@@ -170,7 +170,9 @@ extension AXUIElement {
             return nil
         }
         
-        let role = values[0] as? String
+        guard let role = values[0] as? String else {
+            return nil
+        }
         let subrole = values[1] as? String
         let title = values[2] as? String
         let isMinimized = (values[3] as? NSNumber)?.boolValue ?? false

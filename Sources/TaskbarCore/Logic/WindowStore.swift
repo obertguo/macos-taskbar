@@ -160,8 +160,12 @@ import CoreGraphics
                     break
                 }
                 if prev.title != current.title ||
-                   prev.isMinimized != current.isMinimized ||
-                   prev.isAppHidden != current.isAppHidden ||
+                   prev.frame != current.frame ||
+                   prev.isMinimized != current.isMinimized {
+                    didChange = true
+                    break
+                }
+                if prev.isAppHidden != current.isAppHidden ||
                    prev.isMain != current.isMain ||
                    prev.isFullScreen != current.isFullScreen {
                     didChange = true

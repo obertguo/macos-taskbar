@@ -133,14 +133,19 @@ cleanup_fixtures() {
 }
 
 # Export TASKBAR_RUN_LIVE_AX_TESTS=1 for modes that involve live tests
-if [[ "${MODE}" == "quick" || "${MODE}" == "edge-cases" || "${MODE}" == "all" ]]; then
+if [[ "${MODE}" == "quick" ]]; then
+    check_accessibility
     export TASKBAR_RUN_LIVE_AX_TESTS=1
     log_info "Enabled live Accessibility integration tests (TASKBAR_RUN_LIVE_AX_TESTS=1)"
-fi
-
-# Run pre-flight checks
-if [[ "${MODE}" == "quick" || "${MODE}" == "edge-cases" || "${MODE}" == "all" ]]; then
-    check_accessibility
+elif [[ "${MODE}" == "edge-cases" || "${MODE}" == "all" ]]; then
+    # In all or edge-cases mode, live AX is optional: enable if granted, but do not block or fail headless runs
+    AX_TRUSTED=$(osascript -e 'tell application "System Events" to return UI elements enabled' 2>/dev/null || echo "false")
+    if [[ "${AX_TRUSTED}" == "true" ]]; then
+        export TASKBAR_RUN_LIVE_AX_TESTS=1
+        log_info "Live Accessibility permissions granted; enabling live integration tests (TASKBAR_RUN_LIVE_AX_TESTS=1)"
+    else
+        log_info "Accessibility permissions not granted; running headless test suites without live AX"
+    fi
 fi
 cleanup_fixtures
 
@@ -190,35 +195,13 @@ case "${MODE}" in
         run_test_suite StatusMenuGroupingTests
         ;;
     all)
-        log_info "Running Core Unit Tests (TC-UNIT-*)..."
-        run_test_suite TaskbarCoreTests
-        
-        log_info "Running Edge Cases Suite (TC-EDGE-*)..."
-        run_test_suite EdgeCasesIntegrationTests
-        
-        log_info "Running Stress Suite (TC-STRESS-*)..."
-        run_test_suite StressIntegrationTests
-        
-        log_info "Running Pinned Applications Suite..."
-        run_test_suite PinnedAppsIntegrationTests
-        
-        log_info "Running Window Reordering & Drag Suite (TC-DRAG-*)..."
-        run_test_suite WindowReorderingIntegrationTests
-        
-        log_info "Running Window Grouping Suite (TC-GROUP-*)..."
-        run_test_suite WindowGroupingIntegrationTests
-        
-        log_info "Running Theme Expansion Suite..."
-        run_test_suite ThemeExpansionIntegrationTests
-        
-        log_info "Running Status Menu Theme Suite..."
-        run_test_suite StatusMenuThemeTests
-        
-        log_info "Running Status Menu Window Grouping Suite..."
-        run_test_suite StatusMenuGroupingTests
-        
-        log_info "Running Functional Lifecycle Suite (TC-FUNC-*)..."
-        run_test_suite WindowLifecycleIntegrationTests
+        if [[ "${COVERAGE}" -eq 1 ]]; then
+            log_info "Running complete test suite with code coverage (including all unit and integration suites)..."
+            swift test --enable-code-coverage || FAILED=1
+        else
+            log_info "Running complete test suite (including all unit and integration suites)..."
+            swift test || FAILED=1
+        fi
         ;;
 esac
 

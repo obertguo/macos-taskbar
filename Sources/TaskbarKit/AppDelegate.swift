@@ -60,30 +60,23 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         let statusMenu = StatusMenu(settingsStore: settingsStore)
         self.statusMenu = statusMenu
         
-        // Observe settingsStore for dock restore/hide changes if needed
-        settingsStore.addObserver { old, new in
-            if old.hideSystemDock != new.hideSystemDock {
-                if new.hideSystemDock {
-                    DockController.shared.hideDock(delay: new.dockHideDelay)
-                } else {
-                    DockController.shared.restoreDock()
-                }
-            }
-        }
+        // Observe settingsStore for dock restore/hide and autohide delay changes
+        setupSettingsSubscriptions()
         
         // Wire action callbacks on statusMenu
-        statusMenu.onReloadThemesRequested = {
+        statusMenu.onReloadThemesRequested = { [weak self] in
             ThemeFileLoader.shared.reloadCustomThemes()
+            guard let self = self else { return }
+            let theme = ThemeRegistry.shared.theme(for: self.settingsStore.settings.activeThemeId)
+            let resolvedTheme = self.settingsStore.settings.applyingThemeOverrides(to: theme)
+            self.screenManager?.applyTheme(resolvedTheme)
+            self.statusMenu?.refresh()
         }
         statusMenu.onOpenThemesFolderRequested = { [weak self] in
             self?.openThemesFolder()
         }
         statusMenu.onExportThemeRequested = { [weak self] in
             self?.exportActiveTheme()
-        }
-        statusMenu.onRestoreDockRequested = { [weak self] in
-            self?.settingsStore.update { $0.hideSystemDock = false }
-            DockController.shared.restoreDock()
         }
         statusMenu.onLauncherTriggered = { [weak self] in
             guard let self = self else { return }
@@ -127,5 +120,25 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         DockController.restoreDockSync()
         screenManager?.closeAll()
         TaskbarLogger.lifecycle.info("Terminated cleanly.")
+    }
+    
+    private func setupSettingsSubscriptions() {
+        settingsStore.addObserver { old, new in
+            if old.hideSystemDock != new.hideSystemDock || old.dockHideDelay != new.dockHideDelay {
+                if new.hideSystemDock {
+                    DockController.shared.hideDock(delay: new.dockHideDelay)
+                } else {
+                    DockController.shared.restoreDock()
+                }
+            }
+        }
+    }
+}
+
+extension ScreenManager {
+    public func applyTheme(_ theme: ThemeDefinition) {
+        for panel in allPanels {
+            panel.applyTheme(theme)
+        }
     }
 }

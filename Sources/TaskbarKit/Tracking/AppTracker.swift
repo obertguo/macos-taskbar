@@ -93,7 +93,16 @@ public final class AppTracker: WindowSource {
     private let dirtyPIDsLock = NSLock()
     nonisolated(unsafe) private var dirtyPIDs: Set<pid_t> = []
     
-    nonisolated(unsafe) private var currentSweepGeneration: UInt64 = 0
+    private let sweepGenerationLock = NSLock()
+    nonisolated(unsafe) private var _currentSweepGeneration: UInt64 = 0
+    nonisolated private var currentSweepGeneration: UInt64 {
+        get {
+            sweepGenerationLock.withLock { _currentSweepGeneration }
+        }
+        set {
+            sweepGenerationLock.withLock { _currentSweepGeneration = newValue }
+        }
+    }
     private var pendingDirtyDebounceWorkItem: DispatchWorkItem?
     private var pendingFullDebounceWorkItem: DispatchWorkItem?
     private var spaceSettleWorkItem: DispatchWorkItem?
@@ -189,10 +198,10 @@ public final class AppTracker: WindowSource {
         dirtyPIDsLock.withLock {
             _ = dirtyPIDs.remove(pid)
         }
-        knownWindowKeys = knownWindowKeys.filter { $0.pid != pid }
         WorkAreaEnforcer.shared.removeApp(pid: pid)
         AXThread.shared.async { [weak self] in
             guard let self = self else { return }
+            self.knownWindowKeys = self.knownWindowKeys.filter { $0.pid != pid }
             self.pendingPIDs.remove(pid)
             if let observer = self.observers.removeValue(forKey: pid) {
                 observer.invalidate()
@@ -288,24 +297,41 @@ public final class AppTracker: WindowSource {
                 let startTime = AppEnvironment.current.clock.now()
                 event.element.setTimeout(TaskbarConstants.Timing.axTimeout)
                 let batch = event.element.fetchWindowAttributesBatch()
-                
                 let elapsed = AppEnvironment.current.clock.now() - startTime
-                if elapsed > Double(TaskbarConstants.Timing.axTimeout) {
+                if batch == nil && elapsed >= Double(TaskbarConstants.Timing.axTimeout) {
                     AppTracker.recordTimeout(for: event.pid)
                 }
                 
-                let role = batch?.role ?? event.element.role
-                let subrole = batch?.subrole ?? event.element.subrole
-                let isMin = batch?.isMinimized ?? event.element.isMinimized
-                let frame = batch?.frame ?? event.element.frame ?? .zero
-                let isMain = batch?.isMain ?? event.element.isMain
-                let isFullScreen = batch?.isFullScreen ?? event.element.isFullScreen
+                let role: String?
+                let subrole: String?
+                let title: String
+                let frame: CGRect
+                let isMin: Bool
+                let isMain: Bool
+                let isFullScreen: Bool
                 
                 let app = NSRunningApplication(processIdentifier: event.pid)
                 let appName = app?.localizedName ?? "App"
                 let bundleID = app?.bundleIdentifier ?? ""
                 let isAppHidden = app?.isHidden ?? false
-                let title = batch?.title ?? event.element.title ?? appName
+                
+                if let batch = batch {
+                    role = batch.role
+                    subrole = batch.subrole
+                    title = batch.title ?? appName
+                    frame = batch.frame ?? .zero
+                    isMin = batch.isMinimized
+                    isMain = batch.isMain
+                    isFullScreen = batch.isFullScreen
+                } else {
+                    role = event.element.role
+                    subrole = event.element.subrole
+                    title = event.element.title ?? appName
+                    frame = event.element.frame ?? .zero
+                    isMin = event.element.isMinimized
+                    isMain = event.element.isMain
+                    isFullScreen = event.element.isFullScreen
+                }
                 
                 if name == (kAXWindowMovedNotification as String) {
                     WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: event.element, pid: event.pid, isResize: false)
@@ -343,11 +369,27 @@ public final class AppTracker: WindowSource {
                 
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
-                    self.store.addOrUpdateWindow(info)
-                    if isMain && !isMin {
-                        self.store.setFocusedWindow(key: key)
+                    let isMoveOrResize = (name == (kAXWindowMovedNotification as String) || name == (kAXWindowResizedNotification as String))
+                    if isMoveOrResize {
+                        let previous = self.store.window(forKey: key)
+                        let screens = NSScreen.screens.map(\.screenDescriptor)
+                        let oldDisplayID = previous.flatMap { ScreenAssignment.assignScreen(for: $0.frame, across: screens) }
+                        let newDisplayID = ScreenAssignment.assignScreen(for: info.frame, across: screens)
+                        let oldFullScreen = previous?.isFullScreen
+                        self.store.addOrUpdateWindow(info)
+                        if isMain && !isMin {
+                            self.store.setFocusedWindow(key: key)
+                        }
+                        if oldDisplayID != newDisplayID || oldFullScreen != info.isFullScreen {
+                            self.onWindowsChanged?()
+                        }
+                    } else {
+                        self.store.addOrUpdateWindow(info)
+                        if isMain && !isMin {
+                            self.store.setFocusedWindow(key: key)
+                        }
+                        self.onWindowsChanged?()
                     }
-                    self.onWindowsChanged?()
                 }
                 return
             }
@@ -364,18 +406,37 @@ public final class AppTracker: WindowSource {
                     let key = WindowKey(id: winID, pid: event.pid)
                     AppTracker.cacheElement(event.element, for: key)
                     let batch = event.element.fetchWindowAttributesBatch()
-                    let role = batch?.role ?? event.element.role
-                    let subrole = batch?.subrole ?? event.element.subrole
-                    let frame = batch?.frame ?? event.element.frame ?? .zero
-                    let isMin = batch?.isMinimized ?? event.element.isMinimized
-                    let isMain = batch?.isMain ?? event.element.isMain
-                    let isFullScreen = batch?.isFullScreen ?? event.element.isFullScreen
                     
                     let app = NSRunningApplication(processIdentifier: event.pid)
                     let appName = app?.localizedName ?? "App"
                     let bundleID = app?.bundleIdentifier ?? ""
                     let isHidden = app?.isHidden ?? false
-                    let title = batch?.title ?? event.element.title ?? appName
+                    
+                    let role: String?
+                    let subrole: String?
+                    let title: String
+                    let frame: CGRect
+                    let isMin: Bool
+                    let isMain: Bool
+                    let isFullScreen: Bool
+                    
+                    if let batch = batch {
+                        role = batch.role
+                        subrole = batch.subrole
+                        title = batch.title ?? appName
+                        frame = batch.frame ?? .zero
+                        isMin = batch.isMinimized
+                        isMain = batch.isMain
+                        isFullScreen = batch.isFullScreen
+                    } else {
+                        role = event.element.role
+                        subrole = event.element.subrole
+                        title = event.element.title ?? appName
+                        frame = event.element.frame ?? .zero
+                        isMin = event.element.isMinimized
+                        isMain = event.element.isMain
+                        isFullScreen = event.element.isFullScreen
+                    }
                     
                     if let role = role, WindowFilter.shouldInclude(
                         role: role,
@@ -385,6 +446,7 @@ public final class AppTracker: WindowSource {
                         isAppRegular: true,
                         isMinimized: isMin
                     ) {
+                        self.knownWindowKeys.insert(key)
                         let info = WindowInfo(
                             key: key,
                             pid: event.pid,
@@ -407,6 +469,7 @@ public final class AppTracker: WindowSource {
             } else if name == (kAXUIElementDestroyedNotification as String) {
                 if let winID = event.resolvedWindowID ?? event.element.windowID {
                     let key = WindowKey(id: winID, pid: event.pid)
+                    self.knownWindowKeys.remove(key)
                     AppTracker.removeElement(for: key)
                     WorkAreaEnforcer.shared.removeWindow(winID: winID)
                     DispatchQueue.main.async { [weak self] in
@@ -477,7 +540,11 @@ public final class AppTracker: WindowSource {
                     continue
                 }
                 let (windows, appFocused) = self.inspectApp(app: app, isFrontmost: pid == frontmostPID)
-                updatedWindows[pid] = windows
+                if let windows = windows {
+                    updatedWindows[pid] = windows
+                    let currentKeys = Set(windows.map(\.key))
+                    self.knownWindowKeys = self.knownWindowKeys.filter { $0.pid != pid }.union(currentKeys)
+                }
                 if let f = appFocused {
                     focusedKey = f
                 }
@@ -529,8 +596,10 @@ public final class AppTracker: WindowSource {
         }
         stopPermissionCheck()
         
-        currentSweepGeneration &+= 1
-        let generation = currentSweepGeneration
+        let generation: UInt64 = sweepGenerationLock.withLock {
+            _currentSweepGeneration &+= 1
+            return _currentSweepGeneration
+        }
         
         let runningApps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
         let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
@@ -540,12 +609,14 @@ public final class AppTracker: WindowSource {
             trackApp(app.processIdentifier)
         }
         
+        let initialFocusedKey: WindowKey? = (frontmostPID != nil && AppTracker.isPIDBackedOff(frontmostPID!)) ? store.focusedWindowKey : nil
+        
         sweepNextChunk(
             remainingApps: runningApps,
             generation: generation,
             frontmostPID: frontmostPID,
             accumulatedWindows: [:],
-            focusedKey: nil,
+            focusedKey: initialFocusedKey,
             allActivePIDs: allActivePIDs
         )
     }
@@ -559,6 +630,7 @@ public final class AppTracker: WindowSource {
         allActivePIDs: Set<pid_t>
     ) {
         guard !remainingApps.isEmpty else {
+            self.knownWindowKeys = Set(accumulatedWindows.values.flatMap { $0 }.map(\.key))
             DispatchQueue.main.async { [weak self] in
                 guard let self = self, self.currentSweepGeneration == generation else { return }
                 self.finishFullSweep(
@@ -586,7 +658,9 @@ public final class AppTracker: WindowSource {
                     continue
                 }
                 let (windows, appFocused) = self.inspectApp(app: app, isFrontmost: pid == frontmostPID)
-                batchWindows[pid] = windows
+                if let windows = windows {
+                    batchWindows[pid] = windows
+                }
                 if let f = appFocused {
                     currentFocused = f
                 }
@@ -617,17 +691,25 @@ public final class AppTracker: WindowSource {
             store.removeWindows(forPID: stalePID)
             AppTracker.removeAllElements(forPID: stalePID)
             AppTracker.clearBackoff(for: stalePID)
-            knownWindowKeys = knownWindowKeys.filter { $0.pid != stalePID }
             WorkAreaEnforcer.shared.removeApp(pid: stalePID)
             AXThread.shared.async { [weak self] in
-                self?.observers.removeValue(forKey: stalePID)?.invalidate()
+                guard let self = self else { return }
+                self.knownWindowKeys = self.knownWindowKeys.filter { $0.pid != stalePID }
+                self.observers.removeValue(forKey: stalePID)?.invalidate()
             }
             didChange = true
         }
         
         store.setFrontmostPID(frontmostPID)
-        if store.setFocusedWindow(key: focusedKey) {
-            didChange = true
+        let isFrontmostBackedOff = frontmostPID != nil && AppTracker.isPIDBackedOff(frontmostPID!)
+        if let focusedKey = focusedKey {
+            if store.setFocusedWindow(key: focusedKey) {
+                didChange = true
+            }
+        } else if !isFrontmostBackedOff {
+            if store.setFocusedWindow(key: nil) {
+                didChange = true
+            }
         }
         
         for (pid, wins) in updatedWindows {
@@ -643,8 +725,12 @@ public final class AppTracker: WindowSource {
     
     // MARK: - Inspection Helper
     
-    nonisolated private func inspectApp(app: NSRunningApplication, isFrontmost: Bool) -> ([WindowInfo], WindowKey?) {
+    nonisolated private func inspectApp(app: NSRunningApplication, isFrontmost: Bool) -> ([WindowInfo]?, WindowKey?) {
         let pid = app.processIdentifier
+        if AppTracker.isPIDBackedOff(pid) {
+            return (nil, nil)
+        }
+        
         let bundleID = app.bundleIdentifier ?? ""
         let appName = app.localizedName ?? "App"
         let isHidden = app.isHidden
@@ -658,7 +744,7 @@ public final class AppTracker: WindowSource {
             let fRes = AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &focusedVal)
             if fRes == .cannotComplete {
                 AppTracker.recordTimeout(for: pid)
-                return ([], nil)
+                return (nil, nil)
             }
             if fRes == .success, let fWin = focusedVal, CFGetTypeID(fWin) == AXUIElementGetTypeID() {
                 let focusedElement = (fWin as! AXUIElement)
@@ -674,7 +760,7 @@ public final class AppTracker: WindowSource {
         let winsResult = AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsValue)
         if winsResult == .cannotComplete {
             AppTracker.recordTimeout(for: pid)
-            return ([], focusedKey)
+            return (nil, nil)
         }
         guard winsResult == .success, let windowElements = windowsValue as? [AXUIElement] else {
             return ([], focusedKey)
@@ -688,51 +774,73 @@ public final class AppTracker: WindowSource {
             observers[pid]?.observeWindow(win)
             
             let batch = win.fetchWindowAttributesBatch()
-            let role = batch?.role ?? win.role
-            guard let role = role else { continue }
-            let subrole = batch?.subrole ?? win.subrole
-            let frame = batch?.frame ?? win.frame ?? .zero
-            let isMin = batch?.isMinimized ?? win.isMinimized
-            let isMain = batch?.isMain ?? win.isMain
-            let isFullScreen = batch?.isFullScreen ?? win.isFullScreen
             
-            if WindowFilter.shouldInclude(
-                role: role,
+            let role: String?
+            let subrole: String?
+            let title: String
+            let frame: CGRect
+            let isMin: Bool
+            let isMain: Bool
+            let isFullScreen: Bool
+            
+            if let batch = batch {
+                guard let r = batch.role else { continue }
+                role = r
+                subrole = batch.subrole
+                title = batch.title ?? appName
+                frame = batch.frame ?? .zero
+                isMin = batch.isMinimized
+                isMain = batch.isMain
+                isFullScreen = batch.isFullScreen
+            } else {
+                guard let r = win.role else { continue }
+                role = r
+                subrole = win.subrole
+                title = win.title ?? appName
+                frame = win.frame ?? .zero
+                isMin = win.isMinimized
+                isMain = win.isMain
+                isFullScreen = win.isFullScreen
+            }
+            
+            guard let validRole = role, WindowFilter.shouldInclude(
+                role: validRole,
                 subrole: subrole,
                 frame: frame,
                 bundleID: bundleID,
                 isAppRegular: true,
                 isMinimized: isMin
-            ) {
-                guard let wid = win.windowID else { continue }
-                let key = WindowKey(id: wid, pid: pid)
-                AppTracker.cacheElement(win, for: key)
-                
-                let title = batch?.title ?? win.title ?? appName
-                let info = WindowInfo(
-                    key: key,
-                    pid: pid,
-                    appName: appName,
-                    bundleID: bundleID,
-                    title: title,
-                    frame: frame,
-                    isMinimized: isMin,
-                    isAppHidden: isHidden,
-                    isMain: isMain,
-                    isFullScreen: isFullScreen
-                )
-                appWindows.append(info)
-                
-                if !knownWindowKeys.contains(key) {
-                    knownWindowKeys.insert(key)
-                    if !isMin && !isHidden {
-                        WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: win, pid: pid, isResize: false)
-                    }
+            ) else {
+                continue
+            }
+            
+            guard let wid = win.windowID else { continue }
+            let key = WindowKey(id: wid, pid: pid)
+            AppTracker.cacheElement(win, for: key)
+            
+            let info = WindowInfo(
+                key: key,
+                pid: pid,
+                appName: appName,
+                bundleID: bundleID,
+                title: title,
+                frame: frame,
+                isMinimized: isMin,
+                isAppHidden: isHidden,
+                isMain: isMain,
+                isFullScreen: isFullScreen
+            )
+            appWindows.append(info)
+            
+            if !knownWindowKeys.contains(key) {
+                knownWindowKeys.insert(key)
+                if !isMin && !isHidden {
+                    WorkAreaEnforcer.shared.handleWindowMovedOrResized(element: win, pid: pid, isResize: false)
                 }
-                
-                if isFrontmost && focusedKey == nil && isMain {
-                    focusedKey = key
-                }
+            }
+            
+            if isFrontmost && focusedKey == nil && isMain {
+                focusedKey = key
             }
         }
         
@@ -762,6 +870,7 @@ public final class AppTracker: WindowSource {
         
         AXThread.shared.async { [weak self] in
             guard let self = self else { return }
+            self.knownWindowKeys.removeAll()
             for observer in self.observers.values {
                 observer.invalidate()
             }
