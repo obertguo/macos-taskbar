@@ -262,7 +262,7 @@ struct AppEnvironmentTests {
     func testAppEnvironmentLiveDefaults() {
         let env = AppEnvironment.live
         #expect(env.clock is SystemUptimeClock)
-        #expect(env.scheduler is MainScheduler)
+        #expect(env.scheduler is AXThreadScheduler)
         #expect(env.windowActions is LiveWindowActions)
         #expect(env.dockService is LiveDockService)
     }

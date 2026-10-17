@@ -142,12 +142,10 @@ public final class AXAppObserver: @unchecked Sendable {
     
     /// Attaches window-level notifications to an individual window element.
     public func observeWindow(_ winElement: AXUIElement) {
+        guard let winID = winElement.windowID else { return }
+        
         stateLock.lock()
         guard let observer = observer, let ptr = contextPointer, !isInvalidated else {
-            stateLock.unlock()
-            return
-        }
-        guard let winID = winElement.windowID else {
             stateLock.unlock()
             return
         }
@@ -172,6 +170,27 @@ public final class AXAppObserver: @unchecked Sendable {
                 observedWindowElements[winID] = winElement
             }
             stateLock.unlock()
+        }
+    }
+    
+    /// Prunes dead window IDs and elements that are no longer present.
+    public func pruneWindows(keeping validIDs: Set<CGWindowID>) {
+        let valid64 = Set(validIDs.map { UInt64($0) })
+        pruneWindows(keeping: valid64)
+    }
+    
+    /// Prunes dead window IDs and elements that are no longer present.
+    public func pruneWindows(keeping validIDs: Set<UInt64>) {
+        stateLock.lock()
+        let staleWindows = observedWindows.subtracting(validIDs)
+        observedWindows.subtract(staleWindows)
+        for wid in staleWindows {
+            observedWindowElements.removeValue(forKey: wid)
+        }
+        stateLock.unlock()
+        
+        for wid in staleWindows {
+            WorkAreaEnforcer.shared.removeWindow(winID: wid)
         }
     }
     
@@ -225,6 +244,10 @@ public final class AXAppObserver: @unchecked Sendable {
         )
         onNotification?(event)
         onEvent?()
+    }
+    
+    public func stop() {
+        invalidate()
     }
     
     public func invalidate() {

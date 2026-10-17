@@ -65,8 +65,8 @@ public final class ThemeFileLoader: Sendable {
                     continue
                 }
                 
-                // Ensure custom theme is always marked as custom
-                let customTheme = decoded.asCustom(true)
+                // Ensure custom theme is always marked as custom and sanitized
+                let customTheme = decoded.asCustom(true, id: themeId, displayName: displayName)
                 loadedThemes.append(customTheme)
                 TaskbarLogger.ui.info("Loaded custom theme '\(customTheme.displayName)' (\(customTheme.id)) from \(fileURL.lastPathComponent)")
             } catch {

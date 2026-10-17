@@ -188,10 +188,12 @@ public struct ThemeDefinition: Codable, Equatable, Sendable {
         self.materials = try container.decodeIfPresent(ThemeMaterials.self, forKey: .materials) ?? ThemeMaterials()
     }
     
-    public func asCustom(_ isCustom: Bool = true) -> ThemeDefinition {
-        ThemeDefinition(
-            id: id,
-            displayName: displayName,
+    public func asCustom(_ isCustom: Bool = true, id: String? = nil, displayName: String? = nil) -> ThemeDefinition {
+        let finalId = (id ?? self.id).trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalDisplayName = (displayName ?? self.displayName).trimmingCharacters(in: .whitespacesAndNewlines)
+        return ThemeDefinition(
+            id: finalId,
+            displayName: finalDisplayName,
             isCustom: isCustom,
             palette: palette,
             metrics: metrics,

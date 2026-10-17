@@ -88,7 +88,9 @@ public enum WindowOrderingLogic {
         var map: [OrderKey: Int] = [:]
         map.reserveCapacity(items.count * 2)
         for (index, item) in items.enumerated() {
-            map[.app(item.bundleID)] = index
+            if map[.app(item.bundleID)] == nil {
+                map[.app(item.bundleID)] = index
+            }
             for win in item.windows {
                 map[.window(win.key)] = index
             }

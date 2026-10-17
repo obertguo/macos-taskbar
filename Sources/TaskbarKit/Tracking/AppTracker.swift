@@ -767,9 +767,14 @@ public final class AppTracker: WindowSource {
         }
         
         var appWindows: [WindowInfo] = []
+        var validWindowIDs: Set<CGWindowID> = []
         
         for win in windowElements {
             win.setTimeout(TaskbarConstants.Timing.axTimeout)
+            
+            if let wid = win.windowID {
+                validWindowIDs.insert(CGWindowID(wid))
+            }
             
             observers[pid]?.observeWindow(win)
             
@@ -844,6 +849,8 @@ public final class AppTracker: WindowSource {
             }
         }
         
+        observers[pid]?.pruneWindows(keeping: validWindowIDs)
+        
         return (appWindows, focusedKey)
     }
     
@@ -868,11 +875,17 @@ public final class AppTracker: WindowSource {
         AppTracker.clearElementCache()
         AppTracker.clearAllBackoffs()
         
+        let currentObservers = Array(self.observers.values)
+        self.observers.removeAll()
+        
         AXThread.shared.async { [weak self] in
+            for observer in currentObservers {
+                observer.stop()
+            }
             guard let self = self else { return }
             self.knownWindowKeys.removeAll()
             for observer in self.observers.values {
-                observer.invalidate()
+                observer.stop()
             }
             self.observers.removeAll()
             self.pendingPIDs.removeAll()

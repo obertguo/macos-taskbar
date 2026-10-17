@@ -382,4 +382,59 @@ struct WorkAreaEnforcerTests {
         #expect(appliedSizes.value.first?.height == 1050.0)
         #expect(appliedSizes.value.first?.width == 800.0)
     }
+    
+    // MARK: - 7. Pass Gating
+    
+    @Test("Verify window move without clamp requirement halts pass chain after Pass 0")
+    func testWindowMoveWithoutClampHaltsPassChainEarly() {
+        let clock = TestClock(initialTime: 5000.0)
+        let scheduler = TestScheduler(initialTime: 5000.0)
+        AppEnvironment.current = AppEnvironment(clock: clock, scheduler: scheduler)
+        defer { AppEnvironment.reset() }
+        
+        let enforcer = WorkAreaEnforcer.shared
+        enforcer.resetForTesting()
+        defer { enforcer.resetForTesting() }
+        
+        let screen = makeScreenDescriptor()
+        enforcer.configure(isEnabled: true, barHeight: 30.0, screens: [screen])
+        
+        let dummyElement = AXUIElementCreateSystemWide()
+        let winID: UInt64 = 8001
+        let pid: pid_t = 9001
+        
+        // Window is safely centered well above taskbar (height 600, y = 100, taskbar at y = 1050)
+        let inBoundsFrame = CGRect(x: 100, y: 100, width: 800, height: 600)
+        enforcer.frameResolver = { _ in inBoundsFrame }
+        
+        let passesExecuted = TestBox<[Int]>([])
+        enforcer.onPassExecuted = { id, pass in
+            if id == winID {
+                passesExecuted.mutate { $0.append(pass) }
+            }
+        }
+        
+        // Window moved notification (isResize = false)
+        enforcer.handleWindowMovedOrResized(
+            element: dummyElement,
+            pid: pid,
+            isResize: false,
+            winID: winID
+        )
+        
+        #expect(enforcer.activeTimersCount == 1, "Pass 0 timer must be scheduled")
+        
+        // Advance clock to Pass 0 (0.100s)
+        clock.advance(by: 0.100)
+        scheduler.advance(by: 0.100)
+        
+        #expect(passesExecuted.value == [0], "Pass 0 must execute")
+        #expect(enforcer.activeTimersCount == 0, "Pass chain must halt after Pass 0 when no clamp needed and not a resize")
+        
+        // Advance clock past Pass 1 and Pass 2 durations
+        clock.advance(by: 0.500)
+        scheduler.advance(by: 0.500)
+        
+        #expect(passesExecuted.value == [0], "Pass 1 and Pass 2 must never have executed")
+    }
 }

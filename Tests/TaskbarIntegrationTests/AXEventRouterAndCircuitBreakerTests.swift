@@ -300,4 +300,32 @@ struct AXEventRouterAndCircuitBreakerTests {
         AppTracker.removeElement(for: key)
         #expect(AppTracker.elementForWindowKey(key) == nil)
     }
+    
+    // MARK: - 8. AXAppObserver Window ID Pruning & Stop
+    
+    @Test("Verify AXAppObserver pruneWindows removes unreferenced window IDs")
+    func testAXAppObserverPruneWindows() {
+        let pid = ProcessInfo.processInfo.processIdentifier
+        guard let observer = AXAppObserver(pid: pid, onEvent: {}) else {
+            return
+        }
+        defer { observer.stop() }
+        
+        let dummy = AXUIElementCreateSystemWide()
+        observer.registerObservedWindowForTesting(id: 101, element: dummy)
+        observer.registerObservedWindowForTesting(id: 102, element: dummy)
+        observer.registerObservedWindowForTesting(id: 103, element: dummy)
+        
+        #expect(observer.isWindowObserved(101))
+        #expect(observer.isWindowObserved(102))
+        #expect(observer.isWindowObserved(103))
+        
+        // Prune keeping only 102
+        let validIDs: Set<CGWindowID> = [102]
+        observer.pruneWindows(keeping: validIDs)
+        
+        #expect(!observer.isWindowObserved(101))
+        #expect(observer.isWindowObserved(102))
+        #expect(!observer.isWindowObserved(103))
+    }
 }

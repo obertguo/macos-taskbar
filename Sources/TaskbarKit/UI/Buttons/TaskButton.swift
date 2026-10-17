@@ -164,16 +164,20 @@ public final class TaskButton: BaseTaskbarButton {
         bounds.fill()
         
         if isDown {
-            BevelDrawing.drawSunkenBevel(in: bounds)
+            BevelDrawing.drawSunkenBevel(in: bounds, theme: resolved)
         } else {
-            BevelDrawing.drawRaisedBevel(in: bounds)
+            BevelDrawing.drawRaisedBevel(in: bounds, theme: resolved)
         }
         
         let iconSize = CGFloat(theme.iconSize)
         let iconOffset: CGFloat = isDown ? 1.0 : 0.0
         let iconX = bounds.minX + TaskbarConstants.Layout.taskButtonIconMarginRetro + iconOffset
         let iconY = bounds.midY - (iconSize / 2.0) - iconOffset
-        let icon = IconCache.shared.icon(for: group.bundleID, pid: group.primaryWindow?.pid ?? 0)
+        let icon = IconCache.shared.icon(
+            for: group.bundleID,
+            pid: group.primaryWindow?.pid ?? 0,
+            size: NSSize(width: theme.iconSize, height: theme.iconSize)
+        )
         icon.draw(in: NSRect(x: iconX, y: iconY, width: iconSize, height: iconSize))
         
         if showTitle {
@@ -243,7 +247,11 @@ public final class TaskButton: BaseTaskbarButton {
         let iconSize = CGFloat(theme.iconSize)
         let iconX = bounds.minX + TaskbarConstants.Layout.taskButtonIconMarginHybrid
         let iconY = bounds.midY - (iconSize / 2.0)
-        let icon = IconCache.shared.icon(for: group.bundleID, pid: group.primaryWindow?.pid ?? 0)
+        let icon = IconCache.shared.icon(
+            for: group.bundleID,
+            pid: group.primaryWindow?.pid ?? 0,
+            size: NSSize(width: theme.iconSize, height: theme.iconSize)
+        )
         icon.draw(
             in: NSRect(x: iconX, y: iconY, width: iconSize, height: iconSize),
             from: .zero,

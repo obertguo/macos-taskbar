@@ -580,7 +580,12 @@ public struct AppEnvironment: Sendable {
         self.dockService = dockService
     }
     
-    public static let live: AppEnvironment = AppEnvironment()
+    public static let live: AppEnvironment = AppEnvironment(
+        clock: SystemUptimeClock(),
+        scheduler: AXThreadScheduler(),
+        windowActions: LiveWindowActions(),
+        dockService: LiveDockService()
+    )
     
     private static let lock = NSLock()
     nonisolated(unsafe) private static var _current: AppEnvironment = .live

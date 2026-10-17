@@ -53,7 +53,7 @@ All test cases are formally specified in [`docs/TEST_SPECIFICATIONS.md`](TEST_SP
 
 ### 3.1 Core Unit Tests (`Tests/TaskbarCoreTests/` — 16 Suites, 121 Tests)
 All core tests are written in pure `Swift Testing` (`@Suite`, `@Test`, `#expect`):
-- `TaskbarLayoutEngineTests`: Pure geometry plan calculations, empty/pinned/standard layouts, compression, overflow reservation, slot hit testing, and horizontal axis slot/indicator calculations (`TC-UNIT-014`, 8 test cases).
+- `TaskbarLayoutEngineTests`: Pure geometry plan calculations, empty/pinned/standard layouts, compression, overflow reservation, slot hit testing, and horizontal axis slot/indicator calculations (8 test cases).
 - `TaskbarLayoutEngineDragTests`: Drag insertion slot math, boundary clamping, and indicator line coordinates for task and pinned items (`TC-UNIT-012`, 6 test cases).
 - `WindowGroupingLogicTests`: Grouping rules across `always`, `whenCrowded`, and `never`, single-window apps, empty window lists, and group derived states (`TC-UNIT-005` – `TC-UNIT-008`, 6 test cases).
 - `WindowOrderingLogicTests`: Reordering slot shifts, manual order persistence across incoming windows, closed window order pruning, and empty inputs (`TC-UNIT-009` – `TC-UNIT-011`, 4 test cases).
@@ -70,7 +70,7 @@ All core tests are written in pure `Swift Testing` (`@Suite`, `@Test`, `#expect`
 - `ScreenAssignmentTests`: Primary/secondary monitor boundary partitioning (3 test cases).
 - `TaskbarCoreTests`: Build configuration sanity checks (1 test case).
 
-### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 16 Suites, 96 Tests)
+### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 16 Suites, 101 Tests, 222+ Tests Total Across 32 Suites)
 - **Deterministic Lifecycle Suite (`DeterministicLifecycleTests.swift` — 7 Tests):**
   - Ultra-fast (<20ms total) headless simulation of full window lifecycle via `FakeWindowSource` and `SpyWindowActions` (`TC-FUNC-001` through `TC-FUNC-007`).
 - **Live Window Lifecycle Suite (`WindowLifecycleIntegrationTests.swift` — 7 Tests, Gated via `TASKBAR_RUN_LIVE_AX_TESTS=1`):**
@@ -89,7 +89,7 @@ All core tests are written in pure `Swift Testing` (`@Suite`, `@Test`, `#expect`
   - Tier 1 single-window delta updates & Tier 2 dirty PID reconciles.
   - $O(1)$ window element cache lookup.
 - **WorkAreaEnforcer Suite (`WorkAreaEnforcerTests.swift` — 7 Tests):**
-  - Single-timer 3-pass stepping (150ms / 400ms / 650ms).
+  - Single-deadline debounce clamping and monotonic settle checks on AXThread.
   - Monotonic clock interval checks without GCD contention.
   - User mouse-down clamping deferral and release execution.
   - Full-screen window exclusion and non-maximized drag clamping.

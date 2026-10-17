@@ -23,7 +23,7 @@ public final class IconCache {
     
     private init() {
         let defaultImg = NSWorkspace.shared.icon(for: .application)
-        self.fallbackIcon = Self.prepareIcon(defaultImg, targetSize: NSSize(width: 16, height: 16))
+        self.fallbackIcon = Self.rasterize(Self.prepareIcon(defaultImg, targetSize: NSSize(width: 16, height: 16)), targetSize: NSSize(width: 16, height: 16))
     }
     
     public func icon(for bundleID: String, pid: pid_t, size: NSSize = NSSize(width: 16, height: 16)) -> NSImage {
@@ -49,21 +49,21 @@ public final class IconCache {
            let app = NSRunningApplication(processIdentifier: pid),
            let bundleURL = app.bundleURL {
             let icon = NSWorkspace.shared.icon(forFile: bundleURL.path)
-            resolvedIcon = Self.prepareIcon(icon, targetSize: size)
+            resolvedIcon = Self.rasterize(Self.prepareIcon(icon, targetSize: size), targetSize: size)
         }
         
         // 2. Resolve via custom filesystem path if provided
         if resolvedIcon == nil, let path = customPath, !path.isEmpty,
            FileManager.default.fileExists(atPath: path) {
             let icon = NSWorkspace.shared.icon(forFile: path)
-            resolvedIcon = Self.prepareIcon(icon, targetSize: size)
+            resolvedIcon = Self.rasterize(Self.prepareIcon(icon, targetSize: size), targetSize: size)
         }
         
         // 3. Resolve via bundle ID URL
         if resolvedIcon == nil, !bundleID.isEmpty,
            let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
             let icon = NSWorkspace.shared.icon(forFile: appURL.path)
-            resolvedIcon = Self.prepareIcon(icon, targetSize: size)
+            resolvedIcon = Self.rasterize(Self.prepareIcon(icon, targetSize: size), targetSize: size)
         }
         
         // If resolution succeeded, cache and return
@@ -83,7 +83,7 @@ public final class IconCache {
             return fallbackIcon
         }
         let defaultImg = NSWorkspace.shared.icon(for: .application)
-        return Self.prepareIcon(defaultImg, targetSize: size)
+        return Self.rasterize(Self.prepareIcon(defaultImg, targetSize: size), targetSize: size)
     }
     
     /// Prepares an application icon to ensure crisp rendering across all display scales (1x and 2x).

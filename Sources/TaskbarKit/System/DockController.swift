@@ -16,7 +16,7 @@ public final class DockController: @unchecked Sendable {
     /// Exposed for testing to prevent killing the system Dock daemon during automated runs.
     public nonisolated(unsafe) static var dockRestartHandler: (@Sendable () -> Void)? = nil
     
-    private let lock = NSLock()
+    private let stateLock = NSLock()
     private var _isDockHidden: Bool = false
     private var _currentAppliedDelay: Double?
     
@@ -25,11 +25,11 @@ public final class DockController: @unchecked Sendable {
     private static let queueSpecificKey = DispatchSpecificKey<Void>()
     
     public var isDockHidden: Bool {
-        lock.withLock { _isDockHidden }
+        stateLock.withLock { _isDockHidden }
     }
     
     public var currentAppliedDelay: Double? {
-        lock.withLock { _currentAppliedDelay }
+        stateLock.withLock { _currentAppliedDelay }
     }
     
     public struct SavedDockState: Codable, Equatable, Sendable {
@@ -98,7 +98,6 @@ public final class DockController: @unchecked Sendable {
         let state = SavedDockState(autohide: autohide, autohideDelay: cleanDelay)
         if let data = try? JSONEncoder().encode(state) {
             UserDefaults.standard.set(data, forKey: Self.originalStateKey)
-            UserDefaults.standard.synchronize()
         }
     }
     
@@ -151,22 +150,21 @@ public final class DockController: @unchecked Sendable {
     /// Hides the system Dock by applying the specified autohide hover delay and enabling autohide.
     /// Preference writes and Dock reload are executed asynchronously on a utility serial queue.
     public func hideDock(delay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds, force: Bool = false) {
-        lock.lock()
+        stateLock.lock()
         // If already hidden with the exact same delay and not forced, no-op
         if !force && _isDockHidden, let current = _currentAppliedDelay, abs(current - delay) < 0.01 {
-            lock.unlock()
+            stateLock.unlock()
             return
         }
         _isDockHidden = true
         _currentAppliedDelay = delay
-        lock.unlock()
+        stateLock.unlock()
         
         // Ensure baseline snapshot is saved before applying override
         captureOriginalStateIfFirstRun()
         
         // Set dirty-session sentinel
         UserDefaults.standard.set(true, forKey: Self.sentinelKey)
-        UserDefaults.standard.synchronize()
         
         dockQueue.async {
             Self.performHideInternal(delay: delay)
@@ -176,14 +174,16 @@ public final class DockController: @unchecked Sendable {
     /// Restores the user's original Dock preferences and restarts the Dock process.
     /// Preference writes and Dock reload are executed asynchronously on a utility serial queue.
     public func restoreDock() {
-        lock.lock()
-        _isDockHidden = false
-        _currentAppliedDelay = nil
-        lock.unlock()
+        let shouldRestore = stateLock.withLock {
+            let wasHidden = _isDockHidden
+            _isDockHidden = false
+            _currentAppliedDelay = nil
+            return wasHidden || UserDefaults.standard.bool(forKey: Self.sentinelKey)
+        }
+        guard shouldRestore else { return }
         
         // Clear dirty-session sentinel
         UserDefaults.standard.set(false, forKey: Self.sentinelKey)
-        UserDefaults.standard.synchronize()
         
         dockQueue.async {
             Self.performRestoreInternal()
@@ -192,17 +192,16 @@ public final class DockController: @unchecked Sendable {
     
     /// Static synchronous restore callable from POSIX signal handlers, atexit, or termination.
     public static func restoreDockSync() {
-        let shouldRestore = shared.lock.withLock {
+        let shouldRestore = shared.stateLock.withLock {
             let hidden = shared._isDockHidden
             shared._isDockHidden = false
             shared._currentAppliedDelay = nil
-            return hidden
-        } || UserDefaults.standard.bool(forKey: sentinelKey)
-        
-        UserDefaults.standard.set(false, forKey: sentinelKey)
-        UserDefaults.standard.synchronize()
+            return hidden || UserDefaults.standard.bool(forKey: sentinelKey)
+        }
         
         guard shouldRestore else { return }
+        
+        UserDefaults.standard.set(false, forKey: sentinelKey)
         
         if DispatchQueue.getSpecific(key: queueSpecificKey) != nil {
             performRestoreInternal()
@@ -223,7 +222,7 @@ public final class DockController: @unchecked Sendable {
     
     /// Resets in-memory state of the controller. For test use only.
     public func resetStateForTesting(isDockHidden: Bool = false, currentAppliedDelay: Double? = nil) {
-        lock.withLock {
+        stateLock.withLock {
             _isDockHidden = isDockHidden
             _currentAppliedDelay = currentAppliedDelay
         }
@@ -282,6 +281,7 @@ public final class DockController: @unchecked Sendable {
         
         CFPreferencesAppSynchronize(preferencesDomain as CFString)
         restartDock()
+        UserDefaults.standard.removeObject(forKey: originalStateKey)
         TaskbarLogger.dock.info("System Dock restored to original settings.")
     }
     

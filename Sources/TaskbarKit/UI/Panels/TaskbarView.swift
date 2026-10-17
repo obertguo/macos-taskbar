@@ -7,6 +7,7 @@ import TaskbarCore
 public final class TaskbarView: NSView {
     public var theme: ThemeDefinition {
         didSet {
+            guard oldValue != theme else { return }
             applyTheme()
         }
     }
@@ -45,6 +46,7 @@ public final class TaskbarView: NSView {
     private var focusedKey: WindowKey?
     private var frontmostPID: pid_t?
     private var pendingWindowUpdate: (windows: [WindowInfo], focusedKey: WindowKey?, frontmostPID: pid_t?)?
+    private var pendingPinnedUpdate: (pinnedApps: [PinnedApp], runningBundleIDs: Set<String>)?
     
     public var minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth {
         didSet {
@@ -149,7 +151,12 @@ public final class TaskbarView: NSView {
         layoutComponents()
     }
     
-    public func updateWindows(windows: [WindowInfo], focusedKey: WindowKey?, frontmostPID: pid_t?) {
+    public func updateWindows(
+        windows: [WindowInfo],
+        focusedKey: WindowKey?,
+        frontmostPID: pid_t?,
+        runningBundleIDs: Set<String>? = nil
+    ) {
         if dragCoordinator != nil && (dragCoordinator.isDragging || dragCoordinator.activeDragSession != nil) {
             pendingWindowUpdate = (windows: windows, focusedKey: focusedKey, frontmostPID: frontmostPID)
             return
@@ -159,7 +166,7 @@ public final class TaskbarView: NSView {
         self.focusedKey = focusedKey
         self.frontmostPID = frontmostPID
         
-        let runningIDs = Set(windows.map { $0.bundleID })
+        let runningIDs = runningBundleIDs ?? Set(windows.map { $0.bundleID })
         let pinnedIDs = Set(currentPinnedApps.map { $0.bundleIdentifier })
         
         // Update isRunning for pinned buttons
@@ -249,21 +256,21 @@ public final class TaskbarView: NSView {
                         if grp.isMinimized {
                             let primary = grp.primaryWindow
                             for win in grp.windows where win.key != primary?.key {
-                                WindowActions.restoreAndFocusWindow(win.key)
+                                AppEnvironment.current.windowActions.restoreAndFocusWindow(win.key)
                             }
                             if let primary = primary {
-                                WindowActions.restoreAndFocusWindow(primary.key)
+                                AppEnvironment.current.windowActions.restoreAndFocusWindow(primary.key)
                             }
                         } else {
                             for win in grp.windows where !win.isMinimized {
-                                WindowActions.minimizeWindow(win.key)
+                                AppEnvironment.current.windowActions.minimizeWindow(win.key)
                             }
                         }
                     } else if let primary = grp.primaryWindow {
                         if primary.isMinimized {
-                            WindowActions.restoreAndFocusWindow(primary.key)
+                            AppEnvironment.current.windowActions.restoreAndFocusWindow(primary.key)
                         } else {
-                            WindowActions.minimizeWindow(primary.key)
+                            AppEnvironment.current.windowActions.minimizeWindow(primary.key)
                         }
                     }
                 }
@@ -278,7 +285,7 @@ public final class TaskbarView: NSView {
                             focusedKey: self.focusedKey,
                             isFrontmostApp: (self.frontmostPID == primary.pid)
                         )
-                        WindowActions.performAction(action, for: primary.key)
+                        AppEnvironment.current.windowActions.performAction(action, for: primary.key)
                         
                         // Optimistic visual update
                         switch action {
@@ -294,22 +301,22 @@ public final class TaskbarView: NSView {
                 
                 btn.onClose = { [weak btn] in
                     guard let btn = btn, let primary = btn.group.primaryWindow else { return }
-                    WindowActions.closeWindow(primary.key)
+                    AppEnvironment.current.windowActions.closeWindow(primary.key)
                 }
                 
                 btn.onCloseAll = { [weak btn] in
                     guard let btn = btn else { return }
                     for win in btn.group.windows {
-                        WindowActions.closeWindow(win.key)
+                        AppEnvironment.current.windowActions.closeWindow(win.key)
                     }
                 }
                 
                 btn.onQuit = { [weak btn] in
                     guard let btn = btn else { return }
                     if let pid = btn.group.primaryWindow?.pid {
-                        WindowActions.quitApplication(pid: pid)
+                        AppEnvironment.current.windowActions.quitApplication(pid: pid)
                     } else {
-                        WindowActions.quitApplication(bundleIdentifier: btn.group.bundleID)
+                        AppEnvironment.current.windowActions.quitApplication(bundleIdentifier: btn.group.bundleID)
                     }
                 }
                 
@@ -333,8 +340,12 @@ public final class TaskbarView: NSView {
     }
     
     public func updatePinnedApps(_ apps: [PinnedApp], runningBundleIDs: Set<String>? = nil) {
-        self.currentPinnedApps = apps
         let runningIDs = runningBundleIDs ?? Set(currentWindows.map { $0.bundleID })
+        if dragCoordinator != nil && (dragCoordinator.isDragging || dragCoordinator.activeDragSession != nil) {
+            pendingPinnedUpdate = (pinnedApps: apps, runningBundleIDs: runningIDs)
+            return
+        }
+        self.currentPinnedApps = apps
         let newIDs = Set(apps.map { $0.bundleIdentifier })
         
         // 1. Remove buttons for unpinned apps
@@ -362,7 +373,7 @@ public final class TaskbarView: NSView {
                 )
                 btn.onClick = { [weak self, weak btn] in
                     guard let self = self, let btn = btn else { return }
-                    WindowActions.launchOrActivateApp(
+                    AppEnvironment.current.windowActions.launchOrActivateApp(
                         bundleIdentifier: btn.pinnedApp.bundleIdentifier,
                         customPath: btn.pinnedApp.customPath,
                         store: self.store
@@ -374,7 +385,7 @@ public final class TaskbarView: NSView {
                 }
                 btn.onQuit = { [weak btn] in
                     guard let btn = btn else { return }
-                    WindowActions.quitApplication(bundleIdentifier: btn.pinnedApp.bundleIdentifier)
+                    AppEnvironment.current.windowActions.quitApplication(bundleIdentifier: btn.pinnedApp.bundleIdentifier)
                 }
                 
                 dragCoordinator.configurePinnedButtonDrag(btn)
@@ -405,9 +416,7 @@ public final class TaskbarView: NSView {
     }
     
     private func isAppRunning(bundleIdentifier: String, runningBundleIDs: Set<String>) -> Bool {
-        if runningBundleIDs.contains(bundleIdentifier) { return true }
-        let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
-        return runningApps.contains { !$0.isTerminated }
+        runningBundleIDs.contains(bundleIdentifier)
     }
     
     /// Returns the active PinnedButton for a given bundle identifier.
@@ -493,7 +502,12 @@ public final class TaskbarView: NSView {
     }
     
     private func flushPendingWindowUpdate() {
-        guard dragCoordinator?.activeDragSession == nil, let pending = pendingWindowUpdate else { return }
+        guard dragCoordinator?.activeDragSession == nil else { return }
+        if let pendingPinned = pendingPinnedUpdate {
+            pendingPinnedUpdate = nil
+            updatePinnedApps(pendingPinned.pinnedApps, runningBundleIDs: pendingPinned.runningBundleIDs)
+        }
+        guard let pending = pendingWindowUpdate else { return }
         pendingWindowUpdate = nil
         updateWindows(windows: pending.windows, focusedKey: pending.focusedKey, frontmostPID: pending.frontmostPID)
     }
@@ -533,10 +547,10 @@ public final class TaskbarView: NSView {
             frontmostPID: frontmostPID
         )
         popup.onSelectWindow = { win in
-            WindowActions.restoreAndFocusWindow(win.key)
+            AppEnvironment.current.windowActions.restoreAndFocusWindow(win.key)
         }
         popup.onCloseWindow = { key in
-            WindowActions.closeWindow(key)
+            AppEnvironment.current.windowActions.closeWindow(key)
         }
         popup.onDismiss = { [weak self] in
             self?.activeGroupPopup = nil
@@ -574,7 +588,11 @@ public final class TaskbarView: NSView {
             )
             item.target = self
             item.representedObject = btn
-            item.image = IconCache.shared.icon(for: btn.group.bundleID, pid: btn.group.primaryWindow?.pid ?? 0)
+            item.image = IconCache.shared.icon(
+                for: btn.group.bundleID,
+                pid: btn.group.primaryWindow?.pid ?? 0,
+                size: NSSize(width: theme.iconSize, height: theme.iconSize)
+            )
             
             let isActive = btn.group.isFocused(focusedKey: focusedKey, frontmostPID: frontmostPID)
             item.state = isActive ? .on : .off

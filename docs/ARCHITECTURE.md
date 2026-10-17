@@ -186,7 +186,7 @@ Application bundles (particularly Electron or older apps like Antigravity) occas
 ## 5. View Recycling & In-Place Performance
 
 To maintain low memory usage ($< 25\text{ MB}$ typical RSS) and eliminate mouse tracking area flicker during frequent window operations:
-- **`TaskButton` Recycling:** `TaskbarView` maintains `buttonMap: [WindowKey: TaskButton]`. Buttons are recycled in place, preserving existing views and mouse tracking areas.
+- **`TaskButton` Recycling:** `TaskbarView` maintains `groupButtonMap: [String: TaskButton]`. Buttons are recycled in place, preserving existing views and mouse tracking areas.
 - **`PinnedButton` Recycling:** `TaskbarView` maintains `pinnedButtonMap: [String: PinnedButton]`, reusing existing pinned button instances across layout updates.
 - **Idle CPU:** $\sim 0.0\%$ at idle; no polling loops; state changes driven exclusively by asynchronous event notifications.
 
@@ -195,7 +195,7 @@ To maintain low memory usage ($< 25\text{ MB}$ typical RSS) and eliminate mouse 
 ## 6. Accessibility Observer Lifecycle & Coalescing
 
 - **Dynamic Subrole Filtering:** macOS Accessibility dynamically morphs minimized Cocoa windows into `AXDialog` subroles when minimized to the Dock. `WindowFilter.shouldInclude` allows `AXDialog` subroles when `isMinimized == true` to prevent dropping minimized windows.
-- **In-Flight Observer Coalescing:** `AppTracker` implements `needsReconcileAgain` latching to prevent dropping notifications (e.g. `AXWindowDeminiaturized`) that arrive while a snapshot reconciliation pass is already in flight.
+- **In-Flight Observer Coalescing & Tiered Routing:** `AppTracker` uses a 3-tier event pipeline (Tier 1 focused window, Tier 2 per-PID targeted diffing via `syncSnapshot(forPID:)`, and Tier 3 periodic background sweep) to eliminate full reconciliation bottlenecks.
 - **Clean Notification Teardown:** Explicitly unregisters all window and application notifications via `AXObserverRemoveNotification` prior to clearing run loop sources in `AXAppObserver`.
 
 ---
@@ -219,41 +219,31 @@ To guarantee strict single-window focus and multi-display isolation:
 
 ---
 
-## 8. Work Area Clamping & Multi-Pass Settle Architecture (`WorkAreaEnforcer`)
+## 8. Work Area Clamping Architecture (`WorkAreaEnforcer`)
 
 macOS lacks an official API like Windows' `SHAppBarMessage` or X11's `_NET_WM_STRUT` to reserve screen edge space for third-party docks. `WorkAreaEnforcer` enforces taskbar screen reservation by monitoring window geometry and clamping maximized window heights above the taskbar boundary.
 
 ```mermaid
 flowchart TD
-    AX["AXObserver Event:<br/>Window Moved / Resized"] --> SelfFilter{"Matches Last Programmatic<br/>Clamp within 350ms?"}
-    SelfFilter -- Yes --> Ignore["Ignore Notification<br/>Preserve Settle Timers"]
-    SelfFilter -- No --> Gen["Increment Window Debounce Generation"]
-    
-    Gen --> P1["Pass 1: Quick Settle Debounce 150ms"]
-    Gen --> P2["Pass 2: Zoom Animation Settle 400ms"]
-    Gen --> P3["Pass 3: Extended Transition Settle 650ms"]
-    
-    P1 --> Eval["evaluateAndClamp"]
-    P2 --> Eval
-    P3 --> Eval
-    
-    Eval --> MouseCheck{"Left Mouse Button<br/>Down CGEventSource?"}
+    AX["AXObserver Event:<br/>Window Moved / Resized"] --> ThreadCheck["AXThread Serial Execution"]
+    ThreadCheck --> MouseCheck{"Left Mouse Button<br/>Down CGEventSource?"}
     MouseCheck -- Yes --> Defer["Defer Clamping Until<br/>Mouse Released"]
-    MouseCheck -- No --> OverlapCheck{"Window Overlaps<br/>Taskbar Reserved Region?"}
+    MouseCheck -- No --> Debounce["Single-Deadline Debounce<br/>WorkAreaConstants.debounceIntervalSeconds"]
+    
+    Debounce --> Eval["WorkAreaMath.clampedFrame<br/>Pure Geometry Calculation"]
+    Eval --> OverlapCheck{"Window Overlaps<br/>Taskbar Reserved Region?"}
     
     OverlapCheck -- No --> Done["Window Settled"]
-    OverlapCheck -- Yes --> Clamp["Apply element.setSize<br/>Record lastSelfNudge"]
+    OverlapCheck -- Yes --> Clamp["Apply element.setSize<br/>Record Programmatic Clamp"]
 ```
 
 ### 8.1 Key Engineering Mitigations
 1. **Self-Inflicted Notification Filtering:**
-   Calling `element.setSize(clampedFrame.size)` triggers an operating system `kAXWindowResizedNotification`. `WorkAreaEnforcer` caches the exact programmatic clamp size and timestamp (`lastSelfNudges`). When incoming resize events match the target size within 350ms, they are ignored. This prevents self-inflicted feedback loops and guarantees that downstream settle verification passes are not superseded.
+   Calling `element.setSize(clampedFrame.size)` triggers an operating system `kAXWindowResizedNotification`. `WorkAreaEnforcer` caches the exact programmatic clamp size and timestamp (`lastSelfNudges`). When incoming resize events match the target size, they are filtered out to prevent feedback loops.
 2. **Active Mouse Drag Deferral:**
-   During live mouse resizing, WindowServer binds the window edge to the cursor coordinates. Calling `setSize` while the left mouse button is pressed causes visible cursor jitter and WindowServer immediately overrides the adjustment, burning through recursion limits. `WorkAreaEnforcer` checks `CGEventSource.buttonState(.combinedSessionState, button: .left)` and defers clamping until the mouse is released.
-3. **Multi-Pass Settle Verification:**
-   - **Pass 1 (150ms):** Fast debounce coalescing for rapid user interactions and window snapping.
-   - **Pass 2 (400ms):** Animation settle verification ensuring native macOS titlebar double-click zoom and window tiling animations (~250–300ms) settle cleanly above the taskbar without being reverted by AppKit animation completion handlers.
-   - **Pass 3 (650ms):** Extended settle verification accommodating slower Chromium and Electron window frame adjustments.
+   During live mouse resizing, WindowServer binds the window edge to the cursor coordinates. Calling `setSize` while the left mouse button is pressed causes visible cursor jitter. `WorkAreaEnforcer` checks `CGEventSource.buttonState(.combinedSessionState, button: .left)` and defers clamping until the mouse is released.
+3. **Single-Deadline Settle Verification on AXThread:**
+   Debounced event coalescing runs with zero `NSLock` overhead directly on dedicated `AXThread`, coordinating single-deadline clamping passes to accommodate animation and frame settle without timer chaining.
 4. **Dynamic Screen Fallback:**
    If screen descriptors have not yet been populated by `ScreenManager`, `evaluateAndClamp` dynamically queries `NSScreen.screens` to resolve physical display bounds.
 5. **Application-Level Move/Resize Listening:**
@@ -403,7 +393,7 @@ sequenceDiagram
 
 ### 11.2 Storage & Multi-Display Isolation
 - **Running Task Buttons:**
-  - In-memory custom order dictionaries (`[String: Int]`) are maintained per physical display in `WindowStore.customOrders[screenID]`.
+  - Strongly-typed custom ordering arrays (`[OrderKey]`) are maintained per physical display in `WindowStore.customOrderByScreen[screenID]`.
   - When committing drops, `orderMap` indexes both `WindowGroup.id` and all constituent window keys (`TaskbarConstants.Identifiers.windowID`), ensuring consistent ordering regardless of grouping mode transitions.
   - Moving a window to another screen in macOS migrates the window without disrupting either display's custom slot order.
 - **Quick Launch Pinned Buttons:**

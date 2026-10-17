@@ -124,7 +124,8 @@ public final class ThemeRegistry: @unchecked Sendable {
         guard !isBuiltIn(themeId: trimmedId) else {
             throw ThemeRegistryError.cannotOverwriteBuiltIn(trimmedId)
         }
-        let customTheme = theme.asCustom(true)
+        let trimmedDisplayName = theme.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let customTheme = theme.asCustom(true, id: trimmedId, displayName: trimmedDisplayName)
         register(theme: customTheme)
         return customTheme
     }

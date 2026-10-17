@@ -43,7 +43,7 @@ public struct WindowInfo: Equatable, Sendable, Identifiable {
         self.key = key
         self.pid = pid
         self.appName = appName
-        self.bundleID = bundleID
+        self.bundleID = bundleID.isEmpty ? "pid:\(pid)" : bundleID
         self.title = title
         self.frame = frame
         self.isMinimized = isMinimized

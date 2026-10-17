@@ -232,7 +232,7 @@ internal final class GroupWindowRowsView: NSView {
         let bg = resolved.backgroundColor
         bg.setFill()
         bounds.fill()
-        BevelDrawing.drawRaisedBevel(in: bounds, palette: theme.palette)
+        BevelDrawing.drawRaisedBevel(in: bounds, theme: resolved)
     }
     
     private func drawHybridBackground() {

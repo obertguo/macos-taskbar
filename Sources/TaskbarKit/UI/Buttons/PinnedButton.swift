@@ -114,12 +114,12 @@ public final class PinnedButton: BaseTaskbarButton {
             let bg = resolved.buttonPressedBackground
             bg.setFill()
             bounds.fill()
-            BevelDrawing.drawSunkenBevel(in: bounds, palette: theme.palette)
+            BevelDrawing.drawSunkenBevel(in: bounds, theme: resolved)
         } else if isHovered {
             let bg = resolved.buttonNormalBackground
             bg.setFill()
             bounds.fill()
-            BevelDrawing.drawRaisedBevel(in: bounds, palette: theme.palette)
+            BevelDrawing.drawRaisedBevel(in: bounds, theme: resolved)
         }
         
         let iconSize = CGFloat(theme.iconSize)

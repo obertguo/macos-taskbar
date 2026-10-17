@@ -54,7 +54,7 @@ public enum WindowGroupingLogic {
         var appNames: [String: String] = [:]
         
         for win in windows {
-            let bundleID = win.bundleID
+            let bundleID = win.bundleID.isEmpty ? "pid:\(win.pid)" : win.bundleID
             if appWindows[bundleID] == nil {
                 appOrder.append(bundleID)
                 appWindows[bundleID] = [win]

@@ -42,9 +42,9 @@ public final class StartButton: BaseTaskbarButton {
         bounds.fill()
         
         if isPressed {
-            BevelDrawing.drawSunkenBevel(in: bounds, palette: theme.palette)
+            BevelDrawing.drawSunkenBevel(in: bounds, theme: resolved)
         } else {
-            BevelDrawing.drawRaisedBevel(in: bounds, palette: theme.palette)
+            BevelDrawing.drawRaisedBevel(in: bounds, theme: resolved)
         }
         
         // Draw retro 4-color flag icon (2x2 grid)

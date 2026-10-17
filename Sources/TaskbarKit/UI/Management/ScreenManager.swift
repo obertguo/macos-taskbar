@@ -23,6 +23,13 @@ public final class ScreenManager {
             object: nil
         )
         
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleActiveSpaceChanged),
+            name: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil
+        )
+        
         settingsStore.addObserver { [weak self] oldSettings, newSettings in
             self?.handleSettingsChanged(old: oldSettings, new: newSettings)
         }
@@ -71,22 +78,6 @@ public final class ScreenManager {
         settingsStore.update { $0 = newSettings }
     }
     
-    public func updateBarHeight(_ barHeight: Double) {
-        settingsStore.update { $0.barHeight = barHeight }
-    }
-    
-    public func updateMinButtonWidth(_ minWidth: Double) {
-        settingsStore.update { $0.minButtonWidth = minWidth }
-    }
-    
-    public func updateFontSize(_ fontSize: Double) {
-        settingsStore.update { $0.fontSize = fontSize }
-    }
-    
-    public func updateIconSize(_ iconSize: Double) {
-        settingsStore.update { $0.iconSize = iconSize }
-    }
-    
     public func updateTheme(themeId: String) {
         let theme = ThemeRegistry.shared.theme(for: themeId)
         settingsStore.update { settings in
@@ -108,10 +99,6 @@ public final class ScreenManager {
                 }
             }
         }
-    }
-    
-    public func updateThemeStyle(_ style: ThemeStyle) {
-        updateTheme(themeId: ThemeDefinition.forStyle(style).id)
     }
     
     public func updateGroupingMode(_ mode: WindowGroupingMode) {
@@ -168,7 +155,17 @@ public final class ScreenManager {
         }
     }
     
+    @objc private func handleActiveSpaceChanged() {
+        refreshFullScreenDetection()
+        updateWindows()
+    }
+    
     @objc private func handleScreenParametersChanged() {
+        refreshFullScreenDetection()
+        refreshPanels()
+    }
+    
+    private func refreshFullScreenDetection() {
         var fs = Set<CGDirectDisplayID>()
         for screen in NSScreen.screens {
             let displayID = screen.displayID ?? 0
@@ -177,7 +174,6 @@ public final class ScreenManager {
             }
         }
         self.cachedFullScreenDisplayIDs = fs
-        refreshPanels()
     }
     
     /// Determines whether the active space on a physical display is currently showing a native full-screen app.
@@ -285,14 +281,17 @@ public final class ScreenManager {
                 }
             }
             
-            panel.taskbarView.updatePinnedApps(
-                settings.pinnedApps,
-                runningBundleIDs: runningBundleIDs
-            )
+            if panel.taskbarView.currentPinnedApps != settings.pinnedApps {
+                panel.taskbarView.updatePinnedApps(
+                    settings.pinnedApps,
+                    runningBundleIDs: runningBundleIDs
+                )
+            }
             panel.taskbarView.updateWindows(
                 windows: screenWindows,
                 focusedKey: store.focusedWindowKey,
-                frontmostPID: store.frontmostPID
+                frontmostPID: store.frontmostPID,
+                runningBundleIDs: runningBundleIDs
             )
         }
     }

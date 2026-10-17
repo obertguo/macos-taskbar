@@ -7,17 +7,10 @@ import TaskbarCore
 public final class StatusMenu {
     private let statusItem: NSStatusItem
     public var menu: NSMenu? { statusItem.menu }
-    public let settingsStore: SettingsStore?
-    private var currentStyle: ThemeStyle
-    public private(set) var currentThemeId: String
-    public private(set) var windowGroupingMode: WindowGroupingMode
-    private var minButtonWidth: Double
-    private var barHeight: Double
-    private var fontSize: Double
-    private var iconSize: Double
-    private var isNudgerEnabled: Bool
-    private var isDockHidden: Bool
-    private var dockDelay: Double
+    public let settingsStore: SettingsStore
+    public var currentThemeId: String { settingsStore.settings.activeThemeId }
+    public var windowGroupingMode: WindowGroupingMode { settingsStore.settings.windowGroupingMode }
+    
     public var onThemeIdChanged: ((String) -> Void)?
     public var onWindowGroupingModeChanged: ((WindowGroupingMode) -> Void)?
     public var onReloadThemesRequested: (() -> Void)?
@@ -27,34 +20,15 @@ public final class StatusMenu {
     }
     public var onOpenThemesFolderRequested: (() -> Void)?
     public var onExportThemeRequested: (() -> Void)?
-    public var onMinButtonWidthChanged: ((Double) -> Void)?
-    public var onBarHeightChanged: ((Double) -> Void)?
-    public var onFontSizeChanged: ((Double) -> Void)?
-    public var onIconSizeChanged: ((Double) -> Void)?
     public var onLauncherTriggered: (() -> Void)?
-    public var onNudgerToggled: ((Bool) -> Void)?
-    public var onHideDockToggled: ((Bool) -> Void)?
-    public var onDockDelayChanged: ((Double) -> Void)?
-    public var onRestoreDockRequested: (() -> Void)?
     public var onQuitRequested: (() -> Void)?
     
     public init(settingsStore: SettingsStore) {
         self.settingsStore = settingsStore
-        let s = settingsStore.settings
-        self.currentStyle = s.themeStyle
-        self.currentThemeId = s.activeThemeId
-        self.windowGroupingMode = s.windowGroupingMode
-        self.minButtonWidth = s.minButtonWidth
-        self.barHeight = s.barHeight
-        self.fontSize = s.fontSize
-        self.iconSize = s.iconSize
-        self.isNudgerEnabled = s.enableAXNudger
-        self.isDockHidden = s.hideSystemDock
-        self.dockDelay = s.dockHideDelay
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
-        settingsStore.addObserver { [weak self] old, new in
-            self?.handleSettingsChanged(old: old, new: new)
+        settingsStore.addObserver { [weak self] _, _ in
+            self?.setupMenu()
         }
         
         setupMenu()
@@ -72,18 +46,28 @@ public final class StatusMenu {
         isDockHidden: Bool = true,
         dockDelay: Double = TaskbarConstants.Dock.defaultAutohideDelaySeconds
     ) {
-        self.settingsStore = nil
-        self.currentStyle = currentStyle
-        self.currentThemeId = currentThemeId ?? ThemeDefinition.forStyle(currentStyle).id
-        self.windowGroupingMode = windowGroupingMode
-        self.minButtonWidth = minButtonWidth
-        self.barHeight = barHeight
-        self.fontSize = fontSize
-        self.iconSize = iconSize
-        self.isNudgerEnabled = isNudgerEnabled
-        self.isDockHidden = isDockHidden
-        self.dockDelay = dockDelay
+        var initial = Settings.default
+        initial.themeStyle = currentStyle
+        initial.activeThemeId = currentThemeId ?? ThemeDefinition.forStyle(currentStyle).id
+        initial.windowGroupingMode = windowGroupingMode
+        initial.minButtonWidth = minButtonWidth
+        initial.barHeight = barHeight
+        initial.fontSize = fontSize
+        initial.iconSize = iconSize
+        initial.enableAXNudger = isNudgerEnabled
+        initial.hideSystemDock = isDockHidden
+        initial.dockHideDelay = dockDelay
+        
+        let store = SettingsStore(
+            persistence: InMemorySettingsPersistence(initial: initial),
+            initialSettings: initial
+        )
+        self.settingsStore = store
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        
+        store.addObserver { [weak self] _, _ in
+            self?.setupMenu()
+        }
         
         setupMenu()
     }
@@ -94,70 +78,8 @@ public final class StatusMenu {
         }
     }
     
-    private func handleSettingsChanged(old: Settings, new: Settings) {
-        self.currentStyle = new.themeStyle
-        self.currentThemeId = new.activeThemeId
-        self.windowGroupingMode = new.windowGroupingMode
-        self.minButtonWidth = new.minButtonWidth
-        self.barHeight = new.barHeight
-        self.fontSize = new.fontSize
-        self.iconSize = new.iconSize
-        self.isNudgerEnabled = new.enableAXNudger
-        self.isDockHidden = new.hideSystemDock
-        self.dockDelay = new.dockHideDelay
-        setupMenu()
-    }
-    
-    public func updateStyle(_ style: ThemeStyle) {
-        self.currentStyle = style
-        self.currentThemeId = ThemeDefinition.forStyle(style).id
-        setupMenu()
-    }
-    
-    public func updateThemeId(_ themeId: String) {
-        self.currentThemeId = themeId
-        self.currentStyle = ThemeRegistry.shared.theme(for: themeId).style
-        setupMenu()
-    }
-    
     public func updateWindowGroupingMode(_ mode: WindowGroupingMode) {
-        self.windowGroupingMode = mode
-        setupMenu()
-    }
-    
-    public func updateMinButtonWidth(_ width: Double) {
-        self.minButtonWidth = width
-        setupMenu()
-    }
-    
-    public func updateBarHeight(_ height: Double) {
-        self.barHeight = height
-        setupMenu()
-    }
-    
-    public func updateFontSize(_ size: Double) {
-        self.fontSize = size
-        setupMenu()
-    }
-    
-    public func updateIconSize(_ size: Double) {
-        self.iconSize = size
-        setupMenu()
-    }
-    
-    public func updateNudgerState(_ enabled: Bool) {
-        self.isNudgerEnabled = enabled
-        setupMenu()
-    }
-    
-    public func updateDockHiddenState(_ hidden: Bool) {
-        self.isDockHidden = hidden
-        setupMenu()
-    }
-    
-    public func updateDockDelay(_ delay: Double) {
-        self.dockDelay = delay
-        setupMenu()
+        settingsStore.update { $0.windowGroupingMode = mode }
     }
     
     public func refresh() {
@@ -271,7 +193,7 @@ public final class StatusMenu {
             let item = NSMenuItem(title: preset.title, action: #selector(handleHeightSelection(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = preset.height
-            item.state = (abs(preset.height - barHeight) < 1.0) ? .on : .off
+            item.state = (abs(preset.height - settingsStore.settings.barHeight) < 1.0) ? .on : .off
             heightSubmenu.addItem(item)
         }
         let heightParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.barHeightMenu, action: nil, keyEquivalent: "")
@@ -284,7 +206,7 @@ public final class StatusMenu {
             let item = NSMenuItem(title: preset.title, action: #selector(handleWidthSelection(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = preset.width
-            item.state = (abs(preset.width - minButtonWidth) < 1.0) ? .on : .off
+            item.state = (abs(preset.width - settingsStore.settings.minButtonWidth) < 1.0) ? .on : .off
             widthSubmenu.addItem(item)
         }
         let widthParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.buttonWidthMenu, action: nil, keyEquivalent: "")
@@ -297,7 +219,7 @@ public final class StatusMenu {
             let item = NSMenuItem(title: preset.title, action: #selector(handleFontSizeSelection(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = preset.size
-            item.state = (abs(preset.size - fontSize) < 0.5) ? .on : .off
+            item.state = (abs(preset.size - settingsStore.settings.fontSize) < 0.5) ? .on : .off
             fontSubmenu.addItem(item)
         }
         let fontParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.fontSizeMenu, action: nil, keyEquivalent: "")
@@ -310,7 +232,7 @@ public final class StatusMenu {
             let item = NSMenuItem(title: preset.title, action: #selector(handleIconSizeSelection(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = preset.size
-            item.state = (abs(preset.size - iconSize) < 0.5) ? .on : .off
+            item.state = (abs(preset.size - settingsStore.settings.iconSize) < 0.5) ? .on : .off
             iconSubmenu.addItem(item)
         }
         let iconParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.iconSizeMenu, action: nil, keyEquivalent: "")
@@ -333,7 +255,7 @@ public final class StatusMenu {
             keyEquivalent: ""
         )
         nudgerItem.target = self
-        nudgerItem.state = isNudgerEnabled ? .on : .off
+        nudgerItem.state = settingsStore.settings.enableAXNudger ? .on : .off
         menu.addItem(nudgerItem)
         
         menu.addItem(NSMenuItem.separator())
@@ -345,7 +267,7 @@ public final class StatusMenu {
             keyEquivalent: ""
         )
         hideDockItem.target = self
-        hideDockItem.state = isDockHidden ? .on : .off
+        hideDockItem.state = settingsStore.settings.hideSystemDock ? .on : .off
         menu.addItem(hideDockItem)
         
         let dockDelaySubmenu = NSMenu(title: TaskbarStrings.StatusMenu.dockDelayMenu)
@@ -353,13 +275,13 @@ public final class StatusMenu {
             let item = NSMenuItem(title: preset.title, action: #selector(handleDockDelaySelection(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = preset.delay
-            item.state = (abs(preset.delay - dockDelay) < 0.1) ? .on : .off
-            item.isEnabled = isDockHidden
+            item.state = (abs(preset.delay - settingsStore.settings.dockHideDelay) < 0.1) ? .on : .off
+            item.isEnabled = settingsStore.settings.hideSystemDock
             dockDelaySubmenu.addItem(item)
         }
         let dockDelayParentItem = NSMenuItem(title: TaskbarStrings.StatusMenu.dockDelayMenu, action: nil, keyEquivalent: "")
         dockDelayParentItem.submenu = dockDelaySubmenu
-        dockDelayParentItem.isEnabled = isDockHidden
+        dockDelayParentItem.isEnabled = settingsStore.settings.hideSystemDock
         menu.addItem(dockDelayParentItem)
         
         let restoreDockItem = NSMenuItem(
@@ -368,7 +290,7 @@ public final class StatusMenu {
             keyEquivalent: ""
         )
         restoreDockItem.target = self
-        restoreDockItem.isEnabled = isDockHidden
+        restoreDockItem.isEnabled = settingsStore.settings.hideSystemDock
         menu.addItem(restoreDockItem)
         
         menu.addItem(NSMenuItem.separator())
@@ -387,18 +309,11 @@ public final class StatusMenu {
     
     @objc private func handleThemeSelection(_ sender: NSMenuItem) {
         if let themeId = sender.representedObject as? String {
-            self.currentThemeId = themeId
-            let theme = ThemeRegistry.shared.theme(for: themeId)
-            self.currentStyle = theme.style
-            setupMenu()
-            settingsStore?.update { $0.activeThemeId = themeId }
+            settingsStore.update { $0.activeThemeId = themeId }
             onThemeIdChanged?(themeId)
         } else if let style = sender.representedObject as? ThemeStyle {
-            self.currentStyle = style
             let theme = ThemeDefinition.forStyle(style)
-            self.currentThemeId = theme.id
-            setupMenu()
-            settingsStore?.update {
+            settingsStore.update {
                 $0.themeStyle = style
                 $0.activeThemeId = theme.id
             }
@@ -420,46 +335,32 @@ public final class StatusMenu {
     
     @objc private func handleGroupingModeSelection(_ sender: NSMenuItem) {
         if let mode = sender.representedObject as? WindowGroupingMode {
-            self.windowGroupingMode = mode
-            setupMenu()
-            settingsStore?.update { $0.windowGroupingMode = mode }
+            settingsStore.update { $0.windowGroupingMode = mode }
             onWindowGroupingModeChanged?(mode)
         }
     }
     
     @objc private func handleWidthSelection(_ sender: NSMenuItem) {
         if let width = sender.representedObject as? Double {
-            minButtonWidth = width
-            setupMenu()
-            settingsStore?.update { $0.minButtonWidth = width }
-            onMinButtonWidthChanged?(width)
+            settingsStore.update { $0.minButtonWidth = width }
         }
     }
     
     @objc private func handleHeightSelection(_ sender: NSMenuItem) {
         if let height = sender.representedObject as? Double {
-            barHeight = height
-            setupMenu()
-            settingsStore?.update { $0.barHeight = height }
-            onBarHeightChanged?(height)
+            settingsStore.update { $0.barHeight = height }
         }
     }
     
     @objc private func handleFontSizeSelection(_ sender: NSMenuItem) {
         if let size = sender.representedObject as? Double {
-            fontSize = size
-            setupMenu()
-            settingsStore?.update { $0.fontSize = size }
-            onFontSizeChanged?(size)
+            settingsStore.update { $0.fontSize = size }
         }
     }
     
     @objc private func handleIconSizeSelection(_ sender: NSMenuItem) {
         if let size = sender.representedObject as? Double {
-            iconSize = size
-            setupMenu()
-            settingsStore?.update { $0.iconSize = size }
-            onIconSizeChanged?(size)
+            settingsStore.update { $0.iconSize = size }
         }
     }
     
@@ -468,31 +369,21 @@ public final class StatusMenu {
     }
     
     @objc private func handleToggleNudger() {
-        isNudgerEnabled.toggle()
-        setupMenu()
-        settingsStore?.update { $0.enableAXNudger = self.isNudgerEnabled }
-        onNudgerToggled?(isNudgerEnabled)
+        settingsStore.update { $0.enableAXNudger.toggle() }
     }
     
     @objc private func handleToggleHideDock() {
-        isDockHidden.toggle()
-        setupMenu()
-        settingsStore?.update { $0.hideSystemDock = self.isDockHidden }
-        onHideDockToggled?(isDockHidden)
+        settingsStore.update { $0.hideSystemDock.toggle() }
     }
     
     @objc private func handleDockDelaySelection(_ sender: NSMenuItem) {
         if let delay = sender.representedObject as? Double {
-            dockDelay = delay
-            setupMenu()
-            settingsStore?.update { $0.dockHideDelay = delay }
+            settingsStore.update { $0.dockHideDelay = delay }
         }
     }
     
     @objc private func handleRestoreDock() {
-        isDockHidden = false
-        setupMenu()
-        settingsStore?.update { $0.hideSystemDock = false }
+        settingsStore.update { $0.hideSystemDock = false }
     }
     
     @objc private func handleQuit() {

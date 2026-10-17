@@ -10,6 +10,7 @@ import CoreGraphics
     public private(set) var frontmostPID: pid_t?
     private var openOrderCounter: UInt64 = 0
     private var focusOrderCounter: UInt64 = 0
+    private var lastScreens: [ScreenDescriptor] = []
     
     public init() {}
     
@@ -55,19 +56,23 @@ import CoreGraphics
         }
         
         let bundleID = removedWindow?.bundleID
-        let hasRemainingWindowsForApp: Bool
-        if let bundleID = bundleID {
-            hasRemainingWindowsForApp = windows.values.contains { $0.bundleID == bundleID }
-        } else {
-            hasRemainingWindowsForApp = true
-        }
         
         for (screenID, order) in customOrders {
             var updated = order
             let removedWin = updated.removeValue(forKey: .window(key)) != nil
             var removedApp = false
-            if let bundleID = bundleID, !hasRemainingWindowsForApp {
-                removedApp = updated.removeValue(forKey: .app(bundleID)) != nil
+            if let bundleID = bundleID {
+                let hasRemainingOnScreen: Bool
+                if !lastScreens.isEmpty {
+                    hasRemainingOnScreen = windows.values.contains { win in
+                        win.bundleID == bundleID && ScreenAssignment.assignScreen(for: win.frame, across: lastScreens) == screenID
+                    }
+                } else {
+                    hasRemainingOnScreen = windows.values.contains { $0.bundleID == bundleID }
+                }
+                if !hasRemainingOnScreen {
+                    removedApp = updated.removeValue(forKey: .app(bundleID)) != nil
+                }
             }
             if removedWin || removedApp {
                 customOrders[screenID] = updated
@@ -84,18 +89,25 @@ import CoreGraphics
             focusedWindowKey = nil
         }
         
-        let remainingBundleIDs = Set(windows.values.map { $0.bundleID })
-        let orphanedBundleIDs = removedBundleIDs.subtracting(remainingBundleIDs)
-        
         for (screenID, order) in customOrders {
             var updated = order
             var changed = false
+            let activeBundleIDsOnScreen: Set<String>
+            if !lastScreens.isEmpty {
+                let onScreen = windows.values.filter { win in
+                    ScreenAssignment.assignScreen(for: win.frame, across: lastScreens) == screenID
+                }
+                activeBundleIDsOnScreen = Set(onScreen.map { $0.bundleID })
+            } else {
+                activeBundleIDsOnScreen = Set(windows.values.map { $0.bundleID })
+            }
+            
             for orderKey in order.keys {
                 switch orderKey {
                 case let .window(key) where key.pid == pid:
                     updated.removeValue(forKey: orderKey)
                     changed = true
-                case let .app(bundleID) where orphanedBundleIDs.contains(bundleID):
+                case let .app(bundleID) where removedBundleIDs.contains(bundleID) && !activeBundleIDsOnScreen.contains(bundleID):
                     updated.removeValue(forKey: orderKey)
                     changed = true
                 default:
@@ -194,22 +206,30 @@ import CoreGraphics
             focusedWindowKey = nil
         }
         
-        // Check if any closed window belonged to an app with no remaining windows
-        let remainingBundleIDs = Set(windows.values.map { $0.bundleID })
-        let orphanedBundleIDs = closedBundleIDs.subtracting(remainingBundleIDs)
-        
-        if !closedKeys.isEmpty || !orphanedBundleIDs.isEmpty {
+        if !closedKeys.isEmpty || !closedBundleIDs.isEmpty {
             for (screenID, order) in customOrders {
                 var updated = order
                 var changed = false
+                let activeBundleIDsOnScreen: Set<String>
+                if !lastScreens.isEmpty {
+                    let onScreen = windows.values.filter { win in
+                        ScreenAssignment.assignScreen(for: win.frame, across: lastScreens) == screenID
+                    }
+                    activeBundleIDsOnScreen = Set(onScreen.map { $0.bundleID })
+                } else {
+                    activeBundleIDsOnScreen = Set(windows.values.map { $0.bundleID })
+                }
+                
                 for closedKey in closedKeys {
                     if updated.removeValue(forKey: .window(closedKey)) != nil {
                         changed = true
                     }
                 }
-                for bundleID in orphanedBundleIDs {
-                    if updated.removeValue(forKey: .app(bundleID)) != nil {
-                        changed = true
+                for bundleID in closedBundleIDs {
+                    if !activeBundleIDsOnScreen.contains(bundleID) {
+                        if updated.removeValue(forKey: .app(bundleID)) != nil {
+                            changed = true
+                        }
                     }
                 }
                 if changed {
@@ -221,11 +241,39 @@ import CoreGraphics
         return didChange
     }
     
+    /// Prunes custom order for a specific display, retaining only active window keys and active bundle IDs on that screen.
+    public func pruneCustomOrder(forScreenID screenID: UInt32, activeKeys: Set<WindowKey>, activeBundleIDs: Set<String>) {
+        guard var order = customOrders[screenID] else { return }
+        var changed = false
+        for orderKey in order.keys {
+            switch orderKey {
+            case let .window(key):
+                if !activeKeys.contains(key) {
+                    order.removeValue(forKey: orderKey)
+                    changed = true
+                }
+            case let .app(bundleID):
+                if !activeBundleIDs.contains(bundleID) {
+                    order.removeValue(forKey: orderKey)
+                    changed = true
+                }
+            }
+        }
+        if changed {
+            customOrders[screenID] = order
+        }
+    }
+    
     /// Returns the ordered list of windows belonging to the specified display.
     public func windows(forScreenID screenID: UInt32, screens: [ScreenDescriptor]) -> [WindowInfo] {
+        self.lastScreens = screens
         let assigned = windows.values.filter { window in
             ScreenAssignment.assignScreen(for: window.frame, across: screens) == screenID
         }
+        let activeKeys = Set(assigned.map { $0.key })
+        let activeBundleIDs = Set(assigned.map { $0.bundleID })
+        pruneCustomOrder(forScreenID: screenID, activeKeys: activeKeys, activeBundleIDs: activeBundleIDs)
+        
         let naturalOrder = assigned.sorted { $0.openOrder < $1.openOrder }
         guard let screenOrder = customOrders[screenID], !screenOrder.isEmpty else {
             return naturalOrder

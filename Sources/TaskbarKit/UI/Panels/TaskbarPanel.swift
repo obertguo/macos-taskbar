@@ -87,7 +87,8 @@ public final class TaskbarPanel: NSPanel {
     }
     
     public func apply(settings: Settings, theme: ThemeDefinition) {
-        applyTheme(theme)
+        self.isOpaque = !theme.useTranslucency
+        self.backgroundColor = theme.useTranslucency ? .clear : NSColor(rgba: theme.backgroundColor)
         taskbarView.apply(settings: settings, theme: theme)
     }
     

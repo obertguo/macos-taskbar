@@ -42,9 +42,13 @@ struct DeterministicLifecycleTests {
     
     @Test("TC-FUNC-002: Window minimization state tracking")
     func testWindowMinimization() {
+        let spyActions = SpyWindowActions()
+        AppEnvironment.current = AppEnvironment(windowActions: spyActions)
+        defer { AppEnvironment.reset() }
+        
         let store = WindowStore()
         let source = FakeWindowSource(store: store)
-        let spyActions = SpyWindowActions()
+        let view = TaskbarView(theme: .modernHybrid, launcherAction: .spotlight, store: store)
         source.startTracking()
         
         let window = source.addWindow(
@@ -58,9 +62,13 @@ struct DeterministicLifecycleTests {
         #expect(store.window(forKey: window.key)?.isMinimized == false)
         #expect(store.focusedWindowKey == window.key)
         
-        // Dispatch minimize through WindowActionPerforming spy
-        spyActions.minimizeWindow(window.key)
-        #expect(spyActions.invocations.contains(.minimizeWindow(window.key)))
+        view.updateWindows(windows: store.allWindows, focusedKey: store.focusedWindowKey, frontmostPID: store.frontmostPID)
+        #expect(view.taskButtons.count == 1)
+        
+        // Dispatch minimize through TaskButton interaction
+        let btn = view.taskButtons[0]
+        btn.onMinimizeOrRestore?()
+        #expect(spyActions.invocations.contains(.minimizeWindow(key: window.key)))
         
         // Update window source state
         var changeCount = 0
@@ -74,9 +82,13 @@ struct DeterministicLifecycleTests {
     
     @Test("TC-FUNC-003: Window restoration / deminiaturization state tracking")
     func testWindowRestoration() {
+        let spyActions = SpyWindowActions()
+        AppEnvironment.current = AppEnvironment(windowActions: spyActions)
+        defer { AppEnvironment.reset() }
+        
         let store = WindowStore()
         let source = FakeWindowSource(store: store)
-        let spyActions = SpyWindowActions()
+        let view = TaskbarView(theme: .modernHybrid, launcherAction: .spotlight, store: store)
         source.startTracking()
         
         let window = source.addWindow(
@@ -88,9 +100,13 @@ struct DeterministicLifecycleTests {
         )
         #expect(store.window(forKey: window.key)?.isMinimized == true)
         
-        // Dispatch restoreAndFocus action through WindowActionPerforming spy
-        spyActions.restoreAndFocusWindow(window.key)
-        #expect(spyActions.invocations.contains(.restoreAndFocusWindow(window.key)))
+        view.updateWindows(windows: store.allWindows, focusedKey: store.focusedWindowKey, frontmostPID: store.frontmostPID)
+        #expect(view.taskButtons.count == 1)
+        
+        // Dispatch restoreAndFocus action through TaskButton interaction
+        let btn = view.taskButtons[0]
+        btn.onMinimizeOrRestore?()
+        #expect(spyActions.invocations.contains(.restoreAndFocusWindow(key: window.key)))
         
         // Update window source state
         var changeCount = 0
@@ -105,9 +121,13 @@ struct DeterministicLifecycleTests {
     
     @Test("TC-FUNC-004: Window focus targeting specific window without raising other windows")
     func testSingleWindowFocusIsolation() {
+        let spyActions = SpyWindowActions()
+        AppEnvironment.current = AppEnvironment(windowActions: spyActions)
+        defer { AppEnvironment.reset() }
+        
         let store = WindowStore()
         let source = FakeWindowSource(store: store)
-        let spyActions = SpyWindowActions()
+        let view = TaskbarView(theme: .modernHybrid, launcherAction: .spotlight, groupingMode: .never, store: store)
         source.startTracking()
         
         let doc1 = source.addWindow(id: 4001, pid: 42, appName: "TextEdit", title: "Doc1", isMain: false)
@@ -115,10 +135,28 @@ struct DeterministicLifecycleTests {
         
         #expect(store.totalWindowCount == 2)
         
-        // Target Doc1 specifically
-        spyActions.performAction(.focus, for: doc1.key)
-        #expect(spyActions.invocations.contains(.performAction(.focus, doc1.key)))
-        #expect(!spyActions.invocations.contains(.performAction(.focus, doc2.key)), "Doc2 must not be targeted")
+        view.updateWindows(windows: store.allWindows, focusedKey: store.focusedWindowKey, frontmostPID: store.frontmostPID)
+        #expect(view.taskButtons.count == 2)
+        
+        // Target Doc1 specifically by clicking its button
+        let btn1 = view.taskButtons.first { $0.group.primaryWindow?.key == doc1.key }
+        btn1?.onClick?()
+        
+        let doc1Targeted = spyActions.invocations.contains { invocation in
+            if case let .performAction(_, key) = invocation { return key == doc1.key }
+            if case let .focusWindow(key) = invocation { return key == doc1.key }
+            if case let .restoreAndFocusWindow(key) = invocation { return key == doc1.key }
+            return false
+        }
+        #expect(doc1Targeted, "Doc1 must be targeted via windowActions")
+        
+        let doc2Targeted = spyActions.invocations.contains { invocation in
+            if case let .performAction(_, key) = invocation { return key == doc2.key }
+            if case let .focusWindow(key) = invocation { return key == doc2.key }
+            if case let .restoreAndFocusWindow(key) = invocation { return key == doc2.key }
+            return false
+        }
+        #expect(!doc2Targeted, "Doc2 must not be targeted")
         
         // Apply focus to Doc1
         source.setFocused(key: doc1.key)
@@ -149,18 +187,26 @@ struct DeterministicLifecycleTests {
     
     @Test("TC-FUNC-006: Window close and taskbar store teardown")
     func testWindowClose() {
+        let spyActions = SpyWindowActions()
+        AppEnvironment.current = AppEnvironment(windowActions: spyActions)
+        defer { AppEnvironment.reset() }
+        
         let store = WindowStore()
         let source = FakeWindowSource(store: store)
-        let spyActions = SpyWindowActions()
+        let view = TaskbarView(theme: .modernHybrid, launcherAction: .spotlight, store: store)
         source.startTracking()
         
         let window = source.addWindow(id: 6001, pid: 42, appName: "TextEdit", title: "CloseDoc", isMain: true)
         #expect(store.totalWindowCount == 1)
         #expect(store.focusedWindowKey == window.key)
         
-        // Close window through WindowActionPerforming spy
-        spyActions.closeWindow(window.key)
-        #expect(spyActions.invocations.contains(.closeWindow(window.key)))
+        view.updateWindows(windows: store.allWindows, focusedKey: store.focusedWindowKey, frontmostPID: store.frontmostPID)
+        #expect(view.taskButtons.count == 1)
+        
+        // Close window through TaskButton interaction
+        let btn = view.taskButtons[0]
+        btn.onClose?()
+        #expect(spyActions.invocations.contains(.closeWindow(key: window.key)))
         
         var changeCount = 0
         source.onWindowsChanged = { changeCount += 1 }
@@ -174,9 +220,13 @@ struct DeterministicLifecycleTests {
     
     @Test("TC-FUNC-007: Application termination and observer cleanup")
     func testApplicationTermination() {
+        let spyActions = SpyWindowActions()
+        AppEnvironment.current = AppEnvironment(windowActions: spyActions)
+        defer { AppEnvironment.reset() }
+        
         let store = WindowStore()
         let source = FakeWindowSource(store: store)
-        let spyActions = SpyWindowActions()
+        let view = TaskbarView(theme: .modernHybrid, launcherAction: .spotlight, store: store)
         source.startTracking()
         
         _ = source.addWindow(id: 7001, pid: 88, appName: "Safari", bundleID: "com.apple.Safari", title: "Tab 1")
@@ -185,9 +235,12 @@ struct DeterministicLifecycleTests {
         
         #expect(store.totalWindowCount == 3)
         
-        // Quit Safari via WindowActionPerforming spy
-        spyActions.quitApplication(pid: 88)
-        #expect(spyActions.invocations.contains(.quitApplication(pid: 88)))
+        view.updateWindows(windows: store.allWindows, focusedKey: store.focusedWindowKey, frontmostPID: store.frontmostPID)
+        
+        // Quit Safari via TaskButton onQuit interaction
+        let safariBtn = view.taskButtons.first { $0.group.bundleID == "com.apple.Safari" }
+        safariBtn?.onQuit?()
+        #expect(spyActions.invocations.contains(.quitApplicationPID(pid: 88)))
         
         var changeCount = 0
         source.onWindowsChanged = { changeCount += 1 }

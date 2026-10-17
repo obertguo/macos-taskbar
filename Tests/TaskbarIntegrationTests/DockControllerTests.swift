@@ -234,4 +234,93 @@ struct DockControllerTests {
         #expect(DockController.querySystemAutohideDelay() == nil)
         #expect(restartCount.value == 1)
     }
+    
+    @Test("TC-DOCK-006: restoreDock is a no-op when Dock is already visible")
+    func testRestoreDockNoOpWhenAlreadyVisible() {
+        cleanTestState()
+        defer { cleanTestState() }
+        
+        let restartCount = TestCounter()
+        DockController.dockRestartHandler = {
+            restartCount.increment()
+        }
+        
+        DockController.shared.resetStateForTesting(isDockHidden: false)
+        #expect(UserDefaults.standard.bool(forKey: DockController.sentinelKey) == false)
+        #expect(DockController.shared.isDockHidden == false)
+        
+        // Calling restoreDock when already visible and sentinel is false
+        DockController.shared.restoreDock()
+        DockController.shared.waitForQueue()
+        
+        #expect(restartCount.value == 0, "restoreDock must be a no-op when dock is not hidden and sentinel is false")
+    }
+    
+    @Test("TC-DOCK-007: restoreDock removes originalStateKey allowing subsequent hideDock to capture fresh baseline")
+    func testBaselineDockSnapshotRefreshesAfterRestore() throws {
+        cleanTestState()
+        defer { cleanTestState() }
+        
+        let restartCount = TestCounter()
+        DockController.dockRestartHandler = {
+            restartCount.increment()
+        }
+        
+        // Initial user baseline: autohide=false, delay=0.10
+        CFPreferencesSetAppValue(
+            TaskbarConstants.Dock.autohideKey as CFString,
+            kCFBooleanFalse,
+            testDomain as CFString
+        )
+        CFPreferencesSetAppValue(
+            TaskbarConstants.Dock.autohideDelayKey as CFString,
+            NSNumber(value: 0.10),
+            testDomain as CFString
+        )
+        CFPreferencesAppSynchronize(testDomain as CFString)
+        
+        // 1. Hide Dock (captures baseline autohide=false, delay=0.10)
+        DockController.shared.hideDock(delay: 1000.0)
+        DockController.shared.waitForQueue()
+        
+        #expect(DockController.shared.isDockHidden == true)
+        guard let data1 = UserDefaults.standard.data(forKey: DockController.originalStateKey) else {
+            Issue.record("Initial baseline missing")
+            return
+        }
+        let baseline1 = try JSONDecoder().decode(DockController.SavedDockState.self, from: data1)
+        #expect(baseline1.autohideDelay == 0.10)
+        
+        // 2. Restore Dock (must restore preferences AND remove originalStateKey)
+        DockController.shared.restoreDock()
+        DockController.shared.waitForQueue()
+        
+        #expect(DockController.shared.isDockHidden == false)
+        #expect(UserDefaults.standard.data(forKey: DockController.originalStateKey) == nil, "originalStateKey must be removed on restore")
+        
+        // 3. Simulate user changing their preferences while Dock was restored: autohide=true, delay=0.75
+        CFPreferencesSetAppValue(
+            TaskbarConstants.Dock.autohideKey as CFString,
+            kCFBooleanTrue,
+            testDomain as CFString
+        )
+        CFPreferencesSetAppValue(
+            TaskbarConstants.Dock.autohideDelayKey as CFString,
+            NSNumber(value: 0.75),
+            testDomain as CFString
+        )
+        CFPreferencesAppSynchronize(testDomain as CFString)
+        
+        // 4. Hide Dock again -> must capture NEW baseline (autohide=true, delay=0.75)
+        DockController.shared.hideDock(delay: 1000.0)
+        DockController.shared.waitForQueue()
+        
+        guard let data2 = UserDefaults.standard.data(forKey: DockController.originalStateKey) else {
+            Issue.record("Fresh baseline missing after second hide")
+            return
+        }
+        let baseline2 = try JSONDecoder().decode(DockController.SavedDockState.self, from: data2)
+        #expect(baseline2.autohide == true, "Must capture fresh user autohide setting")
+        #expect(baseline2.autohideDelay == 0.75, "Must capture fresh user delay setting")
+    }
 }

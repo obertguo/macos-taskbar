@@ -139,7 +139,7 @@ public final class ResolvedTheme: Equatable {
         ]
         
         // Pre-calculated Start button width
-        let startWidthWeight: NSFont.Weight = theme.is3DBeveled ? .bold : .medium
+        let startWidthWeight: NSFont.Weight = (theme.is3DBeveled || theme.fontBold) ? .bold : .medium
         let startWidthFont = NSFont.systemFont(ofSize: fSize, weight: startWidthWeight)
         let textWidth = (TaskbarStrings.StartButton.title as NSString).size(withAttributes: [.font: startWidthFont]).width
         let iconWidth: CGFloat = theme.is3DBeveled ? 13.0 : 10.0
