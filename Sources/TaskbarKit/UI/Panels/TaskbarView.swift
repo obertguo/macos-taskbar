@@ -37,6 +37,7 @@ public final class TaskbarView: NSView {
     public var onPinRequested: ((_ bundleID: String, _ appName: String) -> Void)?
     public var onUnpinRequested: ((_ bundleID: String) -> Void)?
     public var onPinnedReorderRequested: (([PinnedApp]) -> Void)?
+    public var onFocusRequested: ((_ key: WindowKey) -> Void)?
     public var screenID: CGDirectDisplayID?
     public weak var store: WindowStore?
     
@@ -295,10 +296,18 @@ public final class TaskbarView: NSView {
                         switch action {
                         case .minimize:
                             btn.isFocusedWindow = false
-                        case .restoreAndFocus:
-                            btn.isFocusedWindow = true
-                        case .focus:
-                            btn.isFocusedWindow = true
+                            if self.focusedKey == primary.key {
+                                self.focusedKey = nil
+                            }
+                        case .restoreAndFocus, .focus:
+                            for other in self.taskButtons {
+                                other.isFocusedWindow = (other === btn)
+                            }
+                            self.focusedKey = primary.key
+                            self.frontmostPID = primary.pid
+                            self.store?.setFrontmostPID(primary.pid)
+                            self.store?.setFocusedWindow(key: primary.key)
+                            self.onFocusRequested?(primary.key)
                         }
                     }
                 }
@@ -383,7 +392,8 @@ public final class TaskbarView: NSView {
                     AppEnvironment.current.windowActions.launchOrActivateApp(
                         bundleIdentifier: btn.pinnedApp.bundleIdentifier,
                         customPath: btn.pinnedApp.customPath,
-                        store: self.store
+                        store: self.store,
+                        preferredWindows: self.currentWindows
                     )
                 }
                 btn.onUnpin = { [weak self, weak btn] in
@@ -553,8 +563,9 @@ public final class TaskbarView: NSView {
             focusedKey: focusedKey,
             frontmostPID: frontmostPID
         )
-        popup.onSelectWindow = { win in
+        popup.onSelectWindow = { [weak self] win in
             AppEnvironment.current.windowActions.restoreAndFocusWindow(win.key)
+            self?.onFocusRequested?(win.key)
         }
         popup.onCloseWindow = { key in
             AppEnvironment.current.windowActions.closeWindow(key)

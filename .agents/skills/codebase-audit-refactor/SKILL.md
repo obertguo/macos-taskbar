@@ -108,7 +108,7 @@ Audit documentation and agent skills to eliminate staleness, version drift, and 
 
 1. **Version & Test Count Consistency:**
    - Check `APP_VERSION` in `config/build.env`, `BuildConfiguration.swift`, and `Info.plist`.
-   - Verify that test counts in `README.md`, `docs/TESTING.md`, and `docs/TEST_SPECIFICATIONS.md` match actual test output from `./scripts/test-functional.sh --all` (e.g. 158 tests).
+   - Verify that test counts in `README.md`, `docs/TESTING.md`, and `docs/TEST_SPECIFICATIONS.md` match actual test output from `./scripts/test-functional.sh --all` (e.g. 236 tests).
 2. **Architecture & Specification Alignment:**
    - Verify that new subsystems, mitigations, or settings are documented in `docs/ARCHITECTURE.md`.
    - Ensure all new test cases (e.g. `TC-EDGE-006`, `TC-PIN-007`, `TC-UNIT-*`) are listed in `docs/TEST_SPECIFICATIONS.md` and mapped in the Requirements Traceability Matrix.
@@ -155,7 +155,7 @@ swift test --filter TaskbarCoreTests
 ./scripts/build-app.sh --install
 ```
 
-All 158 tests must pass at 100%, resident memory must remain $\le 45\text{ MB}$ RSS, and idle CPU must remain $\sim 0.0\%$.
+All 236 tests must pass at 100%, resident memory must remain $\le 45\text{ MB}$ RSS, and idle CPU must remain $\sim 0.0\%$.
 
 ---
 

@@ -30,6 +30,26 @@ public enum WindowActions {
         }
     }
     
+    /// Returns the window ID of the frontmost on-screen layer 0 window for a given process PID.
+    /// Useful as a resilient fallback for Chromium and Electron apps that omit kAXFocusedWindowAttribute.
+    public static func frontmostWindowID(forPID pid: pid_t) -> UInt32? {
+        let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+        for w in list {
+            let ownerPID = w[kCGWindowOwnerPID as String] as? pid_t ?? 0
+            let layer = w[kCGWindowLayer as String] as? Int ?? -1
+            let wid = w[kCGWindowNumber as String] as? UInt32 ?? 0
+            if ownerPID == pid && layer == 0 && wid > 0 {
+                if let bounds = w[kCGWindowBounds as String] as? [String: Any],
+                   let width = bounds["Width"] as? Double,
+                   let height = bounds["Height"] as? Double,
+                   width > 20 && height > 20 {
+                    return wid
+                }
+            }
+        }
+        return nil
+    }
+    
     /// Activates the owning process and focuses only the target window, preventing
     /// WindowServer from raising all other windows belonging to that application.
     @discardableResult
@@ -38,35 +58,24 @@ public enum WindowActions {
     }
     
     public static func focusWindow(_ key: WindowKey) {
+        // 1. Immediately elevate target window via WindowServer SPI synchronously on click
+        let activated = activateSingleWindow(key: key)
+        
+        // 2. Synchronize AppKit activation state
+        let app = NSRunningApplication(processIdentifier: key.pid)
+        if !activated || (app != nil && !app!.isActive) {
+            app?.activate(options: [])
+        }
+        
         if AppTracker.isPIDBackedOff(key.pid) {
-            if !activateSingleWindow(key: key) {
-                DispatchQueue.main.async {
-                    NSRunningApplication(processIdentifier: key.pid)?.activate(options: [])
-                }
-            }
             return
         }
         
+        // 3. Asynchronously inform AX of the main and raised window for accessibility clients
         AXThread.shared.async {
-            guard let winElement = findWindowElement(for: key) else {
-                DispatchQueue.main.async {
-                    NSRunningApplication(processIdentifier: key.pid)?.activate()
-                }
-                return
-            }
-            
-            // 1. Raise the target window via AX
+            guard let winElement = findWindowElement(for: key) else { return }
             AXUIElementPerformAction(winElement, kAXRaiseAction as CFString)
-            
-            // 2. Set as main window
             AXUIElementSetAttributeValue(winElement, kAXMainAttribute as CFString, kCFBooleanTrue)
-            
-            // 3. Focus specific window immediately via WindowServer SPI without raising other windows
-            if !activateSingleWindow(key: key) {
-                DispatchQueue.main.async {
-                    NSRunningApplication(processIdentifier: key.pid)?.activate(options: [])
-                }
-            }
         }
     }
     
@@ -93,9 +102,11 @@ public enum WindowActions {
         }
         
         if AppTracker.isPIDBackedOff(key.pid) {
-            if !activateSingleWindow(key: key) {
-                DispatchQueue.main.async {
-                    NSRunningApplication(processIdentifier: key.pid)?.activate(options: [])
+            let activated = activateSingleWindow(key: key)
+            DispatchQueue.main.async {
+                let app = NSRunningApplication(processIdentifier: key.pid)
+                if !activated || (app != nil && !app!.isActive) {
+                    app?.activate(options: [])
                 }
             }
             return
@@ -104,7 +115,7 @@ public enum WindowActions {
         AXThread.shared.async {
             guard let winElement = findWindowElement(for: key) else {
                 DispatchQueue.main.async {
-                    NSRunningApplication(processIdentifier: key.pid)?.activate()
+                    NSRunningApplication(processIdentifier: key.pid)?.activate(options: [])
                 }
                 return
             }
@@ -117,9 +128,11 @@ public enum WindowActions {
             AXUIElementSetAttributeValue(winElement, kAXMainAttribute as CFString, kCFBooleanTrue)
             
             // 3. Focus specific window immediately via WindowServer SPI without raising other windows
-            if !activateSingleWindow(key: key) {
-                DispatchQueue.main.async {
-                    NSRunningApplication(processIdentifier: key.pid)?.activate(options: [])
+            let activated = activateSingleWindow(key: key)
+            DispatchQueue.main.async {
+                let app = NSRunningApplication(processIdentifier: key.pid)
+                if !activated || (app != nil && !app!.isActive) {
+                    app?.activate(options: [])
                 }
             }
         }
@@ -157,7 +170,8 @@ public enum WindowActions {
     public static func launchOrActivateApp(
         bundleIdentifier: String,
         customPath: String? = nil,
-        store: WindowStore? = nil
+        store: WindowStore? = nil,
+        preferredWindows: [WindowInfo]? = nil
     ) {
         let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).filter { !$0.isTerminated }
         if let runningApp = runningApps.first {
@@ -167,7 +181,14 @@ public enum WindowActions {
             
             if let store = store {
                 let appWindows = store.allWindows.filter { $0.bundleID == bundleIdentifier && $0.pid == runningApp.processIdentifier }
-                if let targetWindow = WindowGroup.primaryWindow(from: appWindows) {
+                let candidates: [WindowInfo]
+                if let preferredWindows = preferredWindows {
+                    let matching = preferredWindows.filter { $0.bundleID == bundleIdentifier && $0.pid == runningApp.processIdentifier }
+                    candidates = matching.isEmpty ? appWindows : matching
+                } else {
+                    candidates = appWindows
+                }
+                if let targetWindow = WindowGroup.primaryWindow(from: candidates) {
                     if targetWindow.isMinimized {
                         restoreAndFocusWindow(targetWindow.key)
                     } else {
@@ -178,7 +199,7 @@ public enum WindowActions {
             }
             
             DispatchQueue.main.async {
-                runningApp.activate()
+                runningApp.activate(options: [])
             }
         } else {
             var targetURL: URL?

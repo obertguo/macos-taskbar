@@ -77,6 +77,6 @@ Evaluate potential file and directory reorganizations to improve project navigab
 - [ ] **Skills Inventory Audit:**
   - Verify all `.agents/skills/*/SKILL.md` files against latest architectural conventions and targets.
   - Ensure reference runbooks in `.agents/skills/*/references/` contain zero obsolete or deprecated patterns (e.g. legacy unretained self unmanaged pointers or retired callbacks).
-  - Verify that test counts, metric thresholds, and commands match active codebase baselines (e.g. 112+ tests).
+  - Verify that test counts, metric thresholds, and commands match active codebase baselines (e.g. 236 tests).
 - [ ] **Proactive Sync:**
   - Synchronize any detected skill drift immediately during post-milestone audits.

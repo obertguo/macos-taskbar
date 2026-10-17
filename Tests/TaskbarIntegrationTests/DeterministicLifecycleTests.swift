@@ -42,9 +42,13 @@ struct DeterministicLifecycleTests {
     
     @Test("TC-FUNC-002: Window minimization state tracking")
     func testWindowMinimization() {
+        AppEnvironment.testLock.lock()
         let spyActions = SpyWindowActions()
         AppEnvironment.current = AppEnvironment(windowActions: spyActions)
-        defer { AppEnvironment.reset() }
+        defer {
+            AppEnvironment.reset()
+            AppEnvironment.testLock.unlock()
+        }
         
         let store = WindowStore()
         let source = FakeWindowSource(store: store)
@@ -82,9 +86,13 @@ struct DeterministicLifecycleTests {
     
     @Test("TC-FUNC-003: Window restoration / deminiaturization state tracking")
     func testWindowRestoration() {
+        AppEnvironment.testLock.lock()
         let spyActions = SpyWindowActions()
         AppEnvironment.current = AppEnvironment(windowActions: spyActions)
-        defer { AppEnvironment.reset() }
+        defer {
+            AppEnvironment.reset()
+            AppEnvironment.testLock.unlock()
+        }
         
         let store = WindowStore()
         let source = FakeWindowSource(store: store)
@@ -121,9 +129,13 @@ struct DeterministicLifecycleTests {
     
     @Test("TC-FUNC-004: Window focus targeting specific window without raising other windows")
     func testSingleWindowFocusIsolation() {
+        AppEnvironment.testLock.lock()
         let spyActions = SpyWindowActions()
         AppEnvironment.current = AppEnvironment(windowActions: spyActions)
-        defer { AppEnvironment.reset() }
+        defer {
+            AppEnvironment.reset()
+            AppEnvironment.testLock.unlock()
+        }
         
         let store = WindowStore()
         let source = FakeWindowSource(store: store)
@@ -187,9 +199,13 @@ struct DeterministicLifecycleTests {
     
     @Test("TC-FUNC-006: Window close and taskbar store teardown")
     func testWindowClose() {
+        AppEnvironment.testLock.lock()
         let spyActions = SpyWindowActions()
         AppEnvironment.current = AppEnvironment(windowActions: spyActions)
-        defer { AppEnvironment.reset() }
+        defer {
+            AppEnvironment.reset()
+            AppEnvironment.testLock.unlock()
+        }
         
         let store = WindowStore()
         let source = FakeWindowSource(store: store)
@@ -220,9 +236,13 @@ struct DeterministicLifecycleTests {
     
     @Test("TC-FUNC-007: Application termination and observer cleanup")
     func testApplicationTermination() {
+        AppEnvironment.testLock.lock()
         let spyActions = SpyWindowActions()
         AppEnvironment.current = AppEnvironment(windowActions: spyActions)
-        defer { AppEnvironment.reset() }
+        defer {
+            AppEnvironment.reset()
+            AppEnvironment.testLock.unlock()
+        }
         
         let store = WindowStore()
         let source = FakeWindowSource(store: store)

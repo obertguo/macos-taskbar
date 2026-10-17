@@ -207,14 +207,19 @@ In multi-window and multi-monitor environments, activating an application using 
 To guarantee strict single-window focus and multi-display isolation:
 - **Native Window ID Resolution:** In `AXElement+Attributes.swift`, `windowID` resolves the native `CGWindowID` via dynamic link to `_AXUIElementGetWindow`, ensuring numerical window identifiers match WindowServer.
 - **Targeted AX Window Elevation:** `WindowActions.performAction(.focus, for: key)` locates the specific `AXUIElement` window for the requested key, executes `AXUIElementPerformAction(window, kAXRaiseAction)`, and sets `kAXMainAttribute` to `true`.
-- **Single-Window Process Activation:** Instead of AppKit's `NSRunningApplication.activate` (which brings the entire application window group forward), `WindowActions.activateSingleWindow` delegates to `PrivateAPI.activateSingleWindow`, targeting the specific window via Carbon and SkyLight WindowServer APIs:
+- **Single-Window Process Activation:** Instead of AppKit's `NSRunningApplication.activate` (which brings the entire application window group forward across all monitors), `WindowActions.activateSingleWindow` delegates to `PrivateAPI.activateSingleWindow`, targeting the specific window via Carbon and SkyLight WindowServer APIs:
   ```swift
-  // 1. Activate process front window only (kSetFrontProcessFrontWindowOnly = 0x0001)
-  SetFrontProcessWithOptions(&psn, 1)
-
-  // 2. Target specific window ID in WindowServer (kCPSUserGenerated = 0x200)
+  // 1. Designate target window as frontmost inside the owning process (kCPSUserGenerated = 0x200)
   _SLPSSetFrontProcessWithOptions(&psn, windowID, 0x200)
+
+  // 2. Elevate process front window only (kSetFrontProcessFrontWindowOnly = 0x0001)
+  SetFrontProcessWithOptions(&psn, 1)
   ```
+  Calling `_SLPSSetFrontProcessWithOptions` first designates the target window as the application's front window; calling `SetFrontProcessWithOptions` second with `kSetFrontProcessFrontWindowOnly` elevates the application while raising exclusively that designated window. Sibling windows on other monitors remain undisturbed in the background.
+- **Synchronous Click Elevation (<50µs):** `WindowActions.focusWindow` invokes `activateSingleWindow(key:)` immediately and synchronously on click without waiting for `AXThread` serial queue dispatch or element discovery.
+- **Resilient WindowServer Z-Order Resolution:** For Chromium and Electron applications (Chrome, VS Code, Slack) that return `kAXErrorNoValue` for `kAXFocusedWindowAttribute`, `WindowActions.frontmostWindowID(forPID:)` queries `CGWindowListCopyWindowInfo` with layer 0 to determine true WindowServer front-to-back Z-order without screen capture.
+- **Display-Aware Pinned Application Activation:** Pinned application button clicks supply the clicked display context (`screenID`) to `launchOrActivateApp`, prioritizing existing application windows on the clicked monitor before falling back to secondary monitors.
+- **Multi-Screen Focus Synchronization:** When a taskbar button is clicked, `TaskbarView` enforces button state exclusivity locally and invokes `onFocusRequested`, signaling `ScreenManager` to synchronize `focusedWindowKey` and update taskbar buttons across all connected monitors simultaneously.
 - **Outcome:** Only the targeted window is raised and given keyboard focus; sibling windows of the same application on any screen remain undisturbed behind intervening windows from other applications in their existing on-screen z-order.
 
 ---
@@ -256,6 +261,8 @@ flowchart TD
    `AXAppObserver` only marks a window as observed (`observedWindows.insert(winID)`) if at least one core AX notification registration succeeds, allowing transparent retry on subsequent events rather than silently abandoning registration.
 9. **Startup Configuration Precedence:**
    `WorkAreaEnforcer.shared.configure` is executed prior to `ScreenManager` display panel instantiation, guaranteeing accurate custom taskbar height reservation from the moment of launch.
+10. **3-Pass Maximize Animation Settle Continuation & Recursion Tolerance:**
+    When maximizing windows (native zoom animation taking 200–300ms), `WorkAreaEnforcer` schedules Pass 0 (immediate), Pass 1 (220ms), and Pass 2 (500ms). If Pass 0 clamps or if the window is resizing near the taskbar boundary, follow-up settle passes proceed throughout the animation curve so windows do not snap back after 250ms. `Timing.maxNudgeAttempts` is set to `4` (within `0.8s`) to allow full multi-pass settling without false-positive recursion blocking.
 
 ---
 

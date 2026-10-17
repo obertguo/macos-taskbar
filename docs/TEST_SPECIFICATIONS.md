@@ -167,6 +167,8 @@ This document provides the canonical specification catalog and requirements trac
 - **[TC-PIN-005] Multi-Display Synchronization:** Adding or removing a pinned application instantly updates `TaskbarView` across all connected displays via `ScreenManager`.
 - **[TC-PIN-006] Multi-Resolution Icon Sanitization:** Legacy 1x bitmaps ($< 64\text{px}$) inside app bundles are filtered out when high-resolution representations exist, preventing noise on 1x displays.
 - **[TC-PIN-007] BaseTaskbarButton Tracking & Click Dispatch:** Centralized tracking area creation, hover and pressed state mutations, and configurable mouse-up vs mouse-down click dispatch policies across button components.
+- **[TC-PIN-008] Screen-Aware Pinned Application Window Targeting:** Passing target display ID (`screenID`) or preferred windows prioritizes raising windows physically residing on the clicked monitor before falling back to windows on secondary displays.
+- **[TC-PIN-009] Button Active State Exclusivity & Multi-Screen Focus Broadcast:** Clicking a taskbar button resets `isFocusedWindow` across all sibling buttons in the panel, updates `WindowStore.focusedWindowKey`, and invokes `ScreenManager.onFocusRequested` to synchronize active state across all connected monitors.
 
 ---
 
@@ -214,6 +216,7 @@ This document provides the canonical specification catalog and requirements trac
 - **[TC-UNIT-012] Drag Slot Calculation & Boundary Clamping:** Validates `slotIndex(forHorizontalPosition:in:)` math and boundary clamping across task and pinned layout slots.
 - **[TC-UNIT-013] Multi-Edge Screen Clamping Geometry:** Validates coordinate clamping across all 4 display edges (`.top`, `.bottom`, `.left`, `.right`), subpixel threshold filtering (2.0pt), and non-maximized window pass-through behavior.
 - **[TC-UNIT-015] TaskbarEdge Domain Serialization & Settings:** Validates JSON encoding and decoding of `TaskbarEdge` and verifies fallback to `.bottom` when reading v0.1.0 – v0.3.1 configuration files lacking `taskbarEdge`.
+- **[TC-UNIT-017] ClickPolicy Multi-Screen Secondary Window Focus Dispatch:** Clicking a secondary non-main window of a frontmost application when `focusedKey == nil` or when another window is focused returns `.focus` on first click rather than prematurely returning `.minimize`.
 
 ---
 
@@ -273,6 +276,7 @@ This document provides the canonical specification catalog and requirements trac
 | **Pinned Quick Launch Bar** | `TC-PIN-001`, `TC-PIN-002`, `TC-PIN-003`, `TC-PIN-007` | `PinnedAppsIntegrationTests` |
 | **Context Menus & Multi-Screen Sync** | `TC-PIN-004`, `TC-PIN-005` | `PinnedAppsIntegrationTests` |
 | **Multi-Resolution Icon Sanitizer** | `TC-PIN-006` | `PinnedAppsIntegrationTests` |
+| **Multi-Screen Focus Targeting & Sync** | `TC-PIN-008`, `TC-PIN-009`, `TC-UNIT-017` | `PinnedAppsIntegrationTests`, `ClickPolicyTests` |
 | **Expanded Presets (Luna & Dark)** | `TC-THEME-001`, `TC-THEME-002` | `ThemeExpansionIntegrationTests` |
 | **Custom JSON Theme Loader** | `TC-THEME-003`, `TC-THEME-004`, `TC-THEME-005`, `TC-THEME-006` | `ThemeExpansionIntegrationTests`, `StatusMenuThemeTests` |
 | **Pure Layout Engine & Slot Allocation** | `TC-UNIT-001`, `TC-UNIT-002`, `TC-UNIT-003`, `TC-UNIT-004`, `TC-UNIT-012` | `TaskbarLayoutEngineTests`, `TaskbarLayoutEngineDragTests` |

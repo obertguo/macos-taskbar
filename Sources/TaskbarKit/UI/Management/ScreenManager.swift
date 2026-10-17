@@ -156,6 +156,12 @@ public final class ScreenManager {
         panel.taskbarView.onPinnedReorderRequested = { [weak self] newPinnedApps in
             self?.reorderPinnedApps(newPinnedApps)
         }
+        panel.taskbarView.onFocusRequested = { [weak self] key in
+            guard let self = self else { return }
+            self.store.setFrontmostPID(key.pid)
+            self.store.setFocusedWindow(key: key)
+            self.updateWindows()
+        }
     }
     
     @objc private func handleActiveSpaceChanged() {

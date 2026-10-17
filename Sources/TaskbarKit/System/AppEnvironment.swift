@@ -278,13 +278,13 @@ public protocol WindowActionPerforming: Sendable {
     func closeWindow(_ key: WindowKey)
     func quitApplication(pid: pid_t)
     func quitApplication(bundleIdentifier: String)
-    @MainActor func launchOrActivateApp(bundleIdentifier: String, customPath: String?, store: WindowStore?)
+    @MainActor func launchOrActivateApp(bundleIdentifier: String, customPath: String?, store: WindowStore?, preferredWindows: [WindowInfo]?)
 }
 
 public extension WindowActionPerforming {
     @MainActor
-    func launchOrActivateApp(bundleIdentifier: String, customPath: String? = nil, store: WindowStore? = nil) {
-        launchOrActivateApp(bundleIdentifier: bundleIdentifier, customPath: customPath, store: store)
+    func launchOrActivateApp(bundleIdentifier: String, customPath: String? = nil, store: WindowStore? = nil, preferredWindows: [WindowInfo]? = nil) {
+        launchOrActivateApp(bundleIdentifier: bundleIdentifier, customPath: customPath, store: store, preferredWindows: preferredWindows)
     }
 }
 
@@ -320,8 +320,8 @@ public struct LiveWindowActions: WindowActionPerforming {
     }
     
     @MainActor
-    public func launchOrActivateApp(bundleIdentifier: String, customPath: String?, store: WindowStore?) {
-        WindowActions.launchOrActivateApp(bundleIdentifier: bundleIdentifier, customPath: customPath, store: store)
+    public func launchOrActivateApp(bundleIdentifier: String, customPath: String?, store: WindowStore?, preferredWindows: [WindowInfo]?) {
+        WindowActions.launchOrActivateApp(bundleIdentifier: bundleIdentifier, customPath: customPath, store: store, preferredWindows: preferredWindows)
     }
 }
 
@@ -334,7 +334,7 @@ public final class SpyWindowActions: WindowActionPerforming, @unchecked Sendable
         case closeWindow(key: WindowKey)
         case quitApplicationPID(pid: pid_t)
         case quitApplicationBundleID(bundleIdentifier: String)
-        case launchOrActivateApp(bundleIdentifier: String, customPath: String?, store: WindowStore?)
+        case launchOrActivateApp(bundleIdentifier: String, customPath: String?, store: WindowStore?, preferredWindows: [WindowInfo]?)
         
         public static func == (lhs: Invocation, rhs: Invocation) -> Bool {
             switch (lhs, rhs) {
@@ -352,8 +352,8 @@ public final class SpyWindowActions: WindowActionPerforming, @unchecked Sendable
                 return p1 == p2
             case (.quitApplicationBundleID(let b1), .quitApplicationBundleID(let b2)):
                 return b1 == b2
-            case (.launchOrActivateApp(let b1, let p1, let s1), .launchOrActivateApp(let b2, let p2, let s2)):
-                return b1 == b2 && p1 == p2 && s1 === s2
+            case (.launchOrActivateApp(let b1, let p1, let s1, let pw1), .launchOrActivateApp(let b2, let p2, let s2, let pw2)):
+                return b1 == b2 && p1 == p2 && s1 === s2 && pw1 == pw2
             default:
                 return false
             }
@@ -420,9 +420,9 @@ public final class SpyWindowActions: WindowActionPerforming, @unchecked Sendable
     }
     
     @MainActor
-    public func launchOrActivateApp(bundleIdentifier: String, customPath: String?, store: WindowStore?) {
+    public func launchOrActivateApp(bundleIdentifier: String, customPath: String?, store: WindowStore?, preferredWindows: [WindowInfo]?) {
         lock.withLock {
-            _invocations.append(.launchOrActivateApp(bundleIdentifier: bundleIdentifier, customPath: customPath, store: store))
+            _invocations.append(.launchOrActivateApp(bundleIdentifier: bundleIdentifier, customPath: customPath, store: store, preferredWindows: preferredWindows))
         }
     }
 }
@@ -588,6 +588,7 @@ public struct AppEnvironment: Sendable {
     )
     
     private static let lock = NSLock()
+    public static let testLock = NSLock()
     nonisolated(unsafe) private static var _current: AppEnvironment = .live
     
     public static var current: AppEnvironment {

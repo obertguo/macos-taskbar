@@ -37,8 +37,12 @@ struct WorkAreaEnforcerTests {
     func testDragEventTimerCoalescing() {
         let clock = TestClock(initialTime: 100.0)
         let scheduler = TestScheduler(initialTime: 100.0)
+        AppEnvironment.testLock.lock()
         AppEnvironment.current = AppEnvironment(clock: clock, scheduler: scheduler)
-        defer { AppEnvironment.reset() }
+        defer {
+            AppEnvironment.reset()
+            AppEnvironment.testLock.unlock()
+        }
         
         let enforcer = WorkAreaEnforcer.shared
         enforcer.resetForTesting()
@@ -102,14 +106,128 @@ struct WorkAreaEnforcerTests {
         #expect(enforcer.activeTimersCount == 0, "Timer must be cleaned up after Pass 2")
     }
     
+    @Test("Verify maximizing window mid-flight continues settle passes even when Pass 0 does not clamp")
+    func testMaximizeAnimationMidFlightPassContinuation() {
+        let clock = TestClock(initialTime: 100.0)
+        let scheduler = TestScheduler(initialTime: 100.0)
+        AppEnvironment.testLock.lock()
+        AppEnvironment.current = AppEnvironment(clock: clock, scheduler: scheduler)
+        defer {
+            AppEnvironment.reset()
+            AppEnvironment.testLock.unlock()
+        }
+        
+        let enforcer = WorkAreaEnforcer.shared
+        enforcer.resetForTesting()
+        defer { enforcer.resetForTesting() }
+        
+        let screen = makeScreenDescriptor()
+        enforcer.configure(isEnabled: true, barHeight: 30.0, screens: [screen])
+        
+        let dummyElement = AXUIElementCreateSystemWide()
+        let winID: UInt64 = 1005
+        let pid: pid_t = 2005
+        
+        // Window starts near top (y=25) and tall (height=800) but not yet overlapping taskbar at y=1050
+        let currentFrame = TestBox(CGRect(x: 0, y: 25, width: 1920, height: 800))
+        enforcer.frameResolver = { _ in currentFrame.value }
+        
+        let passesExecuted = TestBox<[Int]>([])
+        enforcer.onPassExecuted = { id, pass in
+            if id == winID {
+                passesExecuted.mutate { $0.append(pass) }
+            }
+        }
+        
+        // Window triggers resize event at t = 100.0
+        enforcer.handleWindowMovedOrResized(
+            element: dummyElement,
+            pid: pid,
+            isResize: true,
+            winID: winID
+        )
+        
+        // Pass 0 fires after 0.100s: window frame is 800 tall, does not clamp yet
+        clock.advance(by: 0.100)
+        scheduler.advance(by: 0.100)
+        #expect(passesExecuted.value == [0])
+        #expect(enforcer.activeTimersCount == 1, "Pass 1 timer must be scheduled because window is mid-flight maximize")
+        
+        // At t = 100.220, animation reaches screen bottom: frame is now 1080 (overlaps taskbar)
+        currentFrame.mutate { $0.size.height = 1080 }
+        
+        // Pass 1 fires after 0.120s
+        clock.advance(by: 0.120)
+        scheduler.advance(by: 0.120)
+        #expect(passesExecuted.value == [0, 1])
+        #expect(enforcer.activeTimersCount == 1, "Pass 2 timer must be scheduled to settle")
+        
+        // Pass 2 fires after 0.280s
+        clock.advance(by: 0.280)
+        scheduler.advance(by: 0.280)
+        #expect(passesExecuted.value == [0, 1, 2], "All 3 passes must execute for maximizing window")
+        #expect(enforcer.activeTimersCount == 0)
+    }
+    
+    @Test("Verify small non-overlapping window resize exits after Pass 0 without scheduling Pass 1")
+    func testSmallNonOverlappingWindowExitsAfterPass0() {
+        let clock = TestClock(initialTime: 100.0)
+        let scheduler = TestScheduler(initialTime: 100.0)
+        AppEnvironment.testLock.lock()
+        AppEnvironment.current = AppEnvironment(clock: clock, scheduler: scheduler)
+        defer {
+            AppEnvironment.reset()
+            AppEnvironment.testLock.unlock()
+        }
+        
+        let enforcer = WorkAreaEnforcer.shared
+        enforcer.resetForTesting()
+        defer { enforcer.resetForTesting() }
+        
+        let screen = makeScreenDescriptor()
+        enforcer.configure(isEnabled: true, barHeight: 30.0, screens: [screen])
+        
+        let dummyElement = AXUIElementCreateSystemWide()
+        let winID: UInt64 = 1006
+        let pid: pid_t = 2006
+        
+        // Small window at center of screen, far from top and bottom
+        let currentFrame = CGRect(x: 200, y: 300, width: 400, height: 300)
+        enforcer.frameResolver = { _ in currentFrame }
+        
+        let passesExecuted = TestBox<[Int]>([])
+        enforcer.onPassExecuted = { id, pass in
+            if id == winID {
+                passesExecuted.mutate { $0.append(pass) }
+            }
+        }
+        
+        enforcer.handleWindowMovedOrResized(
+            element: dummyElement,
+            pid: pid,
+            isResize: true,
+            winID: winID
+        )
+        
+        // Pass 0 fires after 0.100s
+        clock.advance(by: 0.100)
+        scheduler.advance(by: 0.100)
+        #expect(passesExecuted.value == [0])
+        #expect(enforcer.activeTimersCount == 0, "Non-overlapping small window must exit after Pass 0")
+    }
+    
     // MARK: - 2. Self-Nudge Suppression
     
     @Test("Verify self-nudge notifications within 500ms are suppressed")
     func testSelfNudgeSuppression() {
         let clock = TestClock(initialTime: 500.0)
         let scheduler = TestScheduler(initialTime: 500.0)
+        AppEnvironment.testLock.lock()
         AppEnvironment.current = AppEnvironment(clock: clock, scheduler: scheduler)
-        defer { AppEnvironment.reset() }
+        defer {
+            AppEnvironment.reset()
+            AppEnvironment.testLock.unlock()
+        }
         
         let enforcer = WorkAreaEnforcer.shared
         enforcer.resetForTesting()
@@ -173,12 +291,16 @@ struct WorkAreaEnforcerTests {
     
     // MARK: - 3. Recursion Guard
     
-    @Test("Verify recursion guard blocks nudging after 2 resistant resizes within recursion window")
-    func testRecursionGuardBlocksAfterTwoResistantAttempts() {
+    @Test("Verify recursion guard blocks nudging after maxNudgeAttempts resistant resizes within recursion window")
+    func testRecursionGuardBlocksAfterMaxResistantAttempts() {
         let clock = TestClock(initialTime: 1000.0)
         let scheduler = TestScheduler(initialTime: 1000.0)
+        AppEnvironment.testLock.lock()
         AppEnvironment.current = AppEnvironment(clock: clock, scheduler: scheduler)
-        defer { AppEnvironment.reset() }
+        defer {
+            AppEnvironment.reset()
+            AppEnvironment.testLock.unlock()
+        }
         
         let enforcer = WorkAreaEnforcer.shared
         enforcer.resetForTesting()
@@ -206,24 +328,38 @@ struct WorkAreaEnforcerTests {
         #expect(setSizeCalls.value == 1, "First nudge attempt must be allowed")
         #expect(enforcer.nudgeRecord(for: winID)?.attempts == 1)
         
-        // Attempt 2 at t = 1000.2 (200ms < 800ms)
-        clock.advance(by: 0.200)
-        scheduler.advance(by: 0.200)
+        // Attempt 2 at t = 1000.15 (150ms < 800ms)
+        clock.advance(by: 0.150)
+        scheduler.advance(by: 0.150)
         enforcer.evaluateAndClamp(element: dummyElement, pid: pid, winID: winID, isResize: true)
         #expect(setSizeCalls.value == 2, "Second nudge attempt must be allowed")
         #expect(enforcer.nudgeRecord(for: winID)?.attempts == 2)
         
-        // Attempt 3 at t = 1000.4 (400ms < 800ms): Must be BLOCKED
-        clock.advance(by: 0.200)
-        scheduler.advance(by: 0.200)
+        // Attempt 3 at t = 1000.30 (300ms < 800ms)
+        clock.advance(by: 0.150)
+        scheduler.advance(by: 0.150)
         enforcer.evaluateAndClamp(element: dummyElement, pid: pid, winID: winID, isResize: true)
-        #expect(setSizeCalls.value == 2, "Third nudge attempt within recursion window must be blocked")
+        #expect(setSizeCalls.value == 3, "Third nudge attempt must be allowed")
+        #expect(enforcer.nudgeRecord(for: winID)?.attempts == 3)
+        
+        // Attempt 4 at t = 1000.45 (450ms < 800ms)
+        clock.advance(by: 0.150)
+        scheduler.advance(by: 0.150)
+        enforcer.evaluateAndClamp(element: dummyElement, pid: pid, winID: winID, isResize: true)
+        #expect(setSizeCalls.value == 4, "Fourth nudge attempt must be allowed")
+        #expect(enforcer.nudgeRecord(for: winID)?.attempts == 4)
+        
+        // Attempt 5 at t = 1000.60 (600ms < 800ms): Must be BLOCKED
+        clock.advance(by: 0.150)
+        scheduler.advance(by: 0.150)
+        enforcer.evaluateAndClamp(element: dummyElement, pid: pid, winID: winID, isResize: true)
+        #expect(setSizeCalls.value == 4, "Fifth nudge attempt within recursion window must be blocked")
         
         // Advance clock past nudgeRecursionWindow (0.8s) -> 1.0s elapsed
         clock.advance(by: 1.0)
         scheduler.advance(by: 1.0)
         enforcer.evaluateAndClamp(element: dummyElement, pid: pid, winID: winID, isResize: true)
-        #expect(setSizeCalls.value == 3, "Nudge attempt after recursion window expires must be permitted")
+        #expect(setSizeCalls.value == 5, "Nudge attempt after recursion window expires must be permitted")
         #expect(enforcer.nudgeRecord(for: winID)?.attempts == 1)
     }
     
@@ -233,8 +369,12 @@ struct WorkAreaEnforcerTests {
     func testMouseDownDeferralAndGenerationGating() {
         let clock = TestClock(initialTime: 2000.0)
         let scheduler = TestScheduler(initialTime: 2000.0)
+        AppEnvironment.testLock.lock()
         AppEnvironment.current = AppEnvironment(clock: clock, scheduler: scheduler)
-        defer { AppEnvironment.reset() }
+        defer {
+            AppEnvironment.reset()
+            AppEnvironment.testLock.unlock()
+        }
         
         let enforcer = WorkAreaEnforcer.shared
         enforcer.resetForTesting()
@@ -291,8 +431,12 @@ struct WorkAreaEnforcerTests {
     func testStateCleanup() {
         let clock = TestClock(initialTime: 3000.0)
         let scheduler = TestScheduler(initialTime: 3000.0)
+        AppEnvironment.testLock.lock()
         AppEnvironment.current = AppEnvironment(clock: clock, scheduler: scheduler)
-        defer { AppEnvironment.reset() }
+        defer {
+            AppEnvironment.reset()
+            AppEnvironment.testLock.unlock()
+        }
         
         let enforcer = WorkAreaEnforcer.shared
         enforcer.resetForTesting()
@@ -346,8 +490,12 @@ struct WorkAreaEnforcerTests {
     func testPositionAndSizeEnforcement() {
         let clock = TestClock(initialTime: 4000.0)
         let scheduler = TestScheduler(initialTime: 4000.0)
+        AppEnvironment.testLock.lock()
         AppEnvironment.current = AppEnvironment(clock: clock, scheduler: scheduler)
-        defer { AppEnvironment.reset() }
+        defer {
+            AppEnvironment.reset()
+            AppEnvironment.testLock.unlock()
+        }
         
         let enforcer = WorkAreaEnforcer.shared
         enforcer.resetForTesting()
@@ -389,8 +537,12 @@ struct WorkAreaEnforcerTests {
     func testWindowMoveWithoutClampHaltsPassChainEarly() {
         let clock = TestClock(initialTime: 5000.0)
         let scheduler = TestScheduler(initialTime: 5000.0)
+        AppEnvironment.testLock.lock()
         AppEnvironment.current = AppEnvironment(clock: clock, scheduler: scheduler)
-        defer { AppEnvironment.reset() }
+        defer {
+            AppEnvironment.reset()
+            AppEnvironment.testLock.unlock()
+        }
         
         let enforcer = WorkAreaEnforcer.shared
         enforcer.resetForTesting()

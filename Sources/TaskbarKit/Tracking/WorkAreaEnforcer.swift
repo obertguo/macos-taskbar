@@ -333,7 +333,7 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
                 self.onPassExecuted?(winID, 0)
                 let didClamp0 = self.evaluateAndClampOnAX(element: element, pid: pid, winID: winID, isResize: effectiveResize)
                 
-                guard didClamp0 else {
+                guard self.shouldContinueSettle(element: element, isResize: effectiveResize, didClamp: didClamp0) else {
                     self.windowWasResizedInDebounce.removeValue(forKey: winID)
                     self.activeTimers.removeValue(forKey: winID)
                     return
@@ -347,13 +347,7 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
                         let effectiveResize = self.windowWasResizedInDebounce[winID] ?? isResize
                         self.logNudge("Pass 1 winID: \(winID), gen: \(capturedGeneration), isResize: \(effectiveResize)")
                         self.onPassExecuted?(winID, 1)
-                        let didClamp1 = self.evaluateAndClampOnAX(element: element, pid: pid, winID: winID, isResize: effectiveResize)
-                        
-                        guard didClamp1 else {
-                            self.windowWasResizedInDebounce.removeValue(forKey: winID)
-                            self.activeTimers.removeValue(forKey: winID)
-                            return
-                        }
+                        _ = self.evaluateAndClampOnAX(element: element, pid: pid, winID: winID, isResize: effectiveResize)
                         
                         // Schedule Pass 2 at delay 0.280s (280ms from Pass 1 = 500ms cumulative)
                         let timer2 = scheduler.schedule(after: 0.280) { [weak self, element] in
@@ -375,6 +369,27 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
             }
         }
         activeTimers[winID] = timer0
+    }
+    
+    /// Determines whether settle passes 1 and 2 should continue executing for a window.
+    /// Returns true if the window was clamped, or if an in-flight resize indicates potential maximization or taskbar overlap.
+    private func shouldContinueSettle(element: AXUIElement, isResize: Bool, didClamp: Bool) -> Bool {
+        if didClamp { return true }
+        guard isResize else { return false }
+        let screens = _screens
+        let currentBarHeight = _barHeight
+        let frame = frameResolver?(element) ?? element.frame
+        guard let frame = frame,
+              let screenID = ScreenAssignment.assignScreen(for: frame, across: screens),
+              let screen = screens.first(where: { $0.id == screenID }) else {
+            return false
+        }
+        let topTolerance = max(TaskbarConstants.WorkArea.screenTopToleranceBase, screen.frame.height * TaskbarConstants.WorkArea.screenTopToleranceRatio)
+        let nearTop = frame.minY <= screen.frame.minY + topTolerance
+        let taskbarTopY = screen.frame.maxY - currentBarHeight
+        let nearTaskbar = frame.maxY >= taskbarTopY - 150.0
+        let isTall = frame.height >= screen.frame.height * TaskbarConstants.WorkArea.screenHeightMaximizedRatio
+        return (nearTop && isTall) || nearTaskbar
     }
     
     // MARK: - Clamping & Evaluation

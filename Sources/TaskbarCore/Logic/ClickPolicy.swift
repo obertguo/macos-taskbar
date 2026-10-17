@@ -19,12 +19,14 @@ public enum ClickPolicy {
             return .restoreAndFocus
         }
         
-        // If the owning application is frontmost, clicking the window minimizes it if:
-        // 1. It matches the focused window key, OR
-        // 2. It is marked as the app's main window (kAXMainAttribute), OR
-        // 3. No specific focused key was resolved (Chromium/Electron apps often report nil for focusedWindow)
+        // If the owning application is frontmost and this specific window is currently focused,
+        // clicking the taskbar button minimizes it (standard taskbar toggle behavior).
         if isFrontmostApp {
-            if focusedKey == window.key || window.isMain || focusedKey == nil {
+            if let focusedKey = focusedKey {
+                if focusedKey == window.key {
+                    return .minimize
+                }
+            } else if window.isMain {
                 return .minimize
             }
         }

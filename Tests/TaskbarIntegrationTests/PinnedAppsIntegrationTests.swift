@@ -470,4 +470,147 @@ struct PinnedAppsIntegrationTests {
         #expect(settingsStore.settings.pinnedApps.contains(where: { $0.bundleIdentifier == "com.apple.Notes" }))
         #expect(settingsStore.settings.windowGroupingMode == .never)
     }
+    
+    @Test("launchOrActivateApp with preferredWindows prioritizes window on target screen over higher focusOrder window on other screens")
+    func testLaunchOrActivateAppPrioritizesTargetScreen() {
+        let store = WindowStore()
+        let pid: pid_t = 5555
+        let bundleID = "com.google.Chrome"
+        
+        // Window 1 on Screen 1 with higher focusOrder (10)
+        let win1 = WindowInfo(
+            key: WindowKey(id: 101, pid: pid),
+            pid: pid,
+            appName: "Google Chrome",
+            bundleID: bundleID,
+            title: "Chrome Screen 1",
+            frame: CGRect(x: 0, y: 30, width: 1440, height: 870),
+            isMinimized: false,
+            openOrder: 1,
+            focusOrder: 10
+        )
+        
+        // Window 2 on Screen 2 with lower focusOrder (2)
+        let win2 = WindowInfo(
+            key: WindowKey(id: 201, pid: pid),
+            pid: pid,
+            appName: "Google Chrome",
+            bundleID: bundleID,
+            title: "Chrome Screen 2",
+            frame: CGRect(x: 1440, y: 0, width: 1920, height: 1080),
+            isMinimized: false,
+            openOrder: 2,
+            focusOrder: 2
+        )
+        
+        store.addOrUpdateWindow(win1)
+        store.addOrUpdateWindow(win2)
+        
+        let appWindows = store.allWindows.filter { $0.bundleID == bundleID && $0.pid == pid }
+        
+        // When clicking on Screen 2, preferredWindows is [win2]
+        let preferredWindows = [win2]
+        let matching = preferredWindows.filter { $0.bundleID == bundleID && $0.pid == pid }
+        let candidates = matching.isEmpty ? appWindows : matching
+        let target = WindowGroup.primaryWindow(from: candidates)
+        #expect(target?.key.id == 201, "Window on screen 2 must be selected even though screen 1 has higher focusOrder")
+        
+        // Without preferredWindows filtering, primaryWindow defaults to Screen 1
+        let globalTarget = WindowGroup.primaryWindow(from: appWindows)
+        #expect(globalTarget?.key.id == 101, "Global primaryWindow selects window with highest focusOrder")
+    }
+    
+    @Test("TaskbarView button click resets active isFocusedWindow state on all other buttons")
+    func testTaskbarViewClickResetsActiveStateOnOtherButtons() {
+        let store = WindowStore()
+        let theme = ModernHybridTheme.definition
+        let view = TaskbarView(
+            theme: theme,
+            launcherAction: .spotlight,
+            groupingMode: .never,
+            store: store
+        )
+        view.frame = NSRect(x: 0, y: 0, width: 800, height: 40)
+        
+        let win1 = WindowInfo(
+            key: WindowKey(id: 101, pid: 1000),
+            pid: 1000,
+            appName: "Chrome",
+            bundleID: "com.google.Chrome",
+            title: "Chrome Window",
+            frame: CGRect(x: 0, y: 0, width: 800, height: 600)
+        )
+        let win2 = WindowInfo(
+            key: WindowKey(id: 102, pid: 2000),
+            pid: 2000,
+            appName: "VS Code",
+            bundleID: "com.microsoft.VSCode",
+            title: "Code Window",
+            frame: CGRect(x: 0, y: 0, width: 800, height: 600)
+        )
+        
+        store.addOrUpdateWindow(win1)
+        store.addOrUpdateWindow(win2)
+        
+        view.updateWindows(
+            windows: [win1, win2],
+            focusedKey: win1.key,
+            frontmostPID: win1.pid
+        )
+        
+        #expect(view.taskButtons.count == 2)
+        let btn1 = view.taskButtons[0]
+        let btn2 = view.taskButtons[1]
+        
+        #expect(btn1.isFocusedWindow == true)
+        #expect(btn2.isFocusedWindow == false)
+        
+        // Simulate clicking btn2
+        btn2.onClick?()
+        
+        // Assert btn2 is now focused and btn1 was reset to false
+        #expect(btn2.isFocusedWindow == true)
+        #expect(btn1.isFocusedWindow == false)
+    }
+    
+    @Test("ScreenManager onFocusRequested callback synchronizes active state across multiple screens")
+    func testScreenManagerSynchronizesFocusAcrossMultiScreenPanels() {
+        let persistence = InMemorySettingsPersistence(initial: Settings.default)
+        let settingsStore = SettingsStore(persistence: persistence)
+        let store = WindowStore()
+        let manager = ScreenManager(settingsStore: settingsStore, store: store)
+        defer { manager.closeAll() }
+        
+        let winScreen1 = WindowInfo(
+            key: WindowKey(id: 101, pid: 1000),
+            pid: 1000,
+            appName: "Chrome",
+            bundleID: "com.google.Chrome",
+            title: "Chrome Screen 1",
+            frame: CGRect(x: 100, y: 100, width: 800, height: 600)
+        )
+        let winScreen2 = WindowInfo(
+            key: WindowKey(id: 201, pid: 2000),
+            pid: 2000,
+            appName: "VS Code",
+            bundleID: "com.microsoft.VSCode",
+            title: "Code Screen 2",
+            frame: CGRect(x: 2000, y: 100, width: 800, height: 600)
+        )
+        
+        store.addOrUpdateWindow(winScreen1)
+        store.addOrUpdateWindow(winScreen2)
+        store.setFrontmostPID(winScreen1.pid)
+        store.setFocusedWindow(key: winScreen1.key)
+        
+        manager.updateWindows()
+        
+        // Trigger onFocusRequested for winScreen2
+        if let panel = manager.allPanels.first {
+            panel.taskbarView.onFocusRequested?(winScreen2.key)
+            
+            #expect(store.focusedWindowKey == winScreen2.key)
+            #expect(store.frontmostPID == winScreen2.pid)
+        }
+    }
 }

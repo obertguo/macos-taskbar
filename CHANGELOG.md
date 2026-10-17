@@ -32,6 +32,24 @@ Version `0.3.2` is an architectural hardening and modularization patch release d
   - Extracted `TaskbarDragCoordinator` (280 lines) managing task and pinned button drag tracking, vertical escape thresholds, and drop insertion lines.
   - Decomposed `TaskbarView` from 796 lines down to 601 lines, reducing cognitive complexity and decoupling drag math from view recycling.
 
+#### Fixed
+- **Multi-Monitor Window Focus Targeting (`PrivateAPI` & `WindowActions`):**
+  - Resolved an issue where clicking an application window button on a secondary display raised windows on primary displays or elevated all application windows simultaneously.
+  - Corrected activation elevation order: calls `_SLPSSetFrontProcessWithOptions(&psn, windowID, 0x200)` first to designate the target window as frontmost inside the application, then `SetFrontProcessWithOptions(&psn, 1)` second using `kSetFrontProcessFrontWindowOnly` to elevate the application without pulling forward sibling windows across other monitors.
+  - Passed display context (`screenID`) to pinned app activation, prioritizing windows residing on the clicked monitor.
+- **Multi-Window Focus Responsiveness & Click Policy (`ClickPolicy` & `WindowActions`):**
+  - Resolved double-click requirement for multi-window Chromium and Electron apps where `kAXFocusedWindowAttribute` returns `nil`. Secondary windows of frontmost apps now always evaluate to `.focus` on first click.
+  - Implemented synchronous single-window activation on button click, eliminating serialization latency behind the background `AXThread`.
+  - Added fallback to WindowServer Z-order frontmost window ID lookup (`CGWindowListCopyWindowInfo` with layer 0) when Accessibility returns `kAXErrorNoValue`.
+- **Taskbar Active Button State Synchronization (`TaskbarView` & `ScreenManager`):**
+  - Resolved active highlight persistence across window switches by enforcing button state exclusivity on click and wiring `onFocusRequested` across all connected display panels.
+  - Synchronized `WindowStore.focusedWindowKey` and `frontmostPID` immediately upon window creation.
+- **Window Maximization Settle & Recursion Tolerance (`WorkAreaEnforcer` & `TaskbarConstants`):**
+  - Preserved multi-pass settling (Pass 0, Pass 1 at 220ms, Pass 2 at 500ms) for maximizing windows to prevent Chromium/macOS zoom animations from snapping back over the taskbar.
+  - Increased `Timing.maxNudgeAttempts` from 2 to 4 to prevent false-positive recursion blocking during 3-pass animation settle.
+- **Automated Test Suite Expansion:**
+  - Expanded test suite to **236 tests across 32 suites** (124 Core + 112 Integration) with 100% pass rate.
+
 ---
 
 ## [0.3.1] - 2026-10-09

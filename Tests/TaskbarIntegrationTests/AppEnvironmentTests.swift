@@ -219,10 +219,11 @@ struct AppEnvironmentTests {
         #expect(invocations[5] == .quitApplicationPID(pid: 1234))
         #expect(invocations[6] == .quitApplicationBundleID(bundleIdentifier: "com.apple.finder"))
         
-        if case .launchOrActivateApp(let bundleID, let path, let store) = invocations[7] {
+        if case .launchOrActivateApp(let bundleID, let path, let store, let preferredWindows) = invocations[7] {
             #expect(bundleID == "com.apple.calculator")
             #expect(path == "/App.app")
             #expect(store != nil)
+            #expect(preferredWindows == nil)
         } else {
             Issue.record("Expected launchOrActivateApp invocation")
         }
@@ -269,8 +270,11 @@ struct AppEnvironmentTests {
     
     @Test("AppEnvironment current mutation and reset")
     func testAppEnvironmentCurrentMutationAndReset() {
-        let _ = AppEnvironment.current
-        defer { AppEnvironment.reset() }
+        AppEnvironment.testLock.lock()
+        defer {
+            AppEnvironment.reset()
+            AppEnvironment.testLock.unlock()
+        }
         
         let testClock = TestClock(initialTime: 50.0)
         let testScheduler = TestScheduler()

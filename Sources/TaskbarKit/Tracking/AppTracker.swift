@@ -470,6 +470,11 @@ public final class AppTracker: WindowSource {
                         DispatchQueue.main.async { [weak self] in
                             guard let self = self else { return }
                             self.store.addOrUpdateWindow(info)
+                            let isFront = (event.pid == NSWorkspace.shared.frontmostApplication?.processIdentifier)
+                            if (isMain || isFront) && !isMin {
+                                self.store.setFrontmostPID(event.pid)
+                                self.store.setFocusedWindow(key: key)
+                            }
                             self.onWindowsChanged?()
                         }
                     }
@@ -561,8 +566,17 @@ public final class AppTracker: WindowSource {
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 var didChange = false
+                if let frontmostPID = frontmostPID {
+                    if self.store.setFrontmostPID(frontmostPID) {
+                        didChange = true
+                    }
+                }
                 if let focusedKey = focusedKey {
                     if self.store.setFocusedWindow(key: focusedKey) {
+                        didChange = true
+                    }
+                } else if let frontmostPID = frontmostPID, validPIDs.contains(frontmostPID) {
+                    if self.store.setFocusedWindow(key: nil) {
                         didChange = true
                     }
                 }
@@ -765,6 +779,14 @@ public final class AppTracker: WindowSource {
                     let fKey = WindowKey(id: fWid, pid: pid)
                     focusedKey = fKey
                     AppTracker.cacheElement(focusedElement, for: fKey)
+                }
+            }
+            
+            // Resilient fallback for Chromium / Electron applications where kAXFocusedWindowAttribute returns no value
+            if focusedKey == nil {
+                if let frontWID = WindowActions.frontmostWindowID(forPID: pid) {
+                    let fKey = WindowKey(id: UInt64(frontWID), pid: pid)
+                    focusedKey = fKey
                 }
             }
         }

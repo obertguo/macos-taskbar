@@ -12,8 +12,8 @@ All build metadata, packaging properties, and test benchmarks are governed by [`
 # Build and Packaging Configuration
 APP_NAME="Taskbar"
 BUNDLE_ID="com.local.taskbar"
-APP_VERSION="0.3.1"
-BUILD_NUMBER="8"
+APP_VERSION="0.3.2"
+BUILD_NUMBER="9"
 MIN_MACOS_VERSION="14.0"
 INSTALL_DIR="~/Applications"
 
@@ -33,8 +33,8 @@ TEST_FIXTURE_APP="TextEdit"
 |---|---|---|---|
 | `APP_NAME` | Product display name and process name. | `"Taskbar"` | `build-app.sh`, `package-release.sh`, `test-functional.sh` |
 | `BUNDLE_ID` | macOS bundle identifier and `UserDefaults` domain. | `"com.local.taskbar"` | `generate-config.sh`, `BuildConfiguration.swift` |
-| `APP_VERSION` | Semantic release version (X.Y.Z). | `"0.3.1"` | `generate-config.sh`, `package-release.sh`, `Info.plist` |
-| `BUILD_NUMBER` | Monotonically increasing build integer. | `"8"` | `generate-config.sh`, `Info.plist` |
+| `APP_VERSION` | Semantic release version (X.Y.Z). | `"0.3.2"` | `generate-config.sh`, `package-release.sh`, `Info.plist` |
+| `BUILD_NUMBER` | Monotonically increasing build integer. | `"9"` | `generate-config.sh`, `Info.plist` |
 | `MIN_MACOS_VERSION` | Minimum supported macOS version. | `"14.0"` | `generate-config.sh`, `test-functional.sh` |
 | `INSTALL_DIR` | Destination directory for `--install` flag. | `"~/Applications"` | `build-app.sh` |
 | `SIGN_IDENTITY` | Codesigning certificate identity (`"auto"` searches Keychain). | `"auto"` | `build-app.sh` |

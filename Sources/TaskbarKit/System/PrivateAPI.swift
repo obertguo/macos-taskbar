@@ -43,14 +43,23 @@ public enum PrivateAPI {
             var lowLongOfPSN: UInt32 = 0
         }
         guard let getPID = getProcessForPIDFn,
-              let setFront = setFrontProcessWithOptionsFn,
               let slpsSetFront = slpsSetFrontProcessWithOptionsFn else {
             return false
         }
         var psn = PSN()
         guard getPID(pid, &psn) == 0 else { return false }
-        _ = setFront(&psn, 1)
-        _ = slpsSetFront(&psn, windowID, 0x200)
+        
+        // 1. Designate the target window as frontmost within the owning process first
+        let err = slpsSetFront(&psn, windowID, 0x200)
+        guard err.rawValue == 0 else { return false }
+        
+        // 2. Elevate the process with option 1 (kSetFrontProcessFrontWindowOnly)
+        // Since windowID was designated as the front window in step 1,
+        // option 1 raises ONLY this window to the front of the display without raising other windows.
+        if let setFront = setFrontProcessWithOptionsFn {
+            _ = setFront(&psn, 1)
+        }
+        
         return true
     }
 }
