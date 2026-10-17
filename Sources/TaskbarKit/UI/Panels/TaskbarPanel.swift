@@ -100,22 +100,6 @@ public final class TaskbarPanel: NSPanel {
         taskbarView.currentBlendingMode
     }
     
-    public func updateButtonWidths(minWidth: Double, maxWidth: Double) {
-        taskbarView.minButtonWidth = minWidth
-        taskbarView.maxButtonWidth = maxWidth
-    }
-    
-    public func updateButtonLayout(
-        minWidth: Double,
-        maxWidth: Double,
-        spacing: Double,
-        titleThreshold: Double
-    ) {
-        taskbarView.minButtonWidth = minWidth
-        taskbarView.maxButtonWidth = maxWidth
-        taskbarView.buttonSpacing = spacing
-        taskbarView.titleVisibilityThreshold = titleThreshold
-    }
     
     public func updatePinnedApps(_ apps: [PinnedApp], runningBundleIDs: Set<String>? = nil) {
         taskbarView.updatePinnedApps(apps, runningBundleIDs: runningBundleIDs)

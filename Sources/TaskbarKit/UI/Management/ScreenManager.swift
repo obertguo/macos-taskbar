@@ -30,6 +30,19 @@ public final class ScreenManager {
             object: nil
         )
         
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleApplicationLifecycleChanged),
+            name: NSWorkspace.didLaunchApplicationNotification,
+            object: nil
+        )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleApplicationLifecycleChanged),
+            name: NSWorkspace.didTerminateApplicationNotification,
+            object: nil
+        )
+        
         settingsStore.addObserver { [weak self] oldSettings, newSettings in
             self?.handleSettingsChanged(old: oldSettings, new: newSettings)
         }
@@ -79,26 +92,7 @@ public final class ScreenManager {
     }
     
     public func updateTheme(themeId: String) {
-        let theme = ThemeRegistry.shared.theme(for: themeId)
-        settingsStore.update { settings in
-            settings.activeThemeId = themeId
-            if theme.isCustom {
-                settings.fontSize = theme.metrics.fontSize
-                settings.iconSize = theme.metrics.iconSize
-                if let customBarHeight = theme.metrics.barHeight, customBarHeight > 0 {
-                    settings.barHeight = customBarHeight
-                }
-                if let customMinWidth = theme.metrics.minButtonWidth, customMinWidth > 0 {
-                    settings.minButtonWidth = customMinWidth
-                }
-                if let customMaxWidth = theme.metrics.maxButtonWidth, customMaxWidth > 0 {
-                    settings.maxButtonWidth = customMaxWidth
-                }
-                if let customSpacing = theme.metrics.buttonSpacing, customSpacing >= 0 {
-                    settings.buttonSpacing = customSpacing
-                }
-            }
-        }
+        settingsStore.update { $0.activeThemeId = themeId }
     }
     
     public func updateGroupingMode(_ mode: WindowGroupingMode) {
@@ -131,8 +125,17 @@ public final class ScreenManager {
         NotificationCenter.default.post(name: .taskbarPinnedAppsDidChange, object: nil)
     }
     
+    private func computeRunningBundleIDs() -> Set<String> {
+        var ids = Set(store.allWindows.map { $0.bundleID })
+        let workspaceRegularApps = NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular }
+            .compactMap { $0.bundleIdentifier }
+        ids.formUnion(workspaceRegularApps)
+        return ids
+    }
+    
     public func refreshPinnedAppsAcrossPanels() {
-        let runningBundleIDs = Set(store.allWindows.map { $0.bundleID })
+        let runningBundleIDs = computeRunningBundleIDs()
         for panel in panels.values {
             panel.updatePinnedApps(settings.pinnedApps, runningBundleIDs: runningBundleIDs)
         }
@@ -160,16 +163,21 @@ public final class ScreenManager {
         updateWindows()
     }
     
+    @objc private func handleApplicationLifecycleChanged() {
+        updateWindows()
+    }
+    
     @objc private func handleScreenParametersChanged() {
         refreshFullScreenDetection()
         refreshPanels()
     }
     
     private func refreshFullScreenDetection() {
+        let onScreenWindows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
         var fs = Set<CGDirectDisplayID>()
         for screen in NSScreen.screens {
             let displayID = screen.displayID ?? 0
-            if displayID != 0 && isScreenInFullScreen(screen: screen) {
+            if displayID != 0 && isScreenInFullScreen(screen: screen, onScreenWindows: onScreenWindows) {
                 fs.insert(displayID)
             }
         }
@@ -177,11 +185,10 @@ public final class ScreenManager {
     }
     
     /// Determines whether the active space on a physical display is currently showing a native full-screen app.
-    private func isScreenInFullScreen(screen: NSScreen) -> Bool {
+    private func isScreenInFullScreen(screen: NSScreen, onScreenWindows: [[String: Any]]) -> Bool {
         let displayID = screen.displayID ?? 0
         let screenBounds = displayID != 0 ? CGDisplayBounds(displayID) : screen.frame
         
-        let onScreenWindows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
         for w in onScreenWindows {
             let layer = w[kCGWindowLayer as String] as? Int ?? -1
             guard layer == 0 else { continue } // Normal application layer
@@ -208,7 +215,7 @@ public final class ScreenManager {
     public func refreshPanels() {
         let screens = NSScreen.screens
         var activeDisplayIDs = Set<CGDirectDisplayID>()
-        let runningBundleIDs = Set(store.allWindows.map { $0.bundleID })
+        let runningBundleIDs = computeRunningBundleIDs()
         
         for screen in screens {
             let displayID = screen.displayID ?? 0
@@ -255,7 +262,7 @@ public final class ScreenManager {
     public func updateWindows() {
         let descriptors = screenDescriptors()
         let screens = NSScreen.screens
-        let runningBundleIDs = Set(store.allWindows.map { $0.bundleID })
+        let runningBundleIDs = computeRunningBundleIDs()
         
         var windowsByScreen: [UInt32: [WindowInfo]] = [:]
         for win in store.allWindows {

@@ -25,7 +25,7 @@ public final class TaskbarView: NSView {
     public var groupingMode: WindowGroupingMode = .always {
         didSet {
             if oldValue != groupingMode {
-                updateWindows(windows: currentWindows, focusedKey: focusedKey, frontmostPID: frontmostPID)
+                updateWindows(windows: currentWindows, focusedKey: focusedKey, frontmostPID: frontmostPID, runningBundleIDs: currentRunningBundleIDs)
             }
         }
     }
@@ -45,14 +45,15 @@ public final class TaskbarView: NSView {
     private var currentWindows: [WindowInfo] = []
     private var focusedKey: WindowKey?
     private var frontmostPID: pid_t?
-    private var pendingWindowUpdate: (windows: [WindowInfo], focusedKey: WindowKey?, frontmostPID: pid_t?)?
+    private var currentRunningBundleIDs: Set<String> = []
+    private var pendingWindowUpdate: (windows: [WindowInfo], focusedKey: WindowKey?, frontmostPID: pid_t?, runningBundleIDs: Set<String>?)?
     private var pendingPinnedUpdate: (pinnedApps: [PinnedApp], runningBundleIDs: Set<String>)?
     
     public var minButtonWidth: Double = TaskbarConstants.Layout.defaultMinButtonWidth {
         didSet {
             if oldValue != minButtonWidth {
                 if groupingMode == .whenCrowded {
-                    updateWindows(windows: currentWindows, focusedKey: focusedKey, frontmostPID: frontmostPID)
+                    updateWindows(windows: currentWindows, focusedKey: focusedKey, frontmostPID: frontmostPID, runningBundleIDs: currentRunningBundleIDs)
                 } else {
                     layoutComponents()
                 }
@@ -68,7 +69,7 @@ public final class TaskbarView: NSView {
         didSet {
             if oldValue != buttonSpacing {
                 if groupingMode == .whenCrowded {
-                    updateWindows(windows: currentWindows, focusedKey: focusedKey, frontmostPID: frontmostPID)
+                    updateWindows(windows: currentWindows, focusedKey: focusedKey, frontmostPID: frontmostPID, runningBundleIDs: currentRunningBundleIDs)
                 } else {
                     layoutComponents()
                 }
@@ -157,8 +158,11 @@ public final class TaskbarView: NSView {
         frontmostPID: pid_t?,
         runningBundleIDs: Set<String>? = nil
     ) {
+        if let running = runningBundleIDs {
+            self.currentRunningBundleIDs = running
+        }
         if dragCoordinator != nil && (dragCoordinator.isDragging || dragCoordinator.activeDragSession != nil) {
-            pendingWindowUpdate = (windows: windows, focusedKey: focusedKey, frontmostPID: frontmostPID)
+            pendingWindowUpdate = (windows: windows, focusedKey: focusedKey, frontmostPID: frontmostPID, runningBundleIDs: runningBundleIDs)
             return
         }
         
@@ -166,7 +170,7 @@ public final class TaskbarView: NSView {
         self.focusedKey = focusedKey
         self.frontmostPID = frontmostPID
         
-        let runningIDs = runningBundleIDs ?? Set(windows.map { $0.bundleID })
+        let runningIDs = runningBundleIDs ?? (self.currentRunningBundleIDs.isEmpty ? Set(windows.map { $0.bundleID }) : self.currentRunningBundleIDs)
         let pinnedIDs = Set(currentPinnedApps.map { $0.bundleIdentifier })
         
         // Update isRunning for pinned buttons
@@ -340,7 +344,10 @@ public final class TaskbarView: NSView {
     }
     
     public func updatePinnedApps(_ apps: [PinnedApp], runningBundleIDs: Set<String>? = nil) {
-        let runningIDs = runningBundleIDs ?? Set(currentWindows.map { $0.bundleID })
+        if let running = runningBundleIDs {
+            self.currentRunningBundleIDs = running
+        }
+        let runningIDs = runningBundleIDs ?? (self.currentRunningBundleIDs.isEmpty ? Set(currentWindows.map { $0.bundleID }) : self.currentRunningBundleIDs)
         if dragCoordinator != nil && (dragCoordinator.isDragging || dragCoordinator.activeDragSession != nil) {
             pendingPinnedUpdate = (pinnedApps: apps, runningBundleIDs: runningIDs)
             return
@@ -412,7 +419,7 @@ public final class TaskbarView: NSView {
         self.buttonSpacing = settings.buttonSpacing
         self.titleVisibilityThreshold = settings.titleVisibilityThreshold
         self.groupingMode = settings.windowGroupingMode
-        self.updatePinnedApps(settings.pinnedApps)
+        self.updatePinnedApps(settings.pinnedApps, runningBundleIDs: self.currentRunningBundleIDs)
     }
     
     private func isAppRunning(bundleIdentifier: String, runningBundleIDs: Set<String>) -> Bool {
@@ -509,7 +516,7 @@ public final class TaskbarView: NSView {
         }
         guard let pending = pendingWindowUpdate else { return }
         pendingWindowUpdate = nil
-        updateWindows(windows: pending.windows, focusedKey: pending.focusedKey, frontmostPID: pending.frontmostPID)
+        updateWindows(windows: pending.windows, focusedKey: pending.focusedKey, frontmostPID: pending.frontmostPID, runningBundleIDs: pending.runningBundleIDs)
     }
     
     public override func layout() {

@@ -222,10 +222,6 @@ public final class AXAppObserver: @unchecked Sendable {
         
         if name == (kAXWindowCreatedNotification as String) {
             observeWindow(element)
-        } else if name == (kAXWindowResizedNotification as String) {
-            observeWindow(element)
-        } else if name == (kAXWindowMovedNotification as String) {
-            observeWindow(element)
         } else if name == (kAXUIElementDestroyedNotification as String) {
             if let wid = resolvedWindowID {
                 stateLock.lock()

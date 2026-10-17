@@ -244,12 +244,12 @@ flowchart TD
    During live mouse resizing, WindowServer binds the window edge to the cursor coordinates. Calling `setSize` while the left mouse button is pressed causes visible cursor jitter. `WorkAreaEnforcer` checks `CGEventSource.buttonState(.combinedSessionState, button: .left)` and defers clamping until the mouse is released.
 3. **Single-Deadline Settle Verification on AXThread:**
    Debounced event coalescing runs with zero `NSLock` overhead directly on dedicated `AXThread`, coordinating single-deadline clamping passes to accommodate animation and frame settle without timer chaining.
-4. **Dynamic Screen Fallback:**
-   If screen descriptors have not yet been populated by `ScreenManager`, `evaluateAndClamp` dynamically queries `NSScreen.screens` to resolve physical display bounds.
-5. **Application-Level Move/Resize Listening:**
-   `AXAppObserver` registers `kAXWindowResizedNotification` and `kAXWindowMovedNotification` at the application level as well as the window level. Newly opened windows in Electron and Chromium apps that omit `kAXWindowCreatedNotification` are automatically registered and observed upon first movement or resize.
+4. **Dynamic Screen Descriptors:**
+   `ScreenManager` supplies immutable `[ScreenDescriptor]` instances to `WorkAreaEnforcer.updateScreens`, eliminating main-thread `NSScreen` queries on `AXThread`.
+5. **Resilient Window Notification Observation:**
+   `AXAppObserver` registers `kAXWindowResizedNotification` and `kAXWindowMovedNotification` at the window level, avoiding redundant observation overhead and locking on 60–120Hz window drags.
 6. **In-Flight Resize Debounce Protection:**
-   When an active resize debounce burst is in-flight (`windowWasResizedInDebounce[winID] == true`), passive move or periodic window reconciliation events (`!isResize`) arriving within the settle window are ignored. This prevents `generationCounters[winID]` from incrementing prematurely, ensuring that Pass 1 (150ms) and Pass 2 (400ms) execution are not cancelled before clamping occurs.
+   When an active resize debounce burst is in-flight (`windowWasResizedInDebounce[winID] == true`), passive move or periodic window reconciliation events (`!isResize`) arriving within the settle window are ignored. This prevents `generationCounters[winID]` from incrementing prematurely, ensuring that Pass 1 (220ms) and Pass 2 (500ms) execution are not cancelled before clamping occurs.
 7. **TCC Authorization Polling & Dynamic Observer Attachment:**
    On ad-hoc rebuilt binaries where TCC cdhash trust verification is asynchronous at startup, `AppTracker` polls authorization for up to 30 seconds via a background task. As soon as permission is confirmed, all running applications are immediately tracked. Furthermore, `handleAppActivated` dynamically attaches observers to active applications upon focus, guaranteeing immediate window maximize responsiveness.
 8. **Resilient Window Observer Registration:**
@@ -274,7 +274,7 @@ flowchart LR
     IDChange --> SM["ScreenManager.updateTheme(themeId)"]
     
     SM --> Metrics["Adopt ThemeMetrics:<br/>barHeight, minButtonWidth,<br/>buttonSpacing, fontSize, iconSize"]
-    SM --> Panels["TaskbarPanel.applyTheme() &<br/>updateButtonLayout()"]
+    SM --> Panels["TaskbarPanel.apply(settings:theme:)"]
     SM --> Nudger["WorkAreaEnforcer.barHeight = customHeight"]
 ```
 
@@ -339,7 +339,7 @@ flowchart TD
 - **`WindowGroup` (`TaskbarCore`):**
   - Immutable value type encapsulating `id`, `bundleID`, `appName`, `windows: [WindowInfo]`, and `isGrouped`.
   - Provides computed states (`isFocused(focusedKey:frontmostPID:)`, `isMinimized`, `isAppHidden`, `displayTitle`).
-  - Single windows use `id = "win_<pid>_<id>"`; multi-window groups use `id = "grp_<bundleID>"`.
+  - Single windows use `id = "win_<pid>_<id>"`; multi-window groups use `id = "group_<bundleID>"`.
 - **`WindowGroupingLogic` (`TaskbarCore`):**
   - Pure function mapping `([WindowInfo], WindowGroupingMode, availableWidth) -> [WindowGroup]`.
   - Allocates zero AppKit views; 100% unit tested in `WindowGroupingLogicTests`.
@@ -347,7 +347,7 @@ flowchart TD
 ### 10.2 Lightweight Window List Popup (`GroupWindowPopup`)
 - **Panel Characteristics & Visual Layer Separation:**
   - Lightweight borderless `NSPanel` (`.nonactivatingPanel`, floating above desktop).
-  - Uses an explicit two-layer subview hierarchy: a background `NSVisualEffectView` maintaining frosted glass vibrancy, and a distinct foreground `rowsContainerView` hosting interactive `GroupWindowRowView` subviews to eliminate subview clobbering.
+  - Uses an explicit two-layer subview hierarchy: a background `NSVisualEffectView` maintaining frosted glass vibrancy, and a distinct foreground `GroupWindowContentView` hosting interactive `GroupWindowRowView` subviews to eliminate subview clobbering.
   - Anchored dynamically above the clicked group button on the target screen.
   - Renders application icon, document/window title (truncated with ellipsis), active window dot indicator, and dedicated close button (`✕`).
 - **Immediate Single-Click Responsiveness:**
@@ -374,7 +374,7 @@ sequenceDiagram
     participant Logic as WindowOrderingLogic
     participant Store as WindowStore / Settings
 
-    User->>Button: mouseDown & mouseDragged (> 5pt threshold)
+    User->>Button: mouseDown & mouseDragged (> 4pt threshold)
     Button->>View: onDragStarted & onDragged(location)
     View->>View: Compute insertion slot via TaskbarLayoutEngine
     View->>View: Update insertionIndicatorView frame (Option B)
@@ -386,14 +386,14 @@ sequenceDiagram
 ```
 
 ### 11.1 Drag Session Lifecycle & UX (Option B: Insertion Bar)
-- **Threshold Detection:** `BaseTaskbarButton` initiates drag sessions only after cursor movement exceeds `TaskbarConstants.Drag.dragThresholdPoints` (5.0pt), distinguishing rapid click/focus interactions from intentional drags.
+- **Threshold Detection:** `BaseTaskbarButton` initiates drag sessions only after cursor movement exceeds `TaskbarConstants.Drag.activationThreshold` (4.0pt), distinguishing rapid click/focus interactions from intentional drags.
 - **Insertion Indicator Bar:** `TaskbarView` renders a high-contrast insertion bar (`insertionIndicatorView`) positioned at slot boundaries calculated via `TaskbarLayoutEngine.taskInsertionIndicatorX` and `pinnedInsertionIndicatorX`.
 - **Dragged Button Visuals:** The dragged button shifts opacity to `draggedButtonAlpha` (0.85) and elevates its layer `zPosition` to render smoothly above neighboring items during motion.
-- **Session Cancellation:** Moving the cursor vertically beyond `verticalEscapeThreshold` (24pt) or pressing the `Escape` key immediately cancels the drag session, smoothly restoring buttons to their original slots.
+- **Session Cancellation:** Moving the cursor vertically beyond `TaskbarConstants.Drag.verticalEscapeThreshold` (30.0pt) or pressing the `Escape` key immediately cancels the drag session, smoothly restoring buttons to their original slots.
 
 ### 11.2 Storage & Multi-Display Isolation
 - **Running Task Buttons:**
-  - Strongly-typed custom ordering arrays (`[OrderKey]`) are maintained per physical display in `WindowStore.customOrderByScreen[screenID]`.
+  - Strongly-typed custom ordering dictionaries (`[OrderKey: Int]`) are maintained per physical display in `WindowStore.customOrders[screenID]`.
   - When committing drops, `orderMap` indexes both `WindowGroup.id` and all constituent window keys (`TaskbarConstants.Identifiers.windowID`), ensuring consistent ordering regardless of grouping mode transitions.
   - Moving a window to another screen in macOS migrates the window without disrupting either display's custom slot order.
 - **Quick Launch Pinned Buttons:**

@@ -51,7 +51,10 @@ Settings are stored in the user's domain via `UserDefaults.standard` under the k
 
 ### Settings Model Properties:
 - `barHeight`: Taskbar panel vertical thickness in points (default: `30.0`, range: `26.0` – `44.0`).
-- `buttonWidth`: Maximum width of task buttons before shrinking (default: `160.0`, range: `80.0` – `240.0`).
+- `minButtonWidth`: Minimum width of task buttons before shrinking or grouping (default: `80.0`, range: `28.0` – `120.0`).
+- `maxButtonWidth`: Maximum width of task buttons (default: `160.0`, range: `80.0` – `240.0`).
+- `buttonSpacing`: Horizontal spacing between adjacent taskbar buttons (default: `4.0`, range: `0.0` – `12.0`).
+- `titleVisibilityThreshold`: Minimum width threshold below which window titles are hidden (default: `40.0`).
 - `fontSize`: Typography point size across buttons (default: `12.0`, range: `10.0` – `14.0`).
 - `iconSize`: Application icon dimensions in points (default: `16.0`, range: `14.0` – `24.0`).
 - `taskbarEdge`: Screen edge anchor for the taskbar (`.bottom`, `.top`, `.left`, `.right`, default: `.bottom`).
@@ -59,7 +62,8 @@ Settings are stored in the user's domain via `UserDefaults.standard` under the k
 - `launcherAction`: Launcher invoked by Start button (`.spotlight`, `.raycast`, or `.custom(path)`).
 - `activeThemeId`: Active theme ID (`"modern-hybrid"`, `"retro-classic"`, `"windows-xp-luna"`, `"dark-minimal"`, or custom theme ID).
 - `pinnedApps`: Array of `PinnedApp` shortcuts displayed in the Quick Launch bar.
-- `dockAutohideDelay`: System Dock autohide hover reveal delay in seconds (default: `1000.0` = Permanently Hidden).
+- `hideSystemDock`: Whether the macOS system Dock is suppressed (default: `true`).
+- `dockHideDelay`: System Dock autohide hover reveal delay in seconds (default: `1000.0` = Permanently Hidden).
 
 ### Backward Compatibility Guarantee:
 `Settings` decodes existing `v0.1.X` and `v0.2.X` preference payloads with zero loss:
@@ -118,7 +122,6 @@ Users can define custom themes by placing `*.json` files into `~/.config/taskbar
     "minButtonWidth": 80.0,
     "maxButtonWidth": 160.0,
     "buttonSpacing": 4.0,
-    "buttonPadding": 4.0,
     "buttonCornerRadius": 4.0,
     "fontSize": 12.0,
     "iconSize": 16.0,

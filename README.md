@@ -2,7 +2,7 @@
 
 A lightweight, native macOS agent application (`LSUIElement`) that replaces the macOS system Dock with a classic or modern Windows-style taskbar.
 
-Designed for peak responsiveness, ~0.0% idle CPU, and rock-solid stability using 100% public Apple APIs.
+Designed for peak responsiveness, ~0.0% idle CPU, and rock-solid stability using native macOS APIs.
 
 ---
 
@@ -25,7 +25,7 @@ Designed for peak responsiveness, ~0.0% idle CPU, and rock-solid stability using
 - **Interactive Drag-and-Drop Slot Reordering:**
   - Reorder running task buttons horizontally with smooth real-time visual feedback and an insertion indicator bar.
   - Display-isolated ordering for running tasks: custom orders are scoped per screen, persisting seamlessly as windows move across displays.
-  - Quick Launch pinned button reordering: dragging pinned shortcuts reorders items, syncs across all connected monitors in lockstep, and immediately persists to `settings.json`.
+  - Quick Launch pinned button reordering: dragging pinned shortcuts reorders items, syncs across all connected monitors in lockstep, and immediately persists to settings.
   - Clean cancelation on vertical drag escape or Escape key press.
 - **Button Overflow Handling:** When window density is high, buttons shrink gracefully down to `minButtonWidth` (80pt default), after which an interactive overflow chevron (`»`) appears with a popup menu to activate hidden windows.
 - **Pinned Applications / Quick Launch Bar:**
@@ -42,7 +42,7 @@ Designed for peak responsiveness, ~0.0% idle CPU, and rock-solid stability using
   - **User Custom Theme Engine:** Discovers and validates `*.json` themes in `~/.config/taskbar/themes/` with live reload, layout metric adoption (`barHeight`, `minButtonWidth`, `maxButtonWidth`, `buttonSpacing`), and export tools in the Status Menu.
 - **High-DPI & Multi-Resolution Icon Sanitization:**
   - Filters corrupt legacy low-resolution bitmaps (<64px) from third-party app bundles (e.g. Electron / Antigravity) when high-resolution representations exist, guaranteeing crisp bilinear anti-aliasing across mixed-DPI displays.
-- **Screen Space Reservation via AX Nudger (`WorkAreaEnforcer`):** Maximized windows (from native zoom, double-click titlebar, Rectangle, Raycast, etc.) are actively clamped so their bottom edges (status bars, terminal prompts, input boxes) remain visible above the bar. Features multi-pass debounce settling (150ms / 400ms / 650ms), in-flight resize debounce protection against passive move/reconcile events, TCC authorization polling on ad-hoc binary startup, active mouse-drag deferral, and self-inflicted notification filtering to prevent jitter and feedback loops.
+- **Screen Space Reservation via AX Nudger (`WorkAreaEnforcer`):** Maximized windows (from native zoom, double-click titlebar, Rectangle, Raycast, etc.) are actively clamped so their bottom edges (status bars, terminal prompts, input boxes) remain visible above the bar. Features multi-pass debounce settling (220ms / 500ms), in-flight resize debounce protection against passive move/reconcile events, TCC authorization polling on ad-hoc binary startup, active mouse-drag deferral, and self-inflicted notification filtering to prevent jitter and feedback loops.
 - **Configurable System Dock Replacement & Safety:** Safely hides the system Dock during execution with user-configurable autohide reveal delays (1000s Permanently Hidden, 1.5s Deliberate Hover, 1.0s, 0.5s, 0.0s). Restores original settings automatically on quit, `SIGINT`/`SIGTERM` signals, or via `./scripts/restore-dock.sh`.
 - **Full-Screen Space Suppression:** Taskbar panels automatically hide on native macOS full-screen spaces (keynote presentations, full-screen video, games).
 - **Status Menu Customization:** Adjust Theme, Window Grouping Mode, Taskbar Height (26–44pt), Button Width / Overflow Threshold (28–120pt), Font Size (10–14pt), and Icon Size (14–24pt) dynamically without restarting.
@@ -85,7 +85,7 @@ Taskbar includes a 3-tier test harness with automated memory and CPU benchmarkin
 # Application window grouping & popup suite (TC-GROUP-*)
 ./scripts/test-functional.sh --grouping
 
-# Run all test suites (158 tests) + resident memory (<45 MB RSS) and CPU benchmarks
+# Run all test suites (229 tests) + resident memory (<45 MB RSS) and CPU benchmarks
 ./scripts/test-functional.sh --all
 ```
 
@@ -121,7 +121,7 @@ For in-depth guides intended for human developers and AI coding agents:
 - [**Architecture & Concurrency Guide**](docs/ARCHITECTURE.md): SPM target hierarchy (`TaskbarCore`, `TaskbarKit`, `TaskbarApp`), threading model, AX concurrency, view recycling, work area clamping, focus isolation, and custom theme engine.
 - [**Build & Release Guide**](docs/BUILD_AND_RELEASE.md): Compilation, code signing, installation, testing, and release packaging.
 - [**Configuration Reference**](docs/CONFIGURATION.md): Centralized build settings (`config/build.env`), common shell utilities, and JSON theme specifications.
-- [**Testing & Verification Guide**](docs/TESTING.md): 3-tier testing pyramid, fixture automation, runner modes, and resource benchmarking across 158 tests.
+- [**Testing & Verification Guide**](docs/TESTING.md): 3-tier testing pyramid, fixture automation, runner modes, and resource benchmarking across 229 tests.
 - [**Test Specifications Catalog**](docs/TEST_SPECIFICATIONS.md): Complete test taxonomy (`TC-FUNC-*`, `TC-EDGE-*`, `TC-STRESS-*`, `TC-PERF-*`, `TC-PIN-*`, `TC-THEME-*`, `TC-UNIT-*`) with requirement traceability.
 - [**Codebase Conventions & Best Practices**](docs/CONVENTIONS.md): Architectural boundaries, threading invariants, constants management, and safety protocols.
 
@@ -135,7 +135,7 @@ For in-depth guides intended for human developers and AI coding agents:
    - **`TaskbarApp`:** Minimal executable wrapper.
 2. **Performance First:**
    - Pure event-driven updates via `NSWorkspace` and `AXObserver` notifications; zero background polling timers.
-   - In-place view recycling (`buttonMap`) eliminates subview allocation thrashing during window changes.
+   - In-place view recycling (`groupButtonMap` and `pinnedButtonMap`) eliminates subview allocation thrashing during window changes.
    - Dedicated background AX thread with timeouts (~0.3s) ensures hung third-party apps never freeze the UI.
    - Application icons cached in memory per bundle identifier.
    - Target footprint: $< 45\text{ MB}$ RSS under load, $\sim 0.0\%$ idle CPU.

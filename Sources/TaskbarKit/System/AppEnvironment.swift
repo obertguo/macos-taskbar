@@ -570,7 +570,7 @@ public struct AppEnvironment: Sendable {
     
     public init(
         clock: any Clock = SystemUptimeClock(),
-        scheduler: any Scheduler = MainScheduler(),
+        scheduler: any Scheduler = AXThreadScheduler(),
         windowActions: any WindowActionPerforming = LiveWindowActions(),
         dockService: any DockServicing = LiveDockService()
     ) {

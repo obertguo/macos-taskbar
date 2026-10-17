@@ -160,13 +160,10 @@ public final class DockController: @unchecked Sendable {
         _currentAppliedDelay = delay
         stateLock.unlock()
         
-        // Ensure baseline snapshot is saved before applying override
-        captureOriginalStateIfFirstRun()
-        
-        // Set dirty-session sentinel
-        UserDefaults.standard.set(true, forKey: Self.sentinelKey)
-        
-        dockQueue.async {
+        dockQueue.async { [weak self] in
+            guard let self = self else { return }
+            self.captureOriginalStateIfFirstRun()
+            UserDefaults.standard.set(true, forKey: Self.sentinelKey)
             Self.performHideInternal(delay: delay)
         }
     }
@@ -182,10 +179,8 @@ public final class DockController: @unchecked Sendable {
         }
         guard shouldRestore else { return }
         
-        // Clear dirty-session sentinel
-        UserDefaults.standard.set(false, forKey: Self.sentinelKey)
-        
         dockQueue.async {
+            UserDefaults.standard.set(false, forKey: Self.sentinelKey)
             Self.performRestoreInternal()
         }
     }

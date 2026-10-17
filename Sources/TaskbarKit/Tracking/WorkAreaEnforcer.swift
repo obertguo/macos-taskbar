@@ -66,36 +66,60 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
     internal var onClampEvaluated: (@Sendable (UInt64, CGRect) -> Void)?
     internal var onPassExecuted: (@Sendable (UInt64, Int) -> Void)?
     
+    private final class ValueBox<T>: @unchecked Sendable {
+        var value: T?
+    }
+    
+    private func syncOnAXThread<T: Sendable>(_ block: @escaping @Sendable () -> T) -> T {
+        if isAXThread || AppEnvironment.current.scheduler is TestScheduler {
+            return block()
+        }
+        let box = ValueBox<T>()
+        let sema = DispatchSemaphore(value: 0)
+        AXThread.shared.async {
+            box.value = block()
+            sema.signal()
+        }
+        sema.wait()
+        return box.value!
+    }
+    
     internal var activeTimersCount: Int {
-        activeTimers.count
+        syncOnAXThread { self.activeTimers.count }
     }
     
     internal var mouseDownRetryTimersCount: Int {
-        mouseDownRetryTimers.count
+        syncOnAXThread { self.mouseDownRetryTimers.count }
     }
     
     internal func generationCount(for winID: UInt64) -> UInt64? {
-        generationCounters[winID]
+        syncOnAXThread { self.generationCounters[winID] }
     }
     
     internal func lastSelfNudge(for winID: UInt64) -> (size: CGSize, timestamp: TimeInterval)? {
-        guard let nudge = lastSelfNudges[winID] else { return nil }
-        return (nudge.size, nudge.timestamp)
+        syncOnAXThread {
+            guard let nudge = self.lastSelfNudges[winID] else { return nil }
+            return (nudge.size, nudge.timestamp)
+        }
     }
     
     internal func nudgeRecord(for winID: UInt64) -> (targetHeight: CGFloat, attempts: Int, lastTimestamp: TimeInterval)? {
-        guard let rec = nudgeRecords[winID] else { return nil }
-        return (rec.targetHeight, rec.attempts, rec.lastTimestamp)
+        syncOnAXThread {
+            guard let rec = self.nudgeRecords[winID] else { return nil }
+            return (rec.targetHeight, rec.attempts, rec.lastTimestamp)
+        }
     }
     
     internal func isWindowTracked(winID: UInt64) -> Bool {
-        windowPIDs[winID] != nil ||
-        activeTimers[winID] != nil ||
-        mouseDownRetryTimers[winID] != nil ||
-        generationCounters[winID] != nil ||
-        windowWasResizedInDebounce[winID] != nil ||
-        lastSelfNudges[winID] != nil ||
-        nudgeRecords[winID] != nil
+        syncOnAXThread {
+            self.windowPIDs[winID] != nil ||
+            self.activeTimers[winID] != nil ||
+            self.mouseDownRetryTimers[winID] != nil ||
+            self.generationCounters[winID] != nil ||
+            self.windowWasResizedInDebounce[winID] != nil ||
+            self.lastSelfNudges[winID] != nil ||
+            self.nudgeRecords[winID] != nil
+        }
     }
     
     internal func resetForTesting() {
@@ -309,7 +333,7 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
                 self.onPassExecuted?(winID, 0)
                 let didClamp0 = self.evaluateAndClampOnAX(element: element, pid: pid, winID: winID, isResize: effectiveResize)
                 
-                guard didClamp0 || effectiveResize else {
+                guard didClamp0 else {
                     self.windowWasResizedInDebounce.removeValue(forKey: winID)
                     self.activeTimers.removeValue(forKey: winID)
                     return
@@ -325,7 +349,7 @@ public final class WorkAreaEnforcer: @unchecked Sendable {
                         self.onPassExecuted?(winID, 1)
                         let didClamp1 = self.evaluateAndClampOnAX(element: element, pid: pid, winID: winID, isResize: effectiveResize)
                         
-                        guard didClamp1 || effectiveResize else {
+                        guard didClamp1 else {
                             self.windowWasResizedInDebounce.removeValue(forKey: winID)
                             self.activeTimers.removeValue(forKey: winID)
                             return

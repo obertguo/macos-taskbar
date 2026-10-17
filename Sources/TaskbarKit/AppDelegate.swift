@@ -67,9 +67,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         statusMenu.onReloadThemesRequested = { [weak self] in
             ThemeFileLoader.shared.reloadCustomThemes()
             guard let self = self else { return }
-            let theme = ThemeRegistry.shared.theme(for: self.settingsStore.settings.activeThemeId)
-            let resolvedTheme = self.settingsStore.settings.applyingThemeOverrides(to: theme)
-            self.screenManager?.applyTheme(resolvedTheme)
+            self.settingsStore.reloadActiveTheme()
             self.statusMenu?.refresh()
         }
         statusMenu.onOpenThemesFolderRequested = { [weak self] in
@@ -126,9 +124,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsStore.addObserver { old, new in
             if old.hideSystemDock != new.hideSystemDock || old.dockHideDelay != new.dockHideDelay {
                 if new.hideSystemDock {
-                    DockController.shared.hideDock(delay: new.dockHideDelay)
+                    AppEnvironment.current.dockService.hideDock(delay: new.dockHideDelay)
                 } else {
-                    DockController.shared.restoreDock()
+                    AppEnvironment.current.dockService.restoreDock()
                 }
             }
         }

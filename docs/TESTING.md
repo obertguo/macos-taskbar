@@ -97,7 +97,7 @@ All core tests are written in pure `Swift Testing` (`@Suite`, `@Test`, `#expect`
 - **DockController Suite (`DockControllerTests.swift` — 9 Tests):**
   - In-process `CFPreferences` autohide reading.
   - Serial background queue writes with monotonic debouncing.
-  - Dirty session sentinel file persistence (`~/.config/taskbar/.dock_session_dirty`).
+  - Dirty session sentinel persistence in UserDefaults (`com.taskbar.dockCurrentlyOverriddenByTaskbar`).
   - Crash recovery restoration on initial launch.
 - **AppEnvironment Suite (`AppEnvironmentTests.swift` — 14 Tests):**
   - `SystemUptimeClock` and thread-safe `TestClock` time advancement.

@@ -46,4 +46,21 @@ public final class SettingsStore {
             observer(oldSettings, nextSettings)
         }
     }
+    
+    public func reloadActiveTheme() {
+        let oldSettings = settings
+        var nextSettings = settings
+        let baseTheme = ThemeRegistry.shared.theme(for: nextSettings.activeThemeId)
+        nextSettings.activeThemeId = baseTheme.id
+        nextSettings.updateWithCustomThemeMetrics(from: baseTheme)
+        
+        self.currentTheme = nextSettings.applyingThemeOverrides(to: baseTheme)
+        self.settings = nextSettings
+        
+        persistence.save(nextSettings)
+        
+        for observer in observers {
+            observer(oldSettings, nextSettings)
+        }
+    }
 }

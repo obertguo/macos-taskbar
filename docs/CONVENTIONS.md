@@ -50,7 +50,7 @@ The repository is structured into three modular Swift targets:
 
 ### Multi-Display Window Focus Targeting
 - **Hard Invariant:** Never activate applications using `.activateAllWindows`. Bulk activation raises background windows across secondary monitors, breaking multi-monitor isolation.
-- Always use targeted AX window activation: invoke `kAXRaiseAction` and set `kAXMainAttribute` directly on the target window element, followed by selective process activation (`app.activate(options: [])`).
+- Always use targeted AX window activation: invoke `kAXRaiseAction` and set `kAXMainAttribute` directly on the target window element, followed by targeted single-window process activation via `SetFrontProcessWithOptions` and `_SLPSSetFrontProcessWithOptions` (`PrivateAPI.activateSingleWindow`).
 
 ### Self-Notification Filtering & Clamping Invariants
 - **Self-Inflicted Notification Filtering:** Any subsystem that programmatically mutates window geometry via Accessibility APIs (such as `WorkAreaEnforcer`) must record its own applied sizes and timestamps to filter out subsequent self-inflicted `kAXWindowResizedNotification` callbacks. Failing to filter self-inflicted events invalidates downstream settle timers and triggers recursive debounce loops.
@@ -61,14 +61,14 @@ The repository is structured into three modular Swift targets:
 ## 3. UI Drawing & Performance
 
 - **In-Place View Recycling:**
-  - `TaskbarView` maintains internal lookup tables for both window buttons (`buttonMap: [WindowKey: TaskButton]`) and quick launch buttons (`pinnedButtonMap: [String: PinnedButton]`).
+  - `TaskbarView` maintains internal lookup tables for both window buttons (`groupButtonMap: [String: TaskButton]`) and quick launch buttons (`pinnedButtonMap: [String: PinnedButton]`).
   - When window lists or pinned apps update, existing button subview instances are recycled in place, preserving cursor tracking areas and eliminating GC/heap allocation churn.
 - **Direct AppKit Drawing:** Favor value types (`struct`) and direct `drawRect` drawing over deeply nested view hierarchies.
 - **Multi-Resolution Icon Sanitization:**
   - Application icons are loaded once per bundle identifier/path, sanitized to eliminate corrupt legacy low-res bitmaps ($< 64\text{px}$) when high-resolution representations exist, and cached in memory.
   - Never fetch icons synchronously from disk inside drawing routines.
 - **Data-Driven Theming & Callback Invariant:**
-  - Avoid hardcoded theme colors or border drawing inside buttons. All visual tokens are resolved through [`ThemeRegistry`](../Sources/TaskbarCore/Config/ThemeRegistry.swift) using `ThemePalette`, `ThemeMetrics`, and `ThemeMaterials`.
+  - Avoid hardcoded theme colors or border drawing inside buttons. All visual tokens are resolved through [`ThemeRegistry`](../Sources/TaskbarCore/Config/Theme/ThemeRegistry.swift) using `ThemePalette`, `ThemeMetrics`, and `ThemeMaterials`.
   - **Theme Callback Invariant:** All theme lifecycle events must flow exclusively through `onThemeIdChanged(String)`. The legacy enum-based callback (`onThemeChanged(ThemeStyle)`) has been retired to eliminate enum-to-theme mapping clobbering.
 
 ---

@@ -327,4 +327,20 @@ struct SettingsTests {
         #expect(settings.maxButtonWidth == 220.0)
         #expect(settings.buttonSpacing == 8.0)
     }
+    
+    @Test("SettingsStore reloadActiveTheme updates currentTheme and notifies observers")
+    @MainActor
+    func testSettingsStoreReloadActiveTheme() {
+        let store = SettingsStore(
+            persistence: InMemorySettingsPersistence(initial: Settings.default),
+            initialSettings: Settings.default
+        )
+        var notified = false
+        store.addObserver { _, _ in
+            notified = true
+        }
+        store.reloadActiveTheme()
+        #expect(notified)
+        #expect(store.currentTheme.id == store.settings.activeThemeId)
+    }
 }

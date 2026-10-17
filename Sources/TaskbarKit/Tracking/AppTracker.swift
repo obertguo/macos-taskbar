@@ -300,6 +300,7 @@ public final class AppTracker: WindowSource {
                 let elapsed = AppEnvironment.current.clock.now() - startTime
                 if batch == nil && elapsed >= Double(TaskbarConstants.Timing.axTimeout) {
                     AppTracker.recordTimeout(for: event.pid)
+                    return
                 }
                 
                 let role: String?
@@ -405,7 +406,14 @@ public final class AppTracker: WindowSource {
                 if let winID = event.resolvedWindowID ?? event.element.windowID {
                     let key = WindowKey(id: winID, pid: event.pid)
                     AppTracker.cacheElement(event.element, for: key)
+                    let startTime = AppEnvironment.current.clock.now()
+                    event.element.setTimeout(TaskbarConstants.Timing.axTimeout)
                     let batch = event.element.fetchWindowAttributesBatch()
+                    let elapsed = AppEnvironment.current.clock.now() - startTime
+                    if batch == nil && elapsed >= Double(TaskbarConstants.Timing.axTimeout) {
+                        AppTracker.recordTimeout(for: event.pid)
+                        return
+                    }
                     
                     let app = NSRunningApplication(processIdentifier: event.pid)
                     let appName = app?.localizedName ?? "App"
@@ -611,14 +619,17 @@ public final class AppTracker: WindowSource {
         
         let initialFocusedKey: WindowKey? = (frontmostPID != nil && AppTracker.isPIDBackedOff(frontmostPID!)) ? store.focusedWindowKey : nil
         
-        sweepNextChunk(
-            remainingApps: runningApps,
-            generation: generation,
-            frontmostPID: frontmostPID,
-            accumulatedWindows: [:],
-            focusedKey: initialFocusedKey,
-            allActivePIDs: allActivePIDs
-        )
+        AXThread.shared.async { [weak self] in
+            guard let self = self, self.currentSweepGeneration == generation else { return }
+            self.sweepNextChunk(
+                remainingApps: runningApps,
+                generation: generation,
+                frontmostPID: frontmostPID,
+                accumulatedWindows: [:],
+                focusedKey: initialFocusedKey,
+                allActivePIDs: allActivePIDs
+            )
+        }
     }
     
     nonisolated private func sweepNextChunk(
@@ -630,7 +641,9 @@ public final class AppTracker: WindowSource {
         allActivePIDs: Set<pid_t>
     ) {
         guard !remainingApps.isEmpty else {
-            self.knownWindowKeys = Set(accumulatedWindows.values.flatMap { $0 }.map(\.key))
+            let newKeys = Set(accumulatedWindows.values.flatMap { $0 }.map(\.key))
+            let preservedKeys = self.knownWindowKeys.filter { !accumulatedWindows.keys.contains($0.pid) }
+            self.knownWindowKeys = newKeys.union(preservedKeys)
             DispatchQueue.main.async { [weak self] in
                 guard let self = self, self.currentSweepGeneration == generation else { return }
                 self.finishFullSweep(
@@ -776,9 +789,13 @@ public final class AppTracker: WindowSource {
                 validWindowIDs.insert(CGWindowID(wid))
             }
             
-            observers[pid]?.observeWindow(win)
-            
+            let batchStart = AppEnvironment.current.clock.now()
             let batch = win.fetchWindowAttributesBatch()
+            let batchElapsed = AppEnvironment.current.clock.now() - batchStart
+            if batch == nil && batchElapsed >= Double(TaskbarConstants.Timing.axTimeout) {
+                AppTracker.recordTimeout(for: pid)
+                return (nil, nil)
+            }
             
             let role: String?
             let subrole: String?
@@ -822,6 +839,7 @@ public final class AppTracker: WindowSource {
             guard let wid = win.windowID else { continue }
             let key = WindowKey(id: wid, pid: pid)
             AppTracker.cacheElement(win, for: key)
+            observers[pid]?.observeWindow(win)
             
             let info = WindowInfo(
                 key: key,
@@ -875,19 +893,12 @@ public final class AppTracker: WindowSource {
         AppTracker.clearElementCache()
         AppTracker.clearAllBackoffs()
         
-        let currentObservers = Array(self.observers.values)
-        self.observers.removeAll()
-        
-        AXThread.shared.async { [weak self] in
-            for observer in currentObservers {
-                observer.stop()
-            }
-            guard let self = self else { return }
-            self.knownWindowKeys.removeAll()
+        AXThread.shared.async { [self] in
             for observer in self.observers.values {
                 observer.stop()
             }
             self.observers.removeAll()
+            self.knownWindowKeys.removeAll()
             self.pendingPIDs.removeAll()
         }
     }

@@ -141,6 +141,15 @@ public final class GroupWindowPopup: NSPanel {
         var newFrame = frame
         newFrame.size.width = preferredSize.width
         newFrame.size.height = preferredSize.height
+        if let targetScreen = self.screen ?? NSScreen.main ?? NSScreen.screens.first {
+            let screenFrame = targetScreen.visibleFrame.isEmpty ? targetScreen.frame : targetScreen.visibleFrame
+            if newFrame.origin.x + preferredSize.width > screenFrame.maxX - 4.0 {
+                newFrame.origin.x = screenFrame.maxX - preferredSize.width - 4.0
+            }
+            if newFrame.origin.x < screenFrame.minX + 4.0 {
+                newFrame.origin.x = screenFrame.minX + 4.0
+            }
+        }
         setFrame(newFrame, display: true, animate: false)
     }
     

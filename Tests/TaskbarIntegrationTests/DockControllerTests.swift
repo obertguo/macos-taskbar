@@ -323,4 +323,37 @@ struct DockControllerTests {
         #expect(baseline2.autohide == true, "Must capture fresh user autohide setting")
         #expect(baseline2.autohideDelay == 0.75, "Must capture fresh user delay setting")
     }
+    
+    @Test("TC-DOCK-008: Rapid serialized hide and restore sequence preserves baseline integrity")
+    func testRapidSerializedHideAndRestore() throws {
+        cleanTestState()
+        defer { cleanTestState() }
+        
+        CFPreferencesSetAppValue(
+            TaskbarConstants.Dock.autohideKey as CFString,
+            kCFBooleanFalse,
+            testDomain as CFString
+        )
+        CFPreferencesSetAppValue(
+            TaskbarConstants.Dock.autohideDelayKey as CFString,
+            NSNumber(value: 0.25),
+            testDomain as CFString
+        )
+        CFPreferencesAppSynchronize(testDomain as CFString)
+        
+        // Rapid sequential calls without waiting in between
+        DockController.shared.hideDock(delay: 1000.0)
+        DockController.shared.restoreDock()
+        DockController.shared.hideDock(delay: 1000.0)
+        DockController.shared.waitForQueue()
+        
+        #expect(DockController.shared.isDockHidden == true)
+        guard let data = UserDefaults.standard.data(forKey: DockController.originalStateKey) else {
+            Issue.record("Baseline missing after rapid hide/restore/hide")
+            return
+        }
+        let baseline = try JSONDecoder().decode(DockController.SavedDockState.self, from: data)
+        #expect(baseline.autohide == false)
+        #expect(baseline.autohideDelay == 0.25)
+    }
 }

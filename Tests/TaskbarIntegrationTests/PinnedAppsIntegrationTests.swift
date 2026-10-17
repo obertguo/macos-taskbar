@@ -261,6 +261,37 @@ struct PinnedAppsIntegrationTests {
         #expect(btn.isRunning == false)
     }
     
+    @Test("Windowless running app indicator preservation across updates and apply")
+    func testWindowlessRunningAppIndicator() {
+        let app = PinnedApp(bundleIdentifier: "com.apple.finder", displayName: "Finder")
+        let view = TaskbarView(
+            theme: ModernHybridTheme.definition,
+            launcherAction: .spotlight,
+            pinnedApps: [app]
+        )
+        view.frame = NSRect(x: 0, y: 0, width: 800, height: 30)
+        view.layout()
+        
+        guard let btn = view.pinnedButton(forBundleID: "com.apple.finder") else {
+            Issue.record("Pinned button not found")
+            return
+        }
+        
+        #expect(btn.isRunning == false)
+        
+        // Update with 0 windows, but Finder is running in workspace
+        view.updateWindows(windows: [], focusedKey: nil, frontmostPID: nil, runningBundleIDs: ["com.apple.finder"])
+        #expect(btn.isRunning == true)
+        
+        // Calling apply(settings:theme:) does not lose running state
+        view.apply(settings: Settings.default, theme: ModernHybridTheme.definition)
+        #expect(btn.isRunning == true)
+        
+        // Buffer during drag and flush does not lose running state
+        view.updateWindows(windows: [], focusedKey: nil, frontmostPID: nil, runningBundleIDs: ["com.apple.finder"])
+        #expect(btn.isRunning == true)
+    }
+    
     @Test("ScreenManager propagates pin and unpin actions across all panels")
     func testScreenManagerMultiDisplayPinnedAppsSync() {
         let settings = Settings(
