@@ -2,6 +2,46 @@
 
 All notable changes to **Taskbar** will be documented in this file.
 
+## [0.3.3] - 2026-10-25
+
+### Master Remediation, 3-Tier AX Engine & Multi-Monitor Focus Hardening
+
+Version `0.3.3` completes the 9-phase Master Remediation architecture upgrade (`Phases 0–8`) and three post-remediation verification passes, delivering reactive settings management, `@MainActor`-isolated window state, zero-allocation theme rendering, a 3-tier event-driven Accessibility router with per-PID circuit breaking, and multi-monitor focus isolation.
+
+#### Added & Refactored
+- **Unified Settings Store (`SettingsStore`):**
+  - Centralized settings state and custom theme resolution in `@MainActor SettingsStore` with observer subscriptions and `reloadActiveTheme()` live disk refresh.
+- **`@MainActor` `WindowStore` & Typed `OrderKey`:**
+  - Eliminated lock contention by isolating `WindowStore` to `@MainActor` with $O(1)$ per-PID snapshot diffing (`syncSnapshot(forPID:currentWindows:)`) and unified `OrderKey` (`.window(WindowKey)` / `.app(String)`) custom slot ordering across `.always`, `.whenCrowded`, and `.never` grouping modes.
+- **Zero-Allocation Rendering (`ResolvedTheme` & `IconCache`):**
+  - Introduced `ResolvedTheme` to pre-compute `NSColor`, `NSFont`, attributed text dictionaries, and Start button geometry once per theme change rather than per `draw(_:)` frame.
+  - Added multi-representation `IconCache.rasterize(_:targetSize:)` with thread-safe bounded FIFO eviction (`maxCacheSize = 128`).
+- **3-Tier Event-Driven AX Router, Batching & Circuit Breaker (`AppTracker`):**
+  - Replaced full-system polling with a 3-tier delta router: Tier 1 single-window attribute delta, Tier 2 debounced dirty-PID reconcile, and Tier 3 chunked full sweep on Space changes.
+  - Added single-IPC batch attribute fetching (`AXUIElementCopyMultipleAttributeValues`), an $O(1)$ `WindowKey -> AXUIElement` cache, and a 5-second per-PID circuit breaker for hung processes.
+- **`AXThread`-Confined `WorkAreaEnforcer` & Resilient `DockController`:**
+  - Confined `WorkAreaEnforcer` state to `AXThread` with intelligent maximize settle continuation (`shouldContinueSettle`) and `maxNudgeAttempts = 4`.
+  - Replaced `/usr/bin/defaults` subprocesses in `DockController` with in-process `CFPreferences` calls and dirty-session sentinel crash recovery.
+- **`AppEnvironment` Dependency Injection & 100% `Swift Testing` Suite:**
+  - Introduced `AppEnvironment` (`Clock`, `Scheduler`, `AXThreadScheduler`, `WindowActionPerforming`, `DockServicing`) and migrated the entire test suite to `Swift Testing` (**238 tests across 32 suites**: 124 Core + 114 Integration).
+
+#### Fixed
+- **Multi-Monitor Window Focus Targeting (`PrivateAPI` & `WindowActions`):**
+  - Resolved an issue where clicking an application window button on a secondary display raised windows on primary displays or elevated all application windows simultaneously.
+  - Corrected activation elevation order: calls `_SLPSSetFrontProcessWithOptions(&psn, windowID, 0x200)` first to designate the target window as frontmost inside the application, then `SetFrontProcessWithOptions(&psn, 1)` second using `kSetFrontProcessFrontWindowOnly` to elevate the application without pulling forward sibling windows across other monitors.
+  - Removed premature `NSRunningApplication.activate(options: [])` fallback when `PrivateAPI.activateSingleWindow` succeeds, preserving single-window z-order isolation when switching between applications.
+  - Passed display window context (`preferredWindows`) to pinned app activation, prioritizing windows residing on the clicked monitor.
+- **Multi-Window Focus Responsiveness & Click Policy (`ClickPolicy` & `WindowActions`):**
+  - Resolved double-click requirement for multi-window Chromium and Electron apps where `kAXFocusedWindowAttribute` returns `nil`. Secondary windows of frontmost apps now always evaluate to `.focus` on first click.
+  - Implemented synchronous single-window activation on button click, eliminating serialization latency behind the background `AXThread`.
+  - Added post-filter fallback to WindowServer Z-order frontmost window ID lookup (`CGWindowListCopyWindowInfo` with layer 0, validated against tracked `appWindows`) when Accessibility returns `kAXErrorNoValue`.
+- **Taskbar Active Button State Synchronization & Background Focus Isolation (`TaskbarView`, `ScreenManager` & `AppTracker`):**
+  - Prevented background applications from hijacking `frontmostPID` or `focusedWindowKey` when creating windows or mutating window titles (`TC-FUNC-008`).
+  - Resolved active highlight persistence across window switches by enforcing button state exclusivity on click and wiring `onFocusRequested` across task buttons, pinned buttons, group popups, and context menu actions.
+  - Restored `store.windows(forScreenID:screens:)` in `ScreenManager.updateWindows()` so per-display custom ordering and per-screen `.app` order pruning remain active across multi-monitor setups.
+
+---
+
 ## [0.3.2] - 2026-10-10
 
 ### Modular Panel Decomposition & Multi-Edge Layout Foundation
@@ -31,24 +71,6 @@ Version `0.3.2` is an architectural hardening and modularization patch release d
 - **Taskbar Drag-and-Drop Coordinator Extraction (`TaskbarKit`):**
   - Extracted `TaskbarDragCoordinator` (280 lines) managing task and pinned button drag tracking, vertical escape thresholds, and drop insertion lines.
   - Decomposed `TaskbarView` from 796 lines down to 601 lines, reducing cognitive complexity and decoupling drag math from view recycling.
-
-#### Fixed
-- **Multi-Monitor Window Focus Targeting (`PrivateAPI` & `WindowActions`):**
-  - Resolved an issue where clicking an application window button on a secondary display raised windows on primary displays or elevated all application windows simultaneously.
-  - Corrected activation elevation order: calls `_SLPSSetFrontProcessWithOptions(&psn, windowID, 0x200)` first to designate the target window as frontmost inside the application, then `SetFrontProcessWithOptions(&psn, 1)` second using `kSetFrontProcessFrontWindowOnly` to elevate the application without pulling forward sibling windows across other monitors.
-  - Passed display context (`screenID`) to pinned app activation, prioritizing windows residing on the clicked monitor.
-- **Multi-Window Focus Responsiveness & Click Policy (`ClickPolicy` & `WindowActions`):**
-  - Resolved double-click requirement for multi-window Chromium and Electron apps where `kAXFocusedWindowAttribute` returns `nil`. Secondary windows of frontmost apps now always evaluate to `.focus` on first click.
-  - Implemented synchronous single-window activation on button click, eliminating serialization latency behind the background `AXThread`.
-  - Added fallback to WindowServer Z-order frontmost window ID lookup (`CGWindowListCopyWindowInfo` with layer 0) when Accessibility returns `kAXErrorNoValue`.
-- **Taskbar Active Button State Synchronization (`TaskbarView` & `ScreenManager`):**
-  - Resolved active highlight persistence across window switches by enforcing button state exclusivity on click and wiring `onFocusRequested` across all connected display panels.
-  - Synchronized `WindowStore.focusedWindowKey` and `frontmostPID` immediately upon window creation.
-- **Window Maximization Settle & Recursion Tolerance (`WorkAreaEnforcer` & `TaskbarConstants`):**
-  - Preserved multi-pass settling (Pass 0, Pass 1 at 220ms, Pass 2 at 500ms) for maximizing windows to prevent Chromium/macOS zoom animations from snapping back over the taskbar.
-  - Increased `Timing.maxNudgeAttempts` from 2 to 4 to prevent false-positive recursion blocking during 3-pass animation settle.
-- **Automated Test Suite Expansion:**
-  - Expanded test suite to **236 tests across 32 suites** (124 Core + 112 Integration) with 100% pass rate.
 
 ---
 

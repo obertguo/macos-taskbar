@@ -47,8 +47,8 @@ Build and bundle metadata is centralized in [`config/build.env`](../config/build
 ```bash
 APP_NAME="Taskbar"
 BUNDLE_ID="com.local.taskbar"
-APP_VERSION="0.3.2"
-BUILD_NUMBER="9"
+APP_VERSION="0.3.3"
+BUILD_NUMBER="10"
 MIN_MACOS_VERSION="14.0"
 INSTALL_DIR="~/Applications"
 SIGN_IDENTITY="auto"
@@ -88,7 +88,7 @@ Before packaging any release, run the automated test harness:
 ```
 
 Requirements for release readiness:
-- 100% test pass rate across all 32 test suites (236 tests total: 124 Core + 112 Integration).
+- 100% test pass rate across all 32 test suites (238 tests total: 124 Core + 114 Integration).
 - Resident memory $< 45\text{ MB}$ RSS.
 - Idle CPU $\sim 0.0\%$.
 
