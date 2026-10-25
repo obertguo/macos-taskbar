@@ -61,10 +61,9 @@ public enum WindowActions {
         // 1. Immediately elevate target window via WindowServer SPI synchronously on click
         let activated = activateSingleWindow(key: key)
         
-        // 2. Synchronize AppKit activation state
-        let app = NSRunningApplication(processIdentifier: key.pid)
-        if !activated || (app != nil && !app!.isActive) {
-            app?.activate(options: [])
+        // 2. Synchronize AppKit activation state if SPI activation was not supported
+        if !activated {
+            NSRunningApplication(processIdentifier: key.pid)?.activate(options: [])
         }
         
         if AppTracker.isPIDBackedOff(key.pid) {
@@ -103,10 +102,9 @@ public enum WindowActions {
         
         if AppTracker.isPIDBackedOff(key.pid) {
             let activated = activateSingleWindow(key: key)
-            DispatchQueue.main.async {
-                let app = NSRunningApplication(processIdentifier: key.pid)
-                if !activated || (app != nil && !app!.isActive) {
-                    app?.activate(options: [])
+            if !activated {
+                DispatchQueue.main.async {
+                    NSRunningApplication(processIdentifier: key.pid)?.activate(options: [])
                 }
             }
             return
@@ -129,10 +127,9 @@ public enum WindowActions {
             
             // 3. Focus specific window immediately via WindowServer SPI without raising other windows
             let activated = activateSingleWindow(key: key)
-            DispatchQueue.main.async {
-                let app = NSRunningApplication(processIdentifier: key.pid)
-                if !activated || (app != nil && !app!.isActive) {
-                    app?.activate(options: [])
+            if !activated {
+                DispatchQueue.main.async {
+                    NSRunningApplication(processIdentifier: key.pid)?.activate(options: [])
                 }
             }
         }
@@ -166,13 +163,14 @@ public enum WindowActions {
         }
     }
     
+    @discardableResult
     @MainActor
     public static func launchOrActivateApp(
         bundleIdentifier: String,
         customPath: String? = nil,
         store: WindowStore? = nil,
         preferredWindows: [WindowInfo]? = nil
-    ) {
+    ) -> WindowKey? {
         let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).filter { !$0.isTerminated }
         if let runningApp = runningApps.first {
             DispatchQueue.main.async {
@@ -189,18 +187,21 @@ public enum WindowActions {
                     candidates = appWindows
                 }
                 if let targetWindow = WindowGroup.primaryWindow(from: candidates) {
+                    store.setFrontmostPID(targetWindow.pid)
+                    store.setFocusedWindow(key: targetWindow.key)
                     if targetWindow.isMinimized {
                         restoreAndFocusWindow(targetWindow.key)
                     } else {
                         focusWindow(targetWindow.key)
                     }
-                    return
+                    return targetWindow.key
                 }
             }
             
             DispatchQueue.main.async {
                 runningApp.activate(options: [])
             }
+            return nil
         } else {
             var targetURL: URL?
             if let customPath = customPath, !customPath.isEmpty, FileManager.default.fileExists(atPath: customPath) {
@@ -211,12 +212,13 @@ public enum WindowActions {
             
             guard let url = targetURL else {
                 TaskbarLogger.ui.error("Cannot resolve launch URL for app: \(bundleIdentifier)")
-                return
+                return nil
             }
             
             let config = NSWorkspace.OpenConfiguration()
             config.activates = true
             NSWorkspace.shared.openApplication(at: url, configuration: config, completionHandler: nil)
+            return nil
         }
     }
 }

@@ -278,12 +278,14 @@ public protocol WindowActionPerforming: Sendable {
     func closeWindow(_ key: WindowKey)
     func quitApplication(pid: pid_t)
     func quitApplication(bundleIdentifier: String)
-    @MainActor func launchOrActivateApp(bundleIdentifier: String, customPath: String?, store: WindowStore?, preferredWindows: [WindowInfo]?)
+    @discardableResult
+    @MainActor func launchOrActivateApp(bundleIdentifier: String, customPath: String?, store: WindowStore?, preferredWindows: [WindowInfo]?) -> WindowKey?
 }
 
 public extension WindowActionPerforming {
+    @discardableResult
     @MainActor
-    func launchOrActivateApp(bundleIdentifier: String, customPath: String? = nil, store: WindowStore? = nil, preferredWindows: [WindowInfo]? = nil) {
+    func launchOrActivateApp(bundleIdentifier: String, customPath: String? = nil, store: WindowStore? = nil, preferredWindows: [WindowInfo]? = nil) -> WindowKey? {
         launchOrActivateApp(bundleIdentifier: bundleIdentifier, customPath: customPath, store: store, preferredWindows: preferredWindows)
     }
 }
@@ -319,8 +321,9 @@ public struct LiveWindowActions: WindowActionPerforming {
         WindowActions.quitApplication(bundleIdentifier: bundleIdentifier)
     }
     
+    @discardableResult
     @MainActor
-    public func launchOrActivateApp(bundleIdentifier: String, customPath: String?, store: WindowStore?, preferredWindows: [WindowInfo]?) {
+    public func launchOrActivateApp(bundleIdentifier: String, customPath: String?, store: WindowStore?, preferredWindows: [WindowInfo]?) -> WindowKey? {
         WindowActions.launchOrActivateApp(bundleIdentifier: bundleIdentifier, customPath: customPath, store: store, preferredWindows: preferredWindows)
     }
 }
@@ -419,11 +422,28 @@ public final class SpyWindowActions: WindowActionPerforming, @unchecked Sendable
         }
     }
     
+    @discardableResult
     @MainActor
-    public func launchOrActivateApp(bundleIdentifier: String, customPath: String?, store: WindowStore?, preferredWindows: [WindowInfo]?) {
+    public func launchOrActivateApp(bundleIdentifier: String, customPath: String?, store: WindowStore?, preferredWindows: [WindowInfo]?) -> WindowKey? {
         lock.withLock {
             _invocations.append(.launchOrActivateApp(bundleIdentifier: bundleIdentifier, customPath: customPath, store: store, preferredWindows: preferredWindows))
         }
+        if let store = store {
+            let appWindows = store.allWindows.filter { $0.bundleID == bundleIdentifier }
+            let candidates: [WindowInfo]
+            if let preferredWindows = preferredWindows {
+                let matching = preferredWindows.filter { $0.bundleID == bundleIdentifier }
+                candidates = matching.isEmpty ? appWindows : matching
+            } else {
+                candidates = appWindows
+            }
+            if let targetWindow = WindowGroup.primaryWindow(from: candidates) {
+                store.setFrontmostPID(targetWindow.pid)
+                store.setFocusedWindow(key: targetWindow.key)
+                return targetWindow.key
+            }
+        }
+        return nil
     }
 }
 
@@ -464,11 +484,16 @@ public protocol DockServicing: Sendable {
     var currentAppliedDelay: Double? { get }
     func hideDock(delay: Double)
     func restoreDock()
+    func reconcileOnLaunch(shouldHideDock: Bool, delay: Double)
 }
 
 public extension DockServicing {
     func hideDock() {
         hideDock(delay: TaskbarConstants.Dock.defaultAutohideDelaySeconds)
+    }
+    
+    func reconcileOnLaunch(shouldHideDock: Bool) {
+        reconcileOnLaunch(shouldHideDock: shouldHideDock, delay: TaskbarConstants.Dock.defaultAutohideDelaySeconds)
     }
 }
 
@@ -490,6 +515,10 @@ public final class LiveDockService: DockServicing, @unchecked Sendable {
     public func restoreDock() {
         DockController.shared.restoreDock()
     }
+    
+    public func reconcileOnLaunch(shouldHideDock: Bool, delay: Double) {
+        DockController.shared.reconcileOnLaunch(shouldHideDock: shouldHideDock, delay: delay)
+    }
 }
 
 public final class MockDockService: DockServicing, @unchecked Sendable {
@@ -498,6 +527,7 @@ public final class MockDockService: DockServicing, @unchecked Sendable {
     private var _currentAppliedDelay: Double?
     private var _hideDockCallCount: Int = 0
     private var _restoreDockCallCount: Int = 0
+    private var _reconcileOnLaunchCallCount: Int = 0
     
     public init(isDockHidden: Bool = false, currentAppliedDelay: Double? = nil) {
         self._isDockHidden = isDockHidden
@@ -524,6 +554,11 @@ public final class MockDockService: DockServicing, @unchecked Sendable {
         set { lock.withLock { _restoreDockCallCount = newValue } }
     }
     
+    public var reconcileOnLaunchCallCount: Int {
+        get { lock.withLock { _reconcileOnLaunchCallCount } }
+        set { lock.withLock { _reconcileOnLaunchCallCount = newValue } }
+    }
+    
     public func hideDock(delay: Double) {
         lock.withLock {
             _hideDockCallCount += 1
@@ -540,12 +575,26 @@ public final class MockDockService: DockServicing, @unchecked Sendable {
         }
     }
     
+    public func reconcileOnLaunch(shouldHideDock: Bool, delay: Double) {
+        lock.withLock {
+            _reconcileOnLaunchCallCount += 1
+            if shouldHideDock {
+                _isDockHidden = true
+                _currentAppliedDelay = delay
+            } else {
+                _isDockHidden = false
+                _currentAppliedDelay = nil
+            }
+        }
+    }
+    
     public func reset() {
         lock.withLock {
             _isDockHidden = false
             _currentAppliedDelay = nil
             _hideDockCallCount = 0
             _restoreDockCallCount = 0
+            _reconcileOnLaunchCallCount = 0
         }
     }
 }

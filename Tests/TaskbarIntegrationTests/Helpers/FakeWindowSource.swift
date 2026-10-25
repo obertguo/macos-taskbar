@@ -58,11 +58,15 @@ public final class FakeWindowSource: WindowSource {
         var current = store.allWindows.filter { $0.pid == pid && $0.key != info.key }
         current.append(info)
         store.syncSnapshot(forPID: pid, currentWindows: current)
-        if info.isMain {
+        if info.isMain && (store.frontmostPID == nil || store.frontmostPID == pid) {
             store.setFocusedWindow(key: info.key)
         }
         onWindowsChanged?()
         return info
+    }
+    
+    public func setFrontmostPID(_ pid: pid_t?) {
+        store.setFrontmostPID(pid)
     }
     
     public func removeWindow(key: WindowKey) {

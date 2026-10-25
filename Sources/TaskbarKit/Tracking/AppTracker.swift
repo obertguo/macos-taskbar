@@ -378,7 +378,7 @@ public final class AppTracker: WindowSource {
                         let newDisplayID = ScreenAssignment.assignScreen(for: info.frame, across: screens)
                         let oldFullScreen = previous?.isFullScreen
                         self.store.addOrUpdateWindow(info)
-                        if isMain && !isMin {
+                        if isMain && !isMin && event.pid == self.store.frontmostPID {
                             self.store.setFocusedWindow(key: key)
                         }
                         if oldDisplayID != newDisplayID || oldFullScreen != info.isFullScreen {
@@ -386,7 +386,7 @@ public final class AppTracker: WindowSource {
                         }
                     } else {
                         self.store.addOrUpdateWindow(info)
-                        if isMain && !isMin {
+                        if isMain && !isMin && event.pid == self.store.frontmostPID {
                             self.store.setFocusedWindow(key: key)
                         }
                         self.onWindowsChanged?()
@@ -471,7 +471,7 @@ public final class AppTracker: WindowSource {
                             guard let self = self else { return }
                             self.store.addOrUpdateWindow(info)
                             let isFront = (event.pid == NSWorkspace.shared.frontmostApplication?.processIdentifier)
-                            if (isMain || isFront) && !isMin {
+                            if isFront && !isMin {
                                 self.store.setFrontmostPID(event.pid)
                                 self.store.setFocusedWindow(key: key)
                             }
@@ -575,7 +575,7 @@ public final class AppTracker: WindowSource {
                     if self.store.setFocusedWindow(key: focusedKey) {
                         didChange = true
                     }
-                } else if let frontmostPID = frontmostPID, validPIDs.contains(frontmostPID) {
+                } else if let frontmostPID = frontmostPID, validPIDs.contains(frontmostPID), !AppTracker.isPIDBackedOff(frontmostPID) {
                     if self.store.setFocusedWindow(key: nil) {
                         didChange = true
                     }
@@ -656,7 +656,9 @@ public final class AppTracker: WindowSource {
     ) {
         guard !remainingApps.isEmpty else {
             let newKeys = Set(accumulatedWindows.values.flatMap { $0 }.map(\.key))
-            let preservedKeys = self.knownWindowKeys.filter { !accumulatedWindows.keys.contains($0.pid) }
+            let preservedKeys = self.knownWindowKeys.filter {
+                !accumulatedWindows.keys.contains($0.pid) && allActivePIDs.contains($0.pid)
+            }
             self.knownWindowKeys = newKeys.union(preservedKeys)
             DispatchQueue.main.async { [weak self] in
                 guard let self = self, self.currentSweepGeneration == generation else { return }
@@ -781,14 +783,6 @@ public final class AppTracker: WindowSource {
                     AppTracker.cacheElement(focusedElement, for: fKey)
                 }
             }
-            
-            // Resilient fallback for Chromium / Electron applications where kAXFocusedWindowAttribute returns no value
-            if focusedKey == nil {
-                if let frontWID = WindowActions.frontmostWindowID(forPID: pid) {
-                    let fKey = WindowKey(id: UInt64(frontWID), pid: pid)
-                    focusedKey = fKey
-                }
-            }
         }
         
         var windowsValue: AnyObject?
@@ -807,9 +801,8 @@ public final class AppTracker: WindowSource {
         for win in windowElements {
             win.setTimeout(TaskbarConstants.Timing.axTimeout)
             
-            if let wid = win.windowID {
-                validWindowIDs.insert(CGWindowID(wid))
-            }
+            guard let wid = win.windowID else { continue }
+            validWindowIDs.insert(CGWindowID(wid))
             
             let batchStart = AppEnvironment.current.clock.now()
             let batch = win.fetchWindowAttributesBatch()
@@ -858,7 +851,6 @@ public final class AppTracker: WindowSource {
                 continue
             }
             
-            guard let wid = win.windowID else { continue }
             let key = WindowKey(id: wid, pid: pid)
             AppTracker.cacheElement(win, for: key)
             observers[pid]?.observeWindow(win)
@@ -886,6 +878,16 @@ public final class AppTracker: WindowSource {
             
             if isFrontmost && focusedKey == nil && isMain {
                 focusedKey = key
+            }
+        }
+        
+        // Resilient fallback for Chromium / Electron applications where kAXFocusedWindowAttribute and isMain return no value
+        if isFrontmost && focusedKey == nil && !appWindows.isEmpty {
+            if let frontWID = WindowActions.frontmostWindowID(forPID: pid) {
+                let fKey = WindowKey(id: UInt64(frontWID), pid: pid)
+                if appWindows.contains(where: { $0.key == fKey }) {
+                    focusedKey = fKey
+                }
             }
         }
         

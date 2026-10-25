@@ -472,6 +472,7 @@ struct PinnedAppsIntegrationTests {
     }
     
     @Test("launchOrActivateApp with preferredWindows prioritizes window on target screen over higher focusOrder window on other screens")
+    @MainActor
     func testLaunchOrActivateAppPrioritizesTargetScreen() {
         let store = WindowStore()
         let pid: pid_t = 5555
@@ -506,18 +507,56 @@ struct PinnedAppsIntegrationTests {
         store.addOrUpdateWindow(win1)
         store.addOrUpdateWindow(win2)
         
-        let appWindows = store.allWindows.filter { $0.bundleID == bundleID && $0.pid == pid }
+        let spyActions = SpyWindowActions()
+        let originalActions = AppEnvironment.current.windowActions
+        AppEnvironment.current.windowActions = spyActions
+        defer { AppEnvironment.current.windowActions = originalActions }
         
-        // When clicking on Screen 2, preferredWindows is [win2]
-        let preferredWindows = [win2]
-        let matching = preferredWindows.filter { $0.bundleID == bundleID && $0.pid == pid }
-        let candidates = matching.isEmpty ? appWindows : matching
-        let target = WindowGroup.primaryWindow(from: candidates)
-        #expect(target?.key.id == 201, "Window on screen 2 must be selected even though screen 1 has higher focusOrder")
+        // 1. Direct launchOrActivateApp invocation with preferredWindows targeting Screen 2
+        let activatedKey = AppEnvironment.current.windowActions.launchOrActivateApp(
+            bundleIdentifier: bundleID,
+            customPath: nil,
+            store: store,
+            preferredWindows: [win2]
+        )
+        #expect(activatedKey == win2.key, "Target screen window must be activated")
+        #expect(store.focusedWindowKey == win2.key)
+        #expect(store.frontmostPID == pid)
         
-        // Without preferredWindows filtering, primaryWindow defaults to Screen 1
-        let globalTarget = WindowGroup.primaryWindow(from: appWindows)
-        #expect(globalTarget?.key.id == 101, "Global primaryWindow selects window with highest focusOrder")
+        // 2. Invocation via TaskbarView pinned button click
+        let taskbarView = TaskbarView(
+            theme: ModernHybridTheme.definition,
+            launcherAction: .spotlight,
+            pinnedApps: [PinnedApp(bundleIdentifier: bundleID, displayName: "Chrome")],
+            store: store
+        )
+        taskbarView.updatePinnedApps(
+            [PinnedApp(bundleIdentifier: bundleID, displayName: "Chrome")],
+            runningBundleIDs: [bundleID]
+        )
+        taskbarView.updateWindows(
+            windows: [win2],
+            focusedKey: nil,
+            frontmostPID: nil,
+            runningBundleIDs: [bundleID]
+        )
+        
+        var requestedFocusKey: WindowKey?
+        taskbarView.onFocusRequested = { key in
+            requestedFocusKey = key
+        }
+        
+        let pinnedBtn = taskbarView.pinnedButtons.first
+        #expect(pinnedBtn != nil)
+        pinnedBtn?.onClick?()
+        
+        #expect(requestedFocusKey == win2.key, "Pinned button click must request focus for screen 2 window")
+        #expect(spyActions.invocations.contains(where: {
+            if case .launchOrActivateApp(let id, _, _, let preferred) = $0 {
+                return id == bundleID && preferred?.map(\.key.id) == [201]
+            }
+            return false
+        }))
     }
     
     @Test("TaskbarView button click resets active isFocusedWindow state on all other buttons")
@@ -611,6 +650,51 @@ struct PinnedAppsIntegrationTests {
             
             #expect(store.focusedWindowKey == winScreen2.key)
             #expect(store.frontmostPID == winScreen2.pid)
+        }
+    }
+    
+    @Test("ScreenManager updateWindows applies WindowStore custom order slot sorting")
+    @MainActor
+    func testScreenManagerAppliesCustomOrderSorting() {
+        let store = WindowStore()
+        let settings = Settings()
+        let manager = ScreenManager(settings: settings, store: store)
+        defer { manager.closeAll() }
+        
+        let primaryScreenID = NSScreen.main?.displayID ?? 1
+        
+        let win1 = WindowInfo(
+            key: WindowKey(id: 101, pid: 10),
+            pid: 10,
+            appName: "App 1",
+            bundleID: "com.app.one",
+            title: "Win 1",
+            frame: CGRect(x: 100, y: 100, width: 400, height: 300),
+            isMinimized: false,
+            openOrder: 1
+        )
+        let win2 = WindowInfo(
+            key: WindowKey(id: 102, pid: 20),
+            pid: 20,
+            appName: "App 2",
+            bundleID: "com.app.two",
+            title: "Win 2",
+            frame: CGRect(x: 200, y: 200, width: 400, height: 300),
+            isMinimized: false,
+            openOrder: 2
+        )
+        
+        store.addOrUpdateWindow(win1)
+        store.addOrUpdateWindow(win2)
+        
+        // Custom order placing Win 2 first (slot 0) and Win 1 second (slot 1)
+        store.setCustomOrder([.window(win2.key): 0, .window(win1.key): 1], forScreenID: primaryScreenID)
+        
+        manager.updateWindows()
+        
+        if let panel = manager.allPanels.first(where: { $0.screen?.displayID == primaryScreenID }) {
+            let taskWindowKeys = panel.taskbarView.taskButtons.compactMap { $0.group.primaryWindow?.key }
+            #expect(taskWindowKeys == [win2.key, win1.key], "ScreenManager must pass windows sorted according to WindowStore customOrder")
         }
     }
 }

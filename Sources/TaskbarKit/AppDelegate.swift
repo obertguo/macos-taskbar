@@ -30,7 +30,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         // Reconcile macOS System Dock state with crash recovery
-        DockController.shared.reconcileOnLaunch(
+        AppEnvironment.current.dockService.reconcileOnLaunch(
             shouldHideDock: settings.hideSystemDock,
             delay: settings.dockHideDelay
         )
@@ -129,14 +129,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                     AppEnvironment.current.dockService.restoreDock()
                 }
             }
-        }
-    }
-}
-
-extension ScreenManager {
-    public func applyTheme(_ theme: ThemeDefinition) {
-        for panel in allPanels {
-            panel.applyTheme(theme)
         }
     }
 }

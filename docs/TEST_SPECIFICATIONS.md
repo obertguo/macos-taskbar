@@ -113,6 +113,17 @@ This document provides the canonical specification catalog and requirements trac
 - **Automated Verification:** `TC-FUNC-007` in `WindowLifecycleIntegrationTests.swift`
 - **Pass/Fail Criteria:** Zero remaining windows for process in `WindowStore` within 100ms.
 
+#### [TC-FUNC-008] Background Window Focus Preservation
+- **Category:** Functional / Focus State Integrity
+- **Preconditions:** Frontmost application is active with an open window.
+- **Stimulus / Action:**
+  1. A background application creates a new main window (`isMain == true`) or mutates its title/geometry.
+- **Expected Outcome:**
+  1. `WindowStore` registers or updates the background window.
+  2. `frontmostPID` and `focusedWindowKey` remain strictly assigned to the frontmost application's active window.
+- **Automated Verification:** `TC-FUNC-008` in `DeterministicLifecycleTests.swift`
+- **Pass/Fail Criteria:** Active focus and frontmost highlight never hijacked by background events.
+
 ---
 
 ### 2.2 Edge Cases (`TC-EDGE-*`)
@@ -268,7 +279,7 @@ This document provides the canonical specification catalog and requirements trac
 |---|---|---|
 | **Window Discovery & Tracking** | `TC-FUNC-001`, `TC-FUNC-005` | `WindowLifecycleIntegrationTests` |
 | **Window State Management** | `TC-FUNC-002`, `TC-FUNC-003` | `WindowLifecycleIntegrationTests` |
-| **Window Focus & Multi-Display** | `TC-FUNC-004` | `WindowLifecycleIntegrationTests` |
+| **Window Focus & Multi-Display** | `TC-FUNC-004`, `TC-FUNC-008` | `WindowLifecycleIntegrationTests`, `DeterministicLifecycleTests` |
 | **Window Teardown & Quitting** | `TC-FUNC-006`, `TC-FUNC-007` | `WindowLifecycleIntegrationTests` |
 | **Edge-Case Filtering** | `TC-EDGE-001`, `TC-EDGE-002` | `EdgeCasesIntegrationTests` |
 | **Event Debounce, Multi-Monitor & Settle** | `TC-EDGE-003`, `TC-EDGE-004`, `TC-EDGE-005`, `TC-EDGE-006` | `EdgeCasesIntegrationTests` |

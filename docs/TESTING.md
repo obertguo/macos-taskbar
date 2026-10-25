@@ -70,9 +70,9 @@ All core tests are written in pure `Swift Testing` (`@Suite`, `@Test`, `#expect`
 - `ScreenAssignmentTests`: Primary/secondary monitor boundary partitioning (3 test cases).
 - `TaskbarCoreTests`: Build configuration sanity checks (1 test case).
 
-### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 16 Suites, 112 Tests, 236 Tests Total Across 32 Suites)
-- **Deterministic Lifecycle Suite (`DeterministicLifecycleTests.swift` — 7 Tests):**
-  - Ultra-fast (<20ms total) headless simulation of full window lifecycle via `FakeWindowSource` and `SpyWindowActions` (`TC-FUNC-001` through `TC-FUNC-007`).
+### 3.2 Integration Suites (`Tests/TaskbarIntegrationTests/` — 16 Suites, 114 Tests, 238 Tests Total Across 32 Suites)
+- **Deterministic Lifecycle Suite (`DeterministicLifecycleTests.swift` — 8 Tests):**
+  - Ultra-fast (<20ms total) headless simulation of full window lifecycle via `FakeWindowSource` and `SpyWindowActions` (`TC-FUNC-001` through `TC-FUNC-008`).
 - **Live Window Lifecycle Suite (`WindowLifecycleIntegrationTests.swift` — 7 Tests, Gated via `TASKBAR_RUN_LIVE_AX_TESTS=1`):**
   - `TC-FUNC-001`: Real TextEdit window creation and store discovery.
   - `TC-FUNC-002`: Window minimization state tracking via AX notification.
@@ -135,7 +135,7 @@ All core tests are written in pure `Swift Testing` (`@Suite`, `@Test`, `#expect`
   - `TC-GROUP-004`: Dynamic grouping mode switching via ScreenManager reconfigures taskbar layout across all displays.
   - `TC-GROUP-005`: Popup mouse interaction, close button trigger, and dynamic resize.
   - `TC-GROUP-006`: Popup dismissal on loss of key focus or outside interaction.
-- **Pinned Applications Suite (`PinnedAppsIntegrationTests.swift` — 14 Tests):**
+- **Pinned Applications Suite (`PinnedAppsIntegrationTests.swift` — 15 Tests):**
   - `BaseTaskbarButton` mouse tracking, hover state mutation, and configurable click dispatch.
   - `PinnedButton` properties, tracking, and dynamic context menu items.
   - `TaskbarView` pinned buttons layout, positioning, and square aspect ratio.

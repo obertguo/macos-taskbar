@@ -7,6 +7,7 @@ import TaskbarCore
 public final class ScreenManager {
     private var panels: [CGDirectDisplayID: TaskbarPanel] = [:]
     private var cachedFullScreenDisplayIDs: Set<CGDirectDisplayID> = []
+    private var workspaceRunningBundleIDs: Set<String> = []
     public let settingsStore: SettingsStore
     public var settings: Settings { settingsStore.settings }
     public var currentTheme: ThemeDefinition { settingsStore.currentTheme }
@@ -15,6 +16,11 @@ public final class ScreenManager {
     public init(settingsStore: SettingsStore, store: WindowStore) {
         self.settingsStore = settingsStore
         self.store = store
+        self.workspaceRunningBundleIDs = Set(
+            NSWorkspace.shared.runningApplications
+                .filter { $0.activationPolicy == .regular }
+                .compactMap { $0.bundleIdentifier }
+        )
         
         NotificationCenter.default.addObserver(
             self,
@@ -127,10 +133,7 @@ public final class ScreenManager {
     
     private func computeRunningBundleIDs() -> Set<String> {
         var ids = Set(store.allWindows.map { $0.bundleID })
-        let workspaceRegularApps = NSWorkspace.shared.runningApplications
-            .filter { $0.activationPolicy == .regular }
-            .compactMap { $0.bundleIdentifier }
-        ids.formUnion(workspaceRegularApps)
+        ids.formUnion(workspaceRunningBundleIDs)
         return ids
     }
     
@@ -167,9 +170,21 @@ public final class ScreenManager {
     @objc private func handleActiveSpaceChanged() {
         refreshFullScreenDetection()
         updateWindows()
+        
+        // Re-evaluate fullscreen detection after the macOS space transition settles (~150ms)
+        DispatchQueue.main.asyncAfter(deadline: .now() + TaskbarConstants.Timing.spaceChangeSettleDelay) { [weak self] in
+            guard let self = self else { return }
+            self.refreshFullScreenDetection()
+            self.updateWindows()
+        }
     }
     
     @objc private func handleApplicationLifecycleChanged() {
+        self.workspaceRunningBundleIDs = Set(
+            NSWorkspace.shared.runningApplications
+                .filter { $0.activationPolicy == .regular }
+                .compactMap { $0.bundleIdentifier }
+        )
         updateWindows()
     }
     
@@ -270,18 +285,12 @@ public final class ScreenManager {
         let screens = NSScreen.screens
         let runningBundleIDs = computeRunningBundleIDs()
         
-        var windowsByScreen: [UInt32: [WindowInfo]] = [:]
-        for win in store.allWindows {
-            let assignedScreen = ScreenAssignment.assignScreen(for: win.frame, across: descriptors) ?? descriptors.first(where: { $0.isPrimary })?.id ?? descriptors.first?.id ?? 0
-            windowsByScreen[assignedScreen, default: []].append(win)
-        }
-        
         for (displayID, panel) in panels {
             guard screens.contains(where: {
                 $0.displayID == displayID
             }) else { continue }
             
-            let screenWindows = windowsByScreen[UInt32(displayID)] ?? []
+            let screenWindows = store.windows(forScreenID: UInt32(displayID), screens: descriptors)
             let isFullScreen = screenWindows.contains { $0.isFullScreen } || cachedFullScreenDisplayIDs.contains(displayID)
             
             if isFullScreen {

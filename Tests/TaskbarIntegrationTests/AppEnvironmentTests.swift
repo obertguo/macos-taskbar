@@ -252,9 +252,15 @@ struct AppEnvironmentTests {
         #expect(mockDock.currentAppliedDelay == nil)
         #expect(mockDock.restoreDockCallCount == 1)
         
+        mockDock.reconcileOnLaunch(shouldHideDock: true, delay: 250.0)
+        #expect(mockDock.isDockHidden)
+        #expect(mockDock.currentAppliedDelay == 250.0)
+        #expect(mockDock.reconcileOnLaunchCallCount == 1)
+        
         mockDock.reset()
         #expect(mockDock.hideDockCallCount == 0)
         #expect(mockDock.restoreDockCallCount == 0)
+        #expect(mockDock.reconcileOnLaunchCallCount == 0)
     }
     
     // MARK: - AppEnvironment

@@ -275,4 +275,34 @@ struct DeterministicLifecycleTests {
         source.stopTracking()
         #expect(source.isTracking == false)
     }
+    
+    @Test("TC-FUNC-008: Background window mutation or creation preserves frontmost app focus")
+    func testBackgroundWindowDoesNotHijackFocus() {
+        let store = WindowStore()
+        let source = FakeWindowSource(store: store)
+        source.startTracking()
+        
+        let frontPID: pid_t = 100
+        let backPID: pid_t = 200
+        
+        // 1. User is working in FrontApp
+        let frontWin = source.addWindow(id: 8001, pid: frontPID, appName: "FrontApp", bundleID: "com.front.app", title: "Active Document", isMain: true)
+        source.setFrontmostPID(frontPID)
+        source.setFocused(key: frontWin.key)
+        
+        #expect(store.frontmostPID == frontPID)
+        #expect(store.focusedWindowKey == frontWin.key)
+        
+        // 2. BackgroundApp creates a main window (isMain == true)
+        let backWin = source.addWindow(id: 8002, pid: backPID, appName: "BackApp", bundleID: "com.back.app", title: "Background Window", isMain: true)
+        
+        // 3. Verify store focus and frontmost PID were not stolen
+        #expect(store.frontmostPID == frontPID, "Frontmost PID must remain unchanged")
+        #expect(store.focusedWindowKey == frontWin.key, "Focused window key must remain unchanged")
+        
+        // 4. Background window title mutation
+        source.updateTitle(key: backWin.key, newTitle: "Background Window (Updated Title)")
+        #expect(store.focusedWindowKey == frontWin.key, "Title change in background app must not hijack focus")
+        #expect(store.window(forKey: backWin.key)?.title == "Background Window (Updated Title)")
+    }
 }

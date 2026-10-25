@@ -254,8 +254,8 @@ public final class TaskbarView: NSView {
                     self.showGroupPopup(for: btn)
                 }
                 
-                btn.onMinimizeOrRestore = { [weak btn] in
-                    guard let btn = btn else { return }
+                btn.onMinimizeOrRestore = { [weak self, weak btn] in
+                    guard let self = self, let btn = btn else { return }
                     let grp = btn.group
                     if grp.isGrouped {
                         if grp.isMinimized {
@@ -265,17 +265,27 @@ public final class TaskbarView: NSView {
                             }
                             if let primary = primary {
                                 AppEnvironment.current.windowActions.restoreAndFocusWindow(primary.key)
+                                self.store?.setFrontmostPID(primary.pid)
+                                self.store?.setFocusedWindow(key: primary.key)
+                                self.onFocusRequested?(primary.key)
                             }
                         } else {
                             for win in grp.windows where !win.isMinimized {
                                 AppEnvironment.current.windowActions.minimizeWindow(win.key)
                             }
+                            self.store?.setFocusedWindow(key: nil)
+                            self.focusedKey = nil
                         }
                     } else if let primary = grp.primaryWindow {
                         if primary.isMinimized {
                             AppEnvironment.current.windowActions.restoreAndFocusWindow(primary.key)
+                            self.store?.setFrontmostPID(primary.pid)
+                            self.store?.setFocusedWindow(key: primary.key)
+                            self.onFocusRequested?(primary.key)
                         } else {
                             AppEnvironment.current.windowActions.minimizeWindow(primary.key)
+                            self.store?.setFocusedWindow(key: nil)
+                            self.focusedKey = nil
                         }
                     }
                 }
@@ -299,6 +309,7 @@ public final class TaskbarView: NSView {
                             if self.focusedKey == primary.key {
                                 self.focusedKey = nil
                             }
+                            self.store?.setFocusedWindow(key: nil)
                         case .restoreAndFocus, .focus:
                             for other in self.taskButtons {
                                 other.isFocusedWindow = (other === btn)
@@ -389,12 +400,15 @@ public final class TaskbarView: NSView {
                 )
                 btn.onClick = { [weak self, weak btn] in
                     guard let self = self, let btn = btn else { return }
-                    AppEnvironment.current.windowActions.launchOrActivateApp(
+                    let activatedKey = AppEnvironment.current.windowActions.launchOrActivateApp(
                         bundleIdentifier: btn.pinnedApp.bundleIdentifier,
                         customPath: btn.pinnedApp.customPath,
                         store: self.store,
                         preferredWindows: self.currentWindows
                     )
+                    if let key = activatedKey ?? self.store?.focusedWindowKey {
+                        self.onFocusRequested?(key)
+                    }
                 }
                 btn.onUnpin = { [weak self, weak btn] in
                     guard let self = self, let btn = btn else { return }
